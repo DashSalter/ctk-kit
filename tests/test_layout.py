@@ -80,9 +80,15 @@ def test_scrollable_is_styled_ctk_scrollable_frame(root):
     bar = area._scrollbar
     assert bar.cget("width") == T.SCROLLBAR_WIDTH
     assert bar.cget("fg_color") == "transparent"
-    # CTkScrollbar 的 cget 里这两个参数叫 scrollbar_*，configure 时叫 button_*
-    assert bar.cget("scrollbar_color") == T.COLOR_SCROLLBAR
-    assert bar.cget("scrollbar_hover_color") == T.COLOR_SCROLLBAR_HOVER
+    # cget 对滚动条配色参数的命名在不同 customtkinter 构建里不一致（scrollbar_* 或 button_*），
+    # 直接断言内部字段，并兼容两种字段名，各处都稳定
+    button_color = getattr(bar, "_button_color", None)
+    hover_color = getattr(bar, "_button_hover_color", None)
+    if button_color is None:
+        button_color = getattr(bar, "_scrollbar_color", None)
+        hover_color = getattr(bar, "_scrollbar_hover_color", None)
+    assert button_color == T.COLOR_SCROLLBAR
+    assert hover_color == T.COLOR_SCROLLBAR_HOVER
 
 
 def test_style_scrollable_returns_same_object(root):

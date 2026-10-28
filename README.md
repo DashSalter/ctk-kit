@@ -101,6 +101,16 @@ python examples/showcase.py
   listing.render(items)
   ```
 
+  数据量很大（几千条）时，传入固定卡高开启虚拟滚动：只把视口附近的卡片放上布局，
+  滚出去的卡片留在内存里复用，滚回来直接放回去，不销毁也不重建。
+
+  ```python
+  listing = LazyList(frame, make_card, key_of=lambda item: item["id"], item_height=96)
+  ```
+
+  虚拟滚动要求卡片高度固定（例如自己 `pack_propagate(False)` 并设置 `height`），
+  并把卡片间距算进 `item_height`。
+
 ## 设计令牌
 
 颜色全部是 `(浅色, 深色)` 二元组，交给 `color_of()` 按当前外观取值：

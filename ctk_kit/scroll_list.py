@@ -52,6 +52,11 @@ class LazyList(tk.Frame):
         load_threshold: 可滚动区滚到多少比例触发追加，默认 0.92。
         gap: 卡片上下的外边距，默认 ``(0, 10)``。
         padx: 卡片左右留白（给滚动条让位），默认 ``(0, 8)``。
+        item_height: 固定卡片高度（含 ``gap``）。给定时开启虚拟滚动：只把
+            视口附近的卡片放上布局，滚出视口的卡片保留在内存里复用，滚回来
+            直接重新放上去，不销毁、不重建。适合几千条数据的列表；要求
+            ``render_card`` 返回的卡片高度固定（例如自己 ``pack_propagate(False)``
+            并设置 ``height``），否则卡片会互相叠压。
     """
 
     def __init__(
@@ -66,6 +71,7 @@ class LazyList(tk.Frame):
         load_threshold: float = 0.92,
         gap: tuple[int, int] = (0, 10),
         padx: tuple[int, int] = (0, 8),
+        item_height: Optional[int] = None,
     ) -> None:
         super().__init__(master, bg=color_of(T.COLOR_BG), highlightthickness=0)
         self.render_card: RenderCard = render_card
@@ -76,6 +82,9 @@ class LazyList(tk.Frame):
         self.load_threshold: float = load_threshold
         self.gap: tuple[int, int] = gap
         self.padx: tuple[int, int] = padx
+        #: 固定卡片高度（含间距）。给定时开启虚拟滚动：只把视口附近的卡片
+        #: 放上布局，滚过去的卡片留在内存里复用，不销毁，回滚时直接放回来。
+        self.item_height: Optional[int] = item_height
 
         self._items: list[Any] = []
         self._shown: int = 0
@@ -85,6 +94,10 @@ class LazyList(tk.Frame):
         self._signature: Optional[tuple] = None
         self._empty_box: Optional[tk.Frame] = None
         self._scrollbar_visible: Optional[bool] = None
+        #: 虚拟模式：索引 -> 已建卡片（卡片不销毁，只在视口外 place_forget）。
+        self._built: dict[int, tk.Misc] = {}
+        self._range: Optional[tuple[int, int]] = None
+        self._resize_job: Optional[str] = None
 
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -157,6 +170,12 @@ class LazyList(tk.Frame):
             self._empty_box = box
             return
 
+        if self.item_height is not None:
+            self._layout_virtual()
+            self._suppress = False
+            self.after(1, self._refresh_scroll)
+            return
+
         self._append(self.first_batch)
         self._suppress = False
         # 滚动条位置留到下一帧再算：set() 会同步布局，放在这里会拖慢首帧
@@ -189,11 +208,24 @@ class LazyList(tk.Frame):
 
     @property
     def cards(self) -> list[tk.Misc]:
-        """当前已建出的卡片控件（副本，改动它不会影响列表）。"""
+        """当前已建出的卡片控件（副本，改动它不会影响列表）。
+
+        虚拟模式下返回所有建过的卡片（含视口外未布局的），按索引排序。
+        """
+        if self.item_height is not None:
+            return [self._built[index] for index in sorted(self._built)]
         return list(self.inner.winfo_children())
 
     def flush(self) -> None:
-        """一次性补齐所有卡片（测试、导出时用）。"""
+        """一次性补齐所有卡片（测试、导出时用）。
+
+        虚拟模式下只建卡、不改变视口，所以耗时也只和卡片总数有关。
+        """
+        if self.item_height is not None:
+            for index in range(len(self._items)):
+                self._ensure_card(index)
+            self._sync_window(force=True)
+            return
         self._cancel_load()
         self._append(len(self._items) - self._shown)
 
@@ -202,8 +234,15 @@ class LazyList(tk.Frame):
 
         适合页面被隐藏时调用。已展开几百张卡时，控件数量会让重新显示
         或窗口缩放明显变慢；缩回首屏后重排成本就回到常数级。
+
+        虚拟模式下卡片本来就只布局视口附近，所以这里只把滚动位置归零，
+        已建卡片全部保留复用，不会重建。
         """
         if not self._items:
+            return
+        if self.item_height is not None:
+            self.canvas.yview_moveto(0)
+            self._sync_window(force=True)
             return
         self._signature = None
         self.render(self._items, force=True)
@@ -236,6 +275,7 @@ class LazyList(tk.Frame):
     def destroy(self) -> None:
         """停止滚轮绑定后销毁。"""
         self._alive = False
+        self._cancel_resize()
         super().destroy()
 
     # ------------------------------------------------------------------ #
@@ -286,6 +326,8 @@ class LazyList(tk.Frame):
         放在定时器里：Tk 要跑完一次事件循环才会更新内层 Frame 的尺寸，
         这时 bbox 才是准的。
         """
+        if self.item_height is not None:
+            return
         if self._shown >= len(self._items):
             return
         box = self.canvas.bbox("all")
@@ -305,6 +347,10 @@ class LazyList(tk.Frame):
         if self._suppress:
             return
         self.scrollbar.set(first, last)
+        if self.item_height is not None:
+            self._sync_scrollbar()
+            self._sync_window()
+            return
         if self._loading or self._shown >= len(self._items):
             return
         # 不信回调参数：scrollregion 刚变时会回放一次 (0, 1)
@@ -325,12 +371,23 @@ class LazyList(tk.Frame):
             self.after_cancel(self._load_job)
             self._load_job = None
 
+    def _cancel_resize(self) -> None:
+        """取消还没触发的窗口尺寸同步任务。"""
+        if self._resize_job is not None:
+            self.after_cancel(self._resize_job)
+            self._resize_job = None
+
     def _clear_cards(self) -> None:
         """清空内层卡片并复位滚动位置。"""
         self._loading = False
         self._cancel_load()
+        self._cancel_resize()
+        self._built.clear()
+        self._range = None
         for child in self.inner.winfo_children():
             child.destroy()
+        if self.item_height is not None:
+            self.inner.configure(height=0)
         self._empty_box = None
         self.canvas.yview_moveto(0)
         self._sync_scrollregion()
@@ -350,4 +407,63 @@ class LazyList(tk.Frame):
     def _on_canvas_resize(self, event: tk.Event) -> None:
         """canvas 宽度变化时让内层 Frame 跟着变宽。"""
         self.canvas.itemconfigure(self._window, width=event.width)
-        self.after(1, self._sync_scrollbar)
+        if self.item_height is None:
+            self.after(1, self._sync_scrollbar)
+            return
+        # 拖动窗口时 Configure 会连发很多次，合并成一次，避免反复排版
+        if self._resize_job is not None:
+            self.after_cancel(self._resize_job)
+        self._resize_job = self.after(60, self._after_resize)
+
+    def _after_resize(self) -> None:
+        """窗口尺寸稳定后补一次滚动条与视口同步。"""
+        self._resize_job = None
+        self._sync_scrollbar()
+        if self.item_height is not None:
+            self._sync_window()
+
+    # ------------------------------------------------------------------ #
+    #  虚拟滚动
+    def _layout_virtual(self) -> None:
+        """按固定卡片高度把内层撑到总高，然后只铺视口附近的卡片。"""
+        height = self.item_height or 0
+        total = len(self._items) * height
+        self.inner.configure(height=total)
+        self.canvas.itemconfigure(self._window, width=self.canvas.winfo_width())
+        self.canvas.configure(
+            scrollregion=(0, 0, self.canvas.winfo_width(), total)
+        )
+        self._sync_window(force=True)
+
+    def _ensure_card(self, index: int) -> tk.Misc:
+        """按索引取卡：建过的直接复用，没建过的才调 ``render_card``。"""
+        card = self._built.get(index)
+        if card is None:
+            card = self.render_card(self.inner, self._items[index])
+            self._built[index] = card
+        return card
+
+    def _sync_window(self, force: bool = False) -> None:
+        """把视口附近的卡片放上布局，滚出视口的收起（保留对象不销毁）。"""
+        height = self.item_height
+        if height is None:
+            return
+        count = len(self._items)
+        if count == 0:
+            return
+        total = count * height
+        first, last = self.canvas.yview()
+        # 缓冲两三张，快速滚动时不会露出空白
+        start = max(0, int(float(first) * total // height) - 2)
+        end = min(count, int(float(last) * total // height) + 3)
+        if not force and (start, end) == self._range:
+            return
+        self._range = (start, end)
+        for index in range(start, end):
+            card = self._ensure_card(index)
+            # CTk 控件禁止在 place() 里传 width/height，卡片高度由
+            # render_card 自己固定；这里只负责纵向定位和铺满宽度。
+            card.place(x=self.padx[0], y=index * height + self.gap[0], relwidth=1)
+        for index, card in list(self._built.items()):
+            if index < start or index >= end:
+                card.place_forget()

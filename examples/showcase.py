@@ -881,6 +881,7 @@ def build_list_page(master) -> ctk.CTkFrame:
         area,
         lambda parent, item: _sample_card(parent, item, feedback),
         key_of=lambda item: item["id"],
+        item_height=96,
     )
     listing.pack(fill="both", expand=True)
     page.listing = listing
@@ -943,13 +944,16 @@ def build_list_page(master) -> ctk.CTkFrame:
 
 
 def _sample_card(parent, item, feedback: Feedback | None = None) -> ctk.CTkFrame:
+    # 固定高度：LazyList 虚拟滚动靠 item_height 定位，卡片自己不能随内容变高
     box = ctk.CTkFrame(
         parent,
         fg_color=T.COLOR_CARD,
         border_width=1,
         border_color=T.COLOR_BORDER,
         corner_radius=T.RADIUS_LARGE,
+        height=86,
     )
+    box.pack_propagate(False)
     bg = color_of(T.COLOR_CARD)
 
     def report(text: str) -> None:

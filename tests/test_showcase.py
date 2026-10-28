@@ -279,7 +279,9 @@ def test_list_page_lazy_rendering(root):
     page = build_list_page(root)
     try:
         listing = next(node for node in _walk(page) if isinstance(node, LazyList))
-        assert len(listing.cards) == listing.first_batch == 12
+        # 虚拟滚动：只建视口附近的卡片，不一次建满 first_batch
+        assert 0 < len(listing.cards) <= listing.first_batch
+        assert listing.item_height == 96
 
         listing.flush()
         assert len(listing.cards) == 120
@@ -292,7 +294,7 @@ def test_list_page_clear_shows_empty_state(root):
     try:
         listing = next(node for node in _walk(page) if isinstance(node, LazyList))
         _find(page, ctk.CTkButton, "清空").invoke()
-        assert len(listing.cards) == 1
+        assert listing.cards == []
         assert any(
             node.cget("text") == "列表已清空"
             for node in _walk(listing.inner)
@@ -319,7 +321,7 @@ def test_list_page_refresh_restores_items(root):
         listing = next(node for node in _walk(page) if isinstance(node, LazyList))
         _find(page, ctk.CTkButton, "清空").invoke()
         _find(page, ctk.CTkButton, "刷新").invoke()
-        assert len(listing.cards) == listing.first_batch
+        assert 0 < len(listing.cards) <= listing.first_batch
         assert "120 条" in _texts(page, ctk.CTkLabel)
     finally:
         page.destroy()

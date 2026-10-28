@@ -219,3 +219,76 @@ def test_reset_returns_to_first_batch(root):
     root.update()
     assert len(listing.cards) == 5
     assert listing.canvas.yview()[0] == 0
+
+
+# --------------------------------------------------------------------------- #
+#  虚拟滚动（item_height 固定卡高）
+def make_fixed_card(parent, item):
+    frame = ctk.CTkFrame(parent, height=86)
+    frame.pack_propagate(False)
+    ctk.CTkLabel(frame, text=str(item["id"])).pack()
+    return frame
+
+
+def make_virtual_list(root, count=120, height=96):
+    listing = LazyList(
+        root,
+        make_fixed_card,
+        key_of=lambda item: item["id"],
+        item_height=height,
+    )
+    listing.pack(fill="both", expand=True)
+    listing.render(make_items(count))
+    root.update()
+    return listing
+
+
+def test_virtual_mode_builds_only_viewport_cards(root):
+    """虚拟模式只建视口附近的卡片，内层高度按总条数撑开。"""
+    listing = make_virtual_list(root)
+    assert len(listing.cards) < 25
+    assert int(listing.inner.cget("height")) == 120 * 96
+
+
+def test_virtual_mode_reuses_cards_after_scrolling_back(root):
+    """滚到底再滚回顶部：卡片对象不销毁，直接重新布局。"""
+    listing = make_virtual_list(root)
+    listing.canvas.yview_moveto(1.0)
+    root.update()
+    bottom = {id(card) for card in listing.cards}
+
+    listing.canvas.yview_moveto(0.0)
+    root.update()
+    assert len(listing.cards) == len(bottom)
+    assert {id(card) for card in listing.cards} <= bottom
+
+
+def test_virtual_mode_places_only_visible_cards(root):
+    """视口外的卡片被 place_forget 收起，但仍留在内存里。"""
+    listing = make_virtual_list(root)
+    listing.canvas.yview_moveto(1.0)
+    root.update()
+    placed = [card for card in listing.cards if card.winfo_manager() == "place"]
+    assert 0 < len(placed) < len(listing.cards)
+
+
+def test_virtual_reset_reuses_cards_without_rebuild(root):
+    """reset 只回顶，不重建卡片。"""
+    listing = make_virtual_list(root)
+    listing.canvas.yview_moveto(1.0)
+    root.update()
+    count = len(listing.cards)
+    listing.reset()
+    root.update()
+    assert len(listing.cards) == count
+    assert float(listing.canvas.yview()[0]) == 0.0
+
+
+def test_virtual_flush_builds_all_but_places_only_viewport(root):
+    """flush 建全部卡片，但只把视口附近的放上布局。"""
+    listing = make_virtual_list(root)
+    listing.flush()
+    root.update()
+    assert len(listing.cards) == 120
+    placed = [card for card in listing.cards if card.winfo_manager() == "place"]
+    assert len(placed) < 120

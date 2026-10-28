@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test:
+    name: Test (Python ${{ matrix.python-version }})
+    # ubuntu-latest 已迁移到 26.04，不再提供 Python 3.8/3.9；22.04 仍完整支持
+    runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v6
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      # 测试要真实创建 Tk 窗口；runner 没有显示器，用 Xvfb 提供虚拟屏幕
+      - name: Install GUI libraries
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends xvfb tk8.6 tcl8.6 xfonts-base
+
+      - name: Install project
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[test]"
+
+      - name: Run tests
+        run: xvfb-run -a python -m pytest -q
+
+  build:
+    name: Build package
+    needs: test
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Build sdist and wheel
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+
+      - name: Verify wheel
+        run: |
+          pip install dist/*.whl
+          python -c "import ctk_kit; print('OK:', ctk_kit.__version__, ctk_kit.__all__)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    name: Publish to PyPI
+    needs: build
+    # 只在实际推送到 main 时发布；PR 只跑测试和构建
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write  # Trusted Publishing：用它换取 PyPI 的短期令牌
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      # pyproject.toml 里的 version 比 PyPI 上的新才发布；同版本重复推送不会报错
+      - name: Compare version with PyPI
+        id: version
+        run: |
+          python -m pip install --quiet packaging
+          python - <<'PY'
+          import json
+          import os
+          import tomllib
+          import urllib.error
+          import urllib.request
+          from pathlib import Path
+
+          from packaging.version import Version
+
+          data = tomllib.loads(Path("pyproject.toml").read_text(encoding="utf-8"))
+          local = Version(data["project"]["version"])
+          try:
+              with urllib.request.urlopen(
+                  "https://pypi.org/pypi/ctk-kit/json", timeout=30
+              ) as resp:
+                  latest = Version(json.load(resp)["info"]["version"])
+          except urllib.error.HTTPError as exc:
+              if exc.code != 404:
+                  raise
+              latest = None
+          should_publish = latest is None or local > latest
+          print(f"local={local} latest={latest} publish={should_publish}")
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as fh:
+              fh.write(f"should_publish={'true' if should_publish else 'false'}\n")
+          PY
+
+      - name: Download artifacts
+        if: steps.version.outputs.should_publish == 'true'
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        if: steps.version.outputs.should_publish == 'true'
+        uses: pypa/gh-action-pypi-publish@release/v1

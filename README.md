@@ -1,7 +1,13 @@
 # ctk-kit
 
+[![CI](https://github.com/DashSalter/ctk-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/DashSalter/ctk-kit/actions/workflows/ci.yml)
+[![PyPI](https://img.shields.io/pypi/v/ctk-kit.svg)](https://pypi.org/project/ctk-kit/)
+[![Python](https://img.shields.io/pypi/pyversions/ctk-kit.svg)](https://pypi.org/project/ctk-kit/)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 面向 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 的轻量界面基件：
 一套深浅色设计令牌、一批常用控件，以及一个会自动分页的懒加载列表。
+支持 Python 3.8 – 3.14。
 
 写它的起因很朴素——每个 customtkinter 项目都要重新调一遍颜色、圆角、按钮宽度和滚动列表的
 分批渲染，调完还很难看齐。ctk-kit 把这些收成一层薄薄的公共件，项目之间可以直接复用。
@@ -129,6 +135,22 @@ pytest
 
 测试跑在真实 Tk 窗口里（窗口全透明，不会在屏幕上闪），覆盖令牌、主题、按钮、输入框、
 下拉、布局、懒加载列表，以及 `examples/showcase.py` 的八个示例页；没有图形环境时相关用例自动 skip。
+
+CI 在 GitHub Actions 上跑 Python 3.8 – 3.14 全矩阵（`.github/workflows/ci.yml`），
+无头环境下用 Xvfb 提供虚拟屏幕；`CI` 环境变量存在时如果建不出窗口会直接失败，而不是静默跳过。
+
+## 发布
+
+版本号只写在 `pyproject.toml` 的 `version` 字段里，发布流程全自动：
+
+1. 改 `pyproject.toml` 的 `version`（例如 `0.1.0` → `0.1.1`），同步更新 `CHANGELOG.md`；
+2. 提交并 `git push` 到 Gitee；
+3. 镜像自动同步到 GitHub，Actions 跑完测试与构建后，会比较 PyPI 上的最新版本——
+   本地版本更新才发布，同版本重推不会报错。
+
+首次发布前需要在 PyPI 的 *Publishing* 页面给 GitHub 仓库
+`DashSalter/ctk-kit` 添加 Trusted Publisher（workflow 文件名 `ci.yml`，环境留空），
+之后由 `pypa/gh-action-pypi-publish` 凭 OIDC 换短期令牌上传，仓库里不需要存密码。
 
 ## 已知的坑
 

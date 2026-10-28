@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import tkinter as tk
+from typing import Callable, Optional, Sequence
 
 import customtkinter as ctk
 
@@ -20,23 +22,32 @@ _ARROW_CLOSED = "▼"
 _ARROW_OPEN = "▲"
 
 
-
 class DropField(ctk.CTkFrame):
     """输入框 + 下拉箭头，整体是一个带描边的圆角框。
 
     用法与输入框接近：``get()`` / ``set(value)``；选中候选后会回调
-    ``command(value)``。
+    ``command(value)``。候选由 ``values_provider()`` 提供，每次展开都会重新
+    调用，所以数据源可以在外部随意变化。
     """
 
     def __init__(
         self,
-        master,
+        master: tk.Misc,
         *,
-        values_provider,
-        command=None,
+        values_provider: Callable[[], Sequence[str]],
+        command: Optional[Callable[[str], None]] = None,
         placeholder: str = "",
         height: int = 36,
-    ):
+    ) -> None:
+        """创建下拉输入框。
+
+        参数:
+            master: 父容器。
+            values_provider: 返回候选列表的函数，每次展开下拉都会调用一次。
+            command: 选中候选后的回调，参数是被选中的字符串。
+            placeholder: 输入框为空时的灰色占位文字。
+            height: 整体高度（像素），默认 36。
+        """
         super().__init__(
             master,
             fg_color=T.COLOR_INPUT,
@@ -46,13 +57,13 @@ class DropField(ctk.CTkFrame):
             height=height,
         )
         self.pack_propagate(False)
-        self._values_provider = values_provider
-        self._command = command
-        self._popup = None
-        self._root_bind_id = None
-        self._focus_bind_id = None
+        self._values_provider: Callable[[], Sequence[str]] = values_provider
+        self._command: Optional[Callable[[str], None]] = command
+        self._popup: Optional[ctk.CTkToplevel] = None
+        self._root_bind_id: Optional[str] = None
+        self._focus_bind_id: Optional[str] = None
 
-        self.entry = ctk.CTkEntry(
+        self.entry: ctk.CTkEntry = ctk.CTkEntry(
             self,
             fg_color="transparent",
             border_width=0,
@@ -65,7 +76,7 @@ class DropField(ctk.CTkFrame):
         )
         self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=1)
 
-        self.arrow = ctk.CTkLabel(
+        self.arrow: ctk.CTkLabel = ctk.CTkLabel(
             self,
             text=_ARROW_CLOSED,
             width=34,
@@ -83,6 +94,7 @@ class DropField(ctk.CTkFrame):
         self.arrow.bind("<Leave>", lambda _event: self._set_hover(False))
 
     def _set_hover(self, hover: bool) -> None:
+        """箭头悬停态：文字与底色一起变。"""
         self.arrow.configure(
             text_color=T.COLOR_TEXT if hover else T.COLOR_MUTED,
             fg_color=T.COLOR_HOVER_FAINT if hover else "transparent",
@@ -90,14 +102,17 @@ class DropField(ctk.CTkFrame):
 
     # --- 读写 ---
     def get(self) -> str:
+        """当前输入框里的文字。"""
         return self.entry.get()
 
     def set(self, value: str) -> None:
+        """直接写入一个值（不触发 ``command``）。"""
         self.entry.delete(0, "end")
         self.entry.insert(0, value)
 
     # --- 下拉面板 ---
     def open_menu(self) -> None:
+        """展开候选面板；已经展开时再次调用会收起。"""
         if self._popup is not None and self._popup.winfo_exists():
             self._close_menu()
             return
@@ -159,10 +174,12 @@ class DropField(ctk.CTkFrame):
             "<FocusOut>", self._on_root_focus_out, add="+"
         )
 
-    def _on_root_focus_out(self, _event=None) -> None:
+    def _on_root_focus_out(self, _event: Optional[tk.Event] = None) -> None:
+        """顶层窗口失焦后稍等再检查焦点，避免刚点面板就被收起。"""
         self.after(100, self._check_focus)
 
     def _check_focus(self) -> None:
+        """焦点既不在面板、也不在本窗口时收起面板。"""
         if self._popup is None:
             return
         try:
@@ -177,11 +194,12 @@ class DropField(ctk.CTkFrame):
                 return
         self._close_menu()
 
-    def _round_window_corners(self, popup) -> None:
+    def _round_window_corners(self, popup: ctk.CTkToplevel) -> None:
         """把窗口本身裁成圆角。
 
         tk 的窗口永远是直角，靠透明键色抠角又会留下一圈抗锯齿杂边，
         这里直接用 Windows 的 SetWindowRgn 把窗口区域切掉，四角干净没有残色。
+        非 Windows 平台什么都不做。
         """
         if sys.platform != "win32":
             return
@@ -199,7 +217,8 @@ class DropField(ctk.CTkFrame):
             )
             ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
 
-    def _maybe_close_menu(self, event) -> None:
+    def _maybe_close_menu(self, event: tk.Event) -> None:
+        """顶层窗口上的点击：点在面板外就收起。"""
         popup = self._popup
         if popup is None or not popup.winfo_exists():
             return
@@ -215,12 +234,14 @@ class DropField(ctk.CTkFrame):
         self._close_menu()
 
     def _pick(self, value: str) -> None:
+        """选中候选：写入值、收起面板、回调。"""
         self.set(value)
         self._close_menu()
         if self._command is not None:
             self._command(value)
 
-    def _close_menu(self, _event=None) -> None:
+    def _close_menu(self, _event: Optional[tk.Event] = None) -> None:
+        """收起面板并清理绑定；重复调用安全。"""
         if self._root_bind_id is not None:
             with contextlib.suppress(Exception):
                 self.winfo_toplevel().unbind("<Button-1>", self._root_bind_id)
@@ -237,6 +258,7 @@ class DropField(ctk.CTkFrame):
                     self._popup.destroy()
             self._popup = None
 
-    def destroy(self):
+    def destroy(self) -> None:
+        """销毁前先收起面板，避免浮窗残留。"""
         self._close_menu()
         super().destroy()

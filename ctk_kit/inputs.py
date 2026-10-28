@@ -7,17 +7,36 @@
 - ``selected_color`` 用淡强调色，避免整块高饱和蓝
 - ``dynamic_resizing=False`` 否则切换选项会改控件宽度，把右边的元素挤动
 - 不能传 ``border_width`` / ``border_color``，CTk 会直接抛 ValueError
+
+所有工厂只返回控件，不负责摆位。
 """
 
 from __future__ import annotations
+
+import tkinter as tk
+from typing import Callable, Optional, Sequence
 
 import customtkinter as ctk
 
 from . import tokens as T
 
+# 分段选择的选中回调：收到被选中的那一段文字。
+SegmentCommand = Optional[Callable[[str], None]]
+# 开关回调：不接收参数（CTk 的约定）。
+SwitchCommand = Optional[Callable[[], None]]
 
-def toolbar_entry(master, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
-    """页面顶部搜索框：聚焦时描边变强调色。"""
+
+def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
+    """页面顶部搜索框：聚焦时描边变强调色。
+
+    参数:
+        master: 父容器。
+        placeholder: 未输入时显示的灰色占位文字。
+        height: 高度（像素），默认 40。
+
+    返回:
+        已经绑好焦点样式、尚未摆位的 ``CTkEntry``。
+    """
     entry = ctk.CTkEntry(
         master,
         placeholder_text=placeholder,
@@ -38,7 +57,7 @@ def toolbar_entry(master, placeholder: str, *, height: int = 40) -> ctk.CTkEntry
 
 
 def form_entry(
-    master,
+    master: tk.Misc,
     *,
     show: str = "",
     placeholder: str = "",
@@ -50,6 +69,16 @@ def form_entry(
     ``password=True`` 时用圆点打码。注意 CTkEntry 带了 ``placeholder_text``
     时，内部 Entry 的 ``show`` 会被占位符机制置空，``cget("show")`` 读到的是
     空字符串——要判断是否在打码，得自己记住状态，别去读控件。
+
+    参数:
+        master: 父容器。
+        show: 自定义替代字符（例如 ``"*"``），空字符串表示正常显示。
+        placeholder: 未输入时的灰色占位文字。
+        height: 高度（像素），默认 38。
+        password: 为 ``True`` 时用圆点 ``"•"`` 打码，优先级高于 ``show``。
+
+    返回:
+        尚未摆位的 ``CTkEntry``。
     """
     return ctk.CTkEntry(
         master,
@@ -67,15 +96,28 @@ def form_entry(
 
 
 def segmented(
-    master,
-    values: list[str],
-    command=None,
+    master: tk.Misc,
+    values: Sequence[str],
+    command: SegmentCommand = None,
     *,
     width: int = 300,
     height: int = 34,
-    font=T.FONT_SMALL,
+    font: T.FontSpec = T.FONT_SMALL,
 ) -> ctk.CTkSegmentedButton:
-    """统一样式的分段选择：底色同输入框，选中段淡色高亮。"""
+    """统一样式的分段选择：底色同输入框，选中段淡色高亮。
+
+    参数:
+        master: 父容器。
+        values: 各段文字，按显示顺序排列；非空时默认选中第一项。
+        command: 切换回调，参数是被选中的那一段文字。
+        width: 整体宽度（像素），默认 300；``dynamic_resizing=False`` 保证
+            切换选项时宽度不变。
+        height: 高度（像素），默认 34。
+        font: 字体规格，默认 :data:`tokens.FONT_SMALL`。
+
+    返回:
+        尚未摆位的 ``CTkSegmentedButton``。
+    """
     button = ctk.CTkSegmentedButton(
         master,
         values=values,
@@ -98,8 +140,17 @@ def segmented(
     return button
 
 
-def switch(master, command=None, *, width: int = 44) -> ctk.CTkSwitch:
-    """设置页的开关：去掉文字，只留轨道，颜色跟随主色。"""
+def switch(master: tk.Misc, command: SwitchCommand = None, *, width: int = 44) -> ctk.CTkSwitch:
+    """设置页的开关：去掉文字，只留轨道，颜色跟随主色。
+
+    参数:
+        master: 父容器。
+        command: 拨动回调，不接收参数；用 ``toggle()`` 或点击都会触发。
+        width: 开关宽度（像素），默认 44；卡片里的紧凑尺寸可以传 60 / 40。
+
+    返回:
+        尚未摆位的 ``CTkSwitch``。
+    """
     return ctk.CTkSwitch(
         master,
         text="",

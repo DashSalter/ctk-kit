@@ -9,6 +9,7 @@ ctk-kit 是纯 Tk 控件库，几乎所有行为都要在真实 Tk 窗口里才�
 
 from __future__ import annotations
 
+import os
 import time
 
 import customtkinter as ctk
@@ -50,7 +51,11 @@ def root():
             last_error = exc
             time.sleep(0.1)
     else:
-        pytest.skip(f"当前环境无法创建 Tk 窗口：{last_error}")
+        message = f"当前环境无法创建 Tk 窗口：{last_error}"
+        if os.environ.get("CI"):
+            # CI 里静默 skip 会让整条流水线「绿着通过」，必须显式失败
+            pytest.fail(f"{message}（CI 需要图形环境，请用 xvfb-run 运行）")
+        pytest.skip(message)
 
     window.geometry("960x720+0+0")
     try:

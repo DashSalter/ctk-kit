@@ -6,9 +6,27 @@
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
 - 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``layout`` / ``scroll_list``
 
+安装::
+
+    pip install ctk-kit
+
+最小示例::
+
+    import customtkinter as ctk
+    from ctk_kit import primary_button, card, page_header
+
+    app = ctk.CTk()
+    header, info = page_header(app, "备份")
+    box = card(app)
+    primary_button(box, "立即备份", command=lambda: print("go")).pack(padx=16, pady=16)
+    app.mainloop()
+
 全组件展示（示例脚本，见仓库 examples/）::
 
     python examples/showcase.py
+
+仓库: https://gitee.com/kuangjianke/ctk-kit
+镜像: https://github.com/DashSalter/ctk-kit
 """
 
 from __future__ import annotations

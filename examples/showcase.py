@@ -5,7 +5,7 @@
     python examples/showcase.py
     python examples/showcase.py --page 按钮 --topmost
 
-八个页面把库里每一个公开构件都用一遍：
+九个页面把库里每一个公开构件都用一遍：
 
 - 总览    三层结构与组件索引，点「查看」可直接跳页
 - 基件    tokens 全量：字体阶梯、状态色、色板、圆角、间距、滚动条宽度
@@ -15,6 +15,7 @@
 - 列表    LazyList：分批加载、关键词与分类筛选、刷新、清空、空态提示
 - 主题    深浅色切换、color_of、repaint_native 现场重绘
 - 表单    综合表单：输入 + 下拉 + 分段 + 开关 + 底部动作
+- 设置    外观模式切换、版本与运行环境
 
 每个页面底部都有一条「交互回显」，点按钮或切选项时会写出刚才发生了什么。
 """
@@ -58,7 +59,7 @@ from ctk_kit.theme import apply_appearance, color_of, is_dark, repaint_native
 
 APP_TITLE = "ctk-kit 全组件展示"
 
-PAGES = ("总览", "基件", "按钮", "输入", "布局", "列表", "主题", "表单")
+PAGES = ("总览", "基件", "按钮", "输入", "布局", "列表", "主题", "表单", "设置")
 
 SAMPLE_ITEMS = [
     {
@@ -107,6 +108,7 @@ INDEX = [
     ("列表", "LazyList 懒加载、关键词与分类筛选、刷新、清空、空态"),
     ("主题", "深浅色切换、color_of 取色、repaint_native 重绘原生控件"),
     ("表单", "把输入、下拉、分段、开关与底部动作拼成一张表单"),
+    ("设置", "外观模式切换（浅色 / 深色）、版本与运行环境"),
 ]
 
 
@@ -1119,6 +1121,74 @@ def build_theme_page(master, *, on_toggle=None) -> ctk.CTkFrame:
 
 
 # --------------------------------------------------------------------------- #
+#  设置页
+def build_settings_page(master, *, on_theme=None) -> ctk.CTkFrame:
+    """外观模式切换：浅色 / 深色；切换后由外层窗口重建全部页面。"""
+    page = ctk.CTkFrame(master, fg_color="transparent")
+
+    _, info = page_header(page, "设置")
+    info.configure(text=f"当前：{ctk.get_appearance_mode()}")
+
+    feedback = _feedback(page, "切换外观模式会重建整页，原生控件跟着换色")
+
+    area = scrollable(page)
+    area.pack(fill="both", expand=True, pady=(14, 0))
+    bg = color_of(T.COLOR_CARD)
+
+    section_title(area, "外观模式")
+    box = _card_shell(area)
+    box.pack(fill="x")
+    body = _card_body(box)
+    row = _row(body, bg)
+    field_label(row, "主题", width=64).pack(side="left")
+
+    def choose(value: str) -> None:
+        if on_theme is None:
+            feedback("独立页面里没有外层窗口，无法重建；从 ShowcaseApp 进入设置页即可")
+            return
+        on_theme("light" if value == "浅色" else "dark")
+
+    theme = segmented(row, ["浅色", "深色"], command=choose, width=200)
+    theme.pack(side="left")
+    theme.set("深色" if is_dark() else "浅色")
+    hint_label(
+        body,
+        "apply_appearance('light' / 'dark')；原生 tk 控件不会自己变色，所以切换后整页重建。",
+    ).pack(fill="x", pady=(6, 0))
+
+    section_title(area, "关于")
+    box = _card_shell(area)
+    box.pack(fill="x")
+    body = _card_body(box)
+    for name, value in (
+        ("版本", __version__),
+        ("Python", sys.version.split()[0]),
+        ("customtkinter", getattr(ctk, "__version__", "未知")),
+        ("仓库", "gitee.com/kuangjianke/ctk-kit"),
+    ):
+        row = _row(body, bg)
+        _text(
+            row,
+            name,
+            width=14,
+            font=T.FONT_SMALL,
+            color=color_of(T.COLOR_MUTED),
+            bg=bg,
+            anchor="w",
+        ).pack(side="left")
+        _text(
+            row,
+            value,
+            font=T.FONT_SMALL,
+            color=color_of(T.COLOR_TEXT),
+            bg=bg,
+            anchor="w",
+        ).pack(side="left")
+    hint_label(body, "主题切换只影响外观；数据与筛选状态不受影响。").pack(fill="x")
+    return page
+
+
+# --------------------------------------------------------------------------- #
 #  表单页
 def build_form_page(master) -> ctk.CTkFrame:
     """把输入、下拉、分段、开关与底部动作拼成一张真实表单。"""
@@ -1275,7 +1345,7 @@ class ShowcaseApp(ctk.CTk):
 
         bottom = ctk.CTkFrame(self._sidebar, fg_color="transparent")
         bottom.pack(side="bottom", fill="x", padx=12, pady=(0, 16))
-        soft_button(bottom, "切换深浅色", self.toggle_appearance, width=176).pack()
+        soft_button(bottom, "设置", lambda: self.show_page("设置"), width=176).pack()
 
     def _build_pages(self) -> None:
         for page in self._pages.values():
@@ -1290,6 +1360,7 @@ class ShowcaseApp(ctk.CTk):
             "列表": build_list_page(area),
             "主题": build_theme_page(area, on_toggle=self.toggle_appearance),
             "表单": build_form_page(area),
+            "设置": build_settings_page(area, on_theme=self.set_appearance_mode),
         }
 
     def show_page(self, name: str) -> None:
@@ -1308,14 +1379,18 @@ class ShowcaseApp(ctk.CTk):
                 text_color=T.COLOR_ACCENT if active else T.COLOR_MUTED,
             )
 
-    def toggle_appearance(self) -> None:
-        mode = "Light" if ctk.get_appearance_mode() == "Dark" else "Dark"
+    def set_appearance_mode(self, mode: str) -> None:
+        """切换外观模式并重建全部页面（原生 tk 控件不会自己变色）。"""
         apply_appearance(mode)
         self.configure(fg_color=T.COLOR_BG)
         self._sidebar.configure(fg_color=T.COLOR_SIDE)
-        # 原生 tk 控件不会自己变色，整页重建最省事
         self._build_pages()
         self.show_page(self._current)
+
+    def toggle_appearance(self) -> None:
+        self.set_appearance_mode(
+            "Light" if ctk.get_appearance_mode() == "Dark" else "Dark"
+        )
 
 
 def main() -> int:

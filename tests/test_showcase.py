@@ -1,4 +1,4 @@
-"""Showcase 示例程序测试：八个页面都能构建，交互也能把结果回显出来。
+"""Showcase 示例程序测试：九个页面都能构建，交互也能把结果回显出来。
 
 Showcase 同时是「文档」和「冒烟测试」：这里的用例保证每个页面构建时不抛异常，
 并且按钮 / 分段 / 下拉这些交互真的接到了页面的反馈条上。
@@ -41,6 +41,7 @@ build_inputs_page = _showcase.build_inputs_page
 build_layout_page = _showcase.build_layout_page
 build_list_page = _showcase.build_list_page
 build_overview_page = _showcase.build_overview_page
+build_settings_page = _showcase.build_settings_page
 build_theme_page = _showcase.build_theme_page
 
 
@@ -70,6 +71,7 @@ BUILDERS = [
     ("list", build_list_page, {}),
     ("theme", build_theme_page, {}),
     ("form", build_form_page, {}),
+    ("settings", build_settings_page, {}),
 ]
 
 
@@ -116,7 +118,17 @@ def test_every_page_builds(root, name, builder, kwargs):
 
 
 def test_pages_constant_matches_pages_dict(showcase_app):
-    assert showcase_app.PAGES == ("总览", "基件", "按钮", "输入", "布局", "列表", "主题", "表单")
+    assert showcase_app.PAGES == (
+        "总览",
+        "基件",
+        "按钮",
+        "输入",
+        "布局",
+        "列表",
+        "主题",
+        "表单",
+        "设置",
+    )
     assert set(showcase_app.PAGES) == set(showcase_app._pages)
     assert len(showcase_app._pages) == len(BUILDERS)
 
@@ -426,3 +438,43 @@ def test_showcase_app_toggle_appearance_rebuilds(showcase_app):
     assert showcase_app._pages["总览"] is not old
     assert showcase_app._pages["列表"].winfo_manager() == "pack"
     assert showcase_app._sidebar.cget("fg_color") == T.COLOR_SIDE
+
+
+# --------------------------------------------------------------------------- #
+#  设置页
+def test_settings_page_theme_switches_mode(root):
+    modes: list[str] = []
+    page = build_settings_page(root, on_theme=modes.append)
+    try:
+        segment = next(
+            node for node in _walk(page) if isinstance(node, ctk.CTkSegmentedButton)
+        )
+        target = "深色" if segment.get() == "浅色" else "浅色"
+        segment._buttons_dict[target].invoke()
+        assert modes == [("dark" if target == "深色" else "light")]
+    finally:
+        page.destroy()
+
+
+def test_settings_page_without_callback_explains(root):
+    page = build_settings_page(root)
+    try:
+        segment = next(
+            node for node in _walk(page) if isinstance(node, ctk.CTkSegmentedButton)
+        )
+        target = "深色" if segment.get() == "浅色" else "浅色"
+        segment._buttons_dict[target].invoke()
+        assert "无法重建" in page.feedback.text()
+    finally:
+        page.destroy()
+
+
+def test_showcase_app_settings_switch_keeps_page(showcase_app):
+    showcase_app.show_page("设置")
+    showcase_app.update()
+    showcase_app.set_appearance_mode("dark")
+    showcase_app.update()
+
+    assert ctk.get_appearance_mode() == "Dark"
+    assert showcase_app._current == "设置"
+    assert showcase_app._pages["设置"].winfo_manager() == "pack"

@@ -193,8 +193,11 @@ class LazyList(tk.Frame):
         self._append(len(self._items) - self._shown)
 
     def scroll_units(self, steps: int) -> None:
-        """按「行」滚动；steps>0 向下，steps<0 向上。"""
-        self.canvas.yview_scroll(steps * 3, "units")
+        """按「行」滚动；steps>0 向下，steps<0 向上。
+
+        一格滚轮固定滚 60px（约 0.75 张卡片），比 tk 默认的 3px 顺手。
+        """
+        self.canvas.yview_scroll(steps * 60, "units")
 
     def _on_wheel(self, event: tk.Event) -> Optional[str]:
         """只滚动指针所在的列表；其它区域的滚轮不归这里管。"""

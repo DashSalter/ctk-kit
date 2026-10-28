@@ -125,17 +125,16 @@ class DropField(ctk.CTkFrame):
         popup.withdraw()
         popup.overrideredirect(True)
         popup.attributes("-topmost", True)
-        popup.configure(fg_color=T.COLOR_CARD)
+        # 窗口铺成描边色、卡片内缩 1px：边框是「露出来的一圈底色」，
+        # 会跟着窗口的圆角一起走，不会像矩形描边那样在四个角断开。
+        popup.configure(fg_color=T.COLOR_BORDER)
 
         body = ctk.CTkFrame(
             popup,
             fg_color=T.COLOR_CARD,
-            corner_radius=T.RADIUS_MEDIUM,
-            border_width=1,
-            border_color=T.COLOR_BORDER,
+            corner_radius=T.RADIUS_MEDIUM - 1,
+            border_width=0,
         )
-        # 留 1px 边距：窗口按更大的圆角裁剪，body 的圆角边框落在裁剪线内侧，
-        # 四角才不会被切出「断掉的半截边框」
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
         for value in values:
@@ -199,8 +198,8 @@ class DropField(ctk.CTkFrame):
     def _round_window_corners(self, popup: ctk.CTkToplevel) -> None:
         """把窗口本身裁成圆角。
 
-        tk 的窗口永远是直角，靠透明键色抠角又会留下一圈抗锯齿杂边，
-        这里直接用 Windows 的 SetWindowRgn 把窗口区域切掉，四角干净没有残色。
+        优先让 Win11 的 DWM 画圆角（边缘抗锯齿、没有阶梯）；旧系统退回
+        ``SetWindowRgn`` 硬裁剪——那圈锯齿是 GDI 区域的固有代价。
         非 Windows 平台什么都不做。
         """
         if sys.platform != "win32":
@@ -210,10 +209,16 @@ class DropField(ctk.CTkFrame):
 
             popup.update_idletasks()
             hwnd = ctypes.windll.user32.GetParent(popup.winfo_id()) or popup.winfo_id()
+            # DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2
+            preference = ctypes.c_int(2)
+            result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
+            )
+            if result == 0:
+                return
             scaling = self.winfo_toplevel()._get_window_scaling()
-            # CreateRoundRectRgn 收的是椭圆宽高（直径），body 内缩 1px 后
-            # 窗口圆角比 body 圆角大 1，边框四角完整
-            radius = int((T.RADIUS_MEDIUM + 1) * 2 * scaling)
+            # CreateRoundRectRgn 收的是椭圆宽高（直径）
+            radius = int(T.RADIUS_MEDIUM * 2 * scaling)
             width = popup.winfo_width()
             height = popup.winfo_height()
             region = ctypes.windll.gdi32.CreateRoundRectRgn(

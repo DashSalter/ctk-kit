@@ -114,6 +114,10 @@ def style_scrollable(frame: ctk.CTkScrollableFrame) -> ctk.CTkScrollableFrame:
             button_color=T.COLOR_SCROLLBAR,
             button_hover_color=T.COLOR_SCROLLBAR_HOVER,
         )
+    canvas = getattr(frame, "_parent_canvas", None)
+    if canvas is not None:
+        # CTk 默认 yscrollincrement=1，一格滚轮只挪 20px；调到 3 倍（60px）
+        canvas.configure(yscrollincrement=3)
     return frame
 
 

@@ -146,7 +146,7 @@ def test_popup_body_is_rounded_and_inset(root):
     drop.open_menu()
     root.update()
     body = drop._popup.winfo_children()[0]
-    assert body.cget("corner_radius") == T.RADIUS_MEDIUM
+    assert body.cget("corner_radius") == T.RADIUS_MEDIUM - 1
     info = body.pack_info()
     assert int(info["padx"]) > 0
     assert int(info["pady"]) > 0

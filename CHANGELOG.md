@@ -3,7 +3,7 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## 未发布
+## 0.3.0 — 2026-10-28
 
 - `LazyList` 新增 `item_height` 参数：开启虚拟滚动，只布局视口附近的卡片，
   滚出视口的卡片保留在内存里复用、不销毁，滚回来直接重新布局

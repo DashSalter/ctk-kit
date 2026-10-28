@@ -138,3 +138,16 @@ def test_arrow_hover_changes_colors(root):
     root.update()
     assert drop.arrow.cget("text_color") == T.COLOR_MUTED
     assert drop.arrow.cget("fg_color") == "transparent"
+
+
+def test_popup_body_is_rounded_and_inset(root):
+    """面板主体要自带圆角并内缩，窗口裁剪线才不会切掉四角的边框。"""
+    drop = _make_drop(root)
+    drop.open_menu()
+    root.update()
+    body = drop._popup.winfo_children()[0]
+    assert body.cget("corner_radius") == T.RADIUS_MEDIUM
+    info = body.pack_info()
+    assert int(info["padx"]) > 0
+    assert int(info["pady"]) > 0
+    drop._close_menu()

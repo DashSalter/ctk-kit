@@ -130,11 +130,13 @@ class DropField(ctk.CTkFrame):
         body = ctk.CTkFrame(
             popup,
             fg_color=T.COLOR_CARD,
-            corner_radius=0,
+            corner_radius=T.RADIUS_MEDIUM,
             border_width=1,
             border_color=T.COLOR_BORDER,
         )
-        body.pack(fill="both", expand=True)
+        # 留 1px 边距：窗口按更大的圆角裁剪，body 的圆角边框落在裁剪线内侧，
+        # 四角才不会被切出「断掉的半截边框」
+        body.pack(fill="both", expand=True, padx=1, pady=1)
 
         for value in values:
             ctk.CTkButton(
@@ -209,7 +211,9 @@ class DropField(ctk.CTkFrame):
             popup.update_idletasks()
             hwnd = ctypes.windll.user32.GetParent(popup.winfo_id()) or popup.winfo_id()
             scaling = self.winfo_toplevel()._get_window_scaling()
-            radius = int(T.RADIUS_MEDIUM * 2 * scaling)
+            # CreateRoundRectRgn 收的是椭圆宽高（直径），body 内缩 1px 后
+            # 窗口圆角比 body 圆角大 1，边框四角完整
+            radius = int((T.RADIUS_MEDIUM + 1) * 2 * scaling)
             width = popup.winfo_width()
             height = popup.winfo_height()
             region = ctypes.windll.gdi32.CreateRoundRectRgn(

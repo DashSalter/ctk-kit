@@ -148,7 +148,7 @@ CI 在 GitHub Actions 上跑 Python 3.8 – 3.14 全矩阵（`.github/workflows/
 
 版本号只写在 `pyproject.toml` 的 `version` 字段里，发布流程全自动：
 
-1. 改 `pyproject.toml` 的 `version`（例如 `0.1.0` → `0.1.1`），同步更新 `CHANGELOG.md`；
+1. 改 `pyproject.toml` 的 `version`（例如 `0.2.0` → `0.2.1`），同步更新 `CHANGELOG.md`；
 2. 提交并 `git push` 到 Gitee；
 3. 镜像自动同步到 GitHub，Actions 跑完测试与构建后，会比较 PyPI 上的最新版本——
    本地版本更新才发布，同版本重推不会报错。

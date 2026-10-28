@@ -191,3 +191,19 @@ def test_destroy_is_safe(root):
     listing = make_list(root, make_items(10), first_batch=3)
     listing.destroy()
     root.update()
+
+
+def test_wheel_scrolls_one_step_of_sixty_pixels(root):
+    """一格滚轮只走 60px：yscrollincrement 必须是 1，否则会跳掉小半屏。"""
+    listing = make_list(root, make_items(40), first_batch=40)
+    root.update()
+    canvas = listing.canvas
+    assert int(canvas.cget("yscrollincrement")) == 1
+
+    box = canvas.bbox("all")
+    content_height = box[3] - box[1]
+    first = canvas.yview()[0]
+    listing.scroll_units(1)
+    root.update()
+    moved = (canvas.yview()[0] - first) * content_height
+    assert abs(moved - 60) <= 2

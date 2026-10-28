@@ -90,7 +90,12 @@ class LazyList(tk.Frame):
         self.grid_columnconfigure(0, weight=1)
 
         self.canvas: tk.Canvas = tk.Canvas(
-            self, highlightthickness=0, bg=color_of(T.COLOR_BG), bd=0
+            self,
+            highlightthickness=0,
+            bg=color_of(T.COLOR_BG),
+            bd=0,
+            # 1 单位 = 1px，滚轮按 units 滚时才有确定步长（默认 0 时 1 单位≈视口 1/10）
+            yscrollincrement=1,
         )
         self.canvas.grid(row=0, column=0, sticky="nsew")
         self.scrollbar: ctk.CTkScrollbar = ctk.CTkScrollbar(
@@ -196,6 +201,8 @@ class LazyList(tk.Frame):
         """按「行」滚动；steps>0 向下，steps<0 向上。
 
         一格滚轮固定滚 60px（约 0.75 张卡片），比 tk 默认的 3px 顺手。
+        canvas 构造时把 ``yscrollincrement`` 定成 1，所以 1 个单位就是 1px；
+        否则默认值 0 会让 1 个单位约等于视口的十分之一，滚一下直接跳半页。
         """
         self.canvas.yview_scroll(steps * 60, "units")
 

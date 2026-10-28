@@ -98,6 +98,9 @@ class LazyList(tk.Frame):
         self._built: dict[int, tk.Misc] = {}
         self._range: Optional[tuple[int, int]] = None
         self._resize_job: Optional[str] = None
+        #: 拖动滚动条时 yscrollcommand 会连发很多次，合并成一帧一次。
+        self._sync_job: Optional[str] = None
+        self._pending_view: Optional[tuple[float, float]] = None
 
         self.grid_rowconfigure(0, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -276,6 +279,7 @@ class LazyList(tk.Frame):
         """停止滚轮绑定后销毁。"""
         self._alive = False
         self._cancel_resize()
+        self._cancel_sync()
         super().destroy()
 
     # ------------------------------------------------------------------ #
@@ -349,11 +353,14 @@ class LazyList(tk.Frame):
         """canvas 的 yscrollcommand 回调。"""
         if self._suppress:
             return
-        self.scrollbar.set(first, last)
         if self.item_height is not None:
-            self._sync_scrollbar()
-            self._sync_window(float(first), float(last))
+            # 拖动滚动条时这里会连发很多次（且 Tk 在 idle 才回调）；直接建卡
+            # 会把主线程堵住，画面出现「撕」。先记下位置，合并到下一帧再一起
+            # 更新卡片与滚动条，保证两者落在同一帧里。
+            self._pending_view = (float(first), float(last))
+            self._schedule_virtual_sync()
             return
+        self.scrollbar.set(first, last)
         if self._loading or self._shown >= len(self._items):
             return
         # 不信回调参数：scrollregion 刚变时会回放一次 (0, 1)
@@ -361,6 +368,34 @@ class LazyList(tk.Frame):
         if float(current[1]) < self.load_threshold:
             return
         self._schedule_load()
+
+    def _schedule_virtual_sync(self) -> None:
+        """把连续的滚动回调合并成一帧一次，避免拖动时反复建卡卡住主线程。"""
+        if self._sync_job is not None:
+            return
+        self._sync_job = self.after(16, self._run_virtual_sync)
+
+    def _run_virtual_sync(self) -> None:
+        """执行被合并的视口同步（只处理最后一次滚动位置）。"""
+        self._sync_job = None
+        view = self._pending_view
+        self._pending_view = None
+        if view is None or self.item_height is None or not self._alive:
+            return
+        first, last = view
+        # 顺序很重要：先摆卡片，再挪滚动条。CTkScrollbar.set() 内部会
+        # update_idletasks() 立刻重绘，先挪滚动条的话会先画出「条动了、卡没动」
+        # 那一帧，看起来就是撕裂。
+        self._sync_window(first, last)
+        self._sync_scrollbar()
+        self.scrollbar.set(first, last)
+
+    def _cancel_sync(self) -> None:
+        """取消还没执行的合并同步任务。"""
+        if self._sync_job is not None:
+            self.after_cancel(self._sync_job)
+            self._sync_job = None
+        self._pending_view = None
 
     def _schedule_load(self) -> None:
         """滚到底后等手停下再补下一批，避免边滚边排版造成顿挫。"""
@@ -385,6 +420,7 @@ class LazyList(tk.Frame):
         self._loading = False
         self._cancel_load()
         self._cancel_resize()
+        self._cancel_sync()
         self._built.clear()
         self._range = None
         for child in self.inner.winfo_children():

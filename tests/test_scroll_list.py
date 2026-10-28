@@ -251,33 +251,33 @@ def test_virtual_mode_builds_only_viewport_cards(root):
     assert int(listing.inner.cget("height")) == int(120 * 96 * scale)
 
 
-def test_virtual_mode_reuses_cards_after_scrolling_back(root):
+def test_virtual_mode_reuses_cards_after_scrolling_back(root, settle):
     """滚到底再滚回顶部：卡片对象不销毁，直接重新布局。"""
     listing = make_virtual_list(root)
     listing.canvas.yview_moveto(1.0)
-    root.update()
+    settle(root, 0.1)
     bottom = {id(card) for card in listing.cards}
 
     listing.canvas.yview_moveto(0.0)
-    root.update()
+    settle(root, 0.1)
     assert len(listing.cards) == len(bottom)
     assert {id(card) for card in listing.cards} <= bottom
 
 
-def test_virtual_mode_places_only_visible_cards(root):
+def test_virtual_mode_places_only_visible_cards(root, settle):
     """视口外的卡片被 place_forget 收起，但仍留在内存里。"""
     listing = make_virtual_list(root)
     listing.canvas.yview_moveto(1.0)
-    root.update()
+    settle(root, 0.1)
     placed = [card for card in listing.cards if card.winfo_manager() == "place"]
     assert 0 < len(placed) < len(listing.cards)
 
 
-def test_virtual_reset_reuses_cards_without_rebuild(root):
+def test_virtual_reset_reuses_cards_without_rebuild(root, settle):
     """reset 只回顶，不重建卡片。"""
     listing = make_virtual_list(root)
     listing.canvas.yview_moveto(1.0)
-    root.update()
+    settle(root, 0.1)
     count = len(listing.cards)
     listing.reset()
     root.update()
@@ -293,3 +293,19 @@ def test_virtual_flush_builds_all_but_places_only_viewport(root):
     assert len(listing.cards) == 120
     placed = [card for card in listing.cards if card.winfo_manager() == "place"]
     assert len(placed) < 120
+
+
+def test_fast_drag_coalesces_virtual_sync(root, settle):
+    """拖动滚动条时连续回调合并成一帧一次，不会每个像素都建卡。"""
+    listing = make_virtual_list(root)
+    for ratio in (0.1, 0.2, 0.35, 0.5, 0.7, 0.9):
+        listing.canvas.yview_moveto(ratio)
+        root.update_idletasks()  # yscrollcommand 本身是 idle 回调
+    # 还没到执行时间：只排队了一个任务，后面几次回调只更新目标位置
+    assert listing._sync_job is not None
+    settle(root, 0.1)
+    assert listing._sync_job is None
+    assert listing._pending_view is None
+
+    placed = [card for card in listing.cards if card.winfo_manager() == "place"]
+    assert placed

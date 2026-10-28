@@ -4,7 +4,7 @@
 
 - ``tokens``  设计令牌：颜色（深浅两套）、字体、圆角、间距
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
-- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``layout`` / ``scroll_list``
+- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``layout`` / ``scroll_list`` / ``text``
 
 安装::
 
@@ -55,6 +55,7 @@ from .layout import (
     style_scrollable,
 )
 from .scroll_list import LazyList
+from .text import TextArea
 from .theme import apply_appearance, color_of, is_dark, repaint_native
 
 __all__ = [
@@ -62,6 +63,7 @@ __all__ = [
     "FlatButton",
     "LazyList",
     "SoftButton",
+    "TextArea",
     "__version__",
     "apply_appearance",
     "card",

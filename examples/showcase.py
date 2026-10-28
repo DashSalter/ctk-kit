@@ -10,7 +10,7 @@
 - 总览    三层结构与组件索引，点「查看」可直接跳页
 - 基件    tokens 全量：字体阶梯、状态色、色板、圆角、间距、滚动条宽度
 - 按钮    四个工厂函数 + FlatButton / SoftButton，尺寸矩阵、描边、禁用
-- 输入    工具栏框、表单框、密码框、分段选择、开关、下拉框
+- 输入    工具栏框、表单框、密码框、分段选择、开关、下拉框、大文本区
 - 布局    页头、分区标题、卡片、分隔线、滚动容器、空态、字段/提示文字
 - 列表    LazyList：分批加载、关键词与分类筛选、刷新、清空、空态提示
 - 主题    深浅色切换、color_of、repaint_native 现场重绘
@@ -53,6 +53,7 @@ from ctk_kit.layout import (
     style_scrollable,
 )
 from ctk_kit.scroll_list import LazyList
+from ctk_kit.text import TextArea
 from ctk_kit.theme import apply_appearance, color_of, is_dark, repaint_native
 
 APP_TITLE = "ctk-kit 全组件展示"
@@ -101,7 +102,7 @@ SPACE_TOKENS = [
 INDEX = [
     ("基件", "字体、状态色、色板、圆角、间距、滚动条宽度"),
     ("按钮", "主按钮 / 次要按钮 / 危险按钮 / 描边 / 微型按钮 / 禁用态"),
-    ("输入", "工具栏框、表单框、密码、分段选择、开关、下拉框"),
+    ("输入", "工具栏框、表单框、密码、分段选择、开关、下拉框、大文本区"),
     ("布局", "页头、分区标题、卡片、分隔线、滚动容器、空态、字段标签"),
     ("列表", "LazyList 懒加载、关键词与分类筛选、刷新、清空、空态"),
     ("主题", "深浅色切换、color_of 取色、repaint_native 重绘原生控件"),
@@ -571,11 +572,11 @@ def build_buttons_page(master) -> ctk.CTkFrame:
 # --------------------------------------------------------------------------- #
 #  输入页
 def build_inputs_page(master) -> ctk.CTkFrame:
-    """五类输入控件，每种都给一个能改状态、能回显的实例。"""
+    """六类输入控件，每种都给一个能改状态、能回显的实例。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
     _, info = page_header(page, "输入")
-    info.configure(text="工具栏框 / 表单框 / 分段 / 开关 / 下拉")
+    info.configure(text="工具栏框 / 表单框 / 分段 / 开关 / 下拉 / 大文本")
 
     feedback = _feedback(page, "改任意输入，回显会出现在这里")
 
@@ -720,6 +721,38 @@ def build_inputs_page(master) -> ctk.CTkFrame:
     )
     hint_label(
         body, "get() / set() 与输入框一致；选中候选后回调 command(value)。"
+    ).pack(fill="x")
+
+    # --- 大文本 ---
+    section_title(area, "大文本 TextArea")
+    box = _card_shell(area)
+    box.pack(fill="x")
+    body = _card_body(box)
+
+    note = TextArea(
+        body,
+        placeholder="写备注、粘贴日志、贴长文本…",
+        height=120,
+        on_change=lambda text: feedback(f"备注当前 {len(text)} 字"),
+    )
+    note.pack(fill="x")
+    hint_label(
+        body, "placeholder 在失焦且为空时显示；on_change 收到最新全文。"
+    ).pack(fill="x")
+
+    row = _row(body, bg)
+    field_label(row, "只读日志").pack(side="left")
+    hint_label(row, "预设内容，不可编辑，可选中复制").pack(side="left", padx=(8, 0))
+
+    log = TextArea(body, height=96, readonly=True, show_counter=False)
+    log.set(
+        "22:00  已连接\n"
+        "22:01  同步 12 条记录\n"
+        "22:02  完成，用时 1.4s"
+    )
+    log.pack(fill="x")
+    hint_label(
+        body, "readonly=True 时内部 state=disabled；set() 仍可写入，set_readonly() 可随时切换。"
     ).pack(fill="x")
     return page
 

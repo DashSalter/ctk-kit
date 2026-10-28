@@ -65,6 +65,11 @@ python examples/showcase.py
 - `segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
 - `switch(master, command=None, *, width=44)`
 
+**大文本**（`text`）
+
+- `TextArea(master, *, placeholder="", height=200, readonly=False, show_counter=True, on_change=None)`
+  —— 多行文本区：失焦时显示占位符、底部字数统计、可切换只读；读写用 `get()/set()/clear()`
+
 **下拉**（`dropdown`）
 
 - `DropField(master, *, values_provider, command=None, placeholder="", height=36)` —— 自绘候选卡片，

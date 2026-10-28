@@ -10,7 +10,7 @@ import customtkinter as ctk
 import pytest
 
 import ctk_kit
-from ctk_kit import buttons, dropdown, inputs, layout, scroll_list, theme, tokens
+from ctk_kit import buttons, dropdown, inputs, layout, scroll_list, text, theme, tokens
 
 
 def test_version_is_semver():
@@ -42,6 +42,7 @@ def test_public_classes_are_ctk_widgets():
     assert issubclass(ctk_kit.SoftButton, ctk_kit.FlatButton)
     assert issubclass(ctk_kit.DropField, ctk.CTkFrame)
     assert issubclass(ctk_kit.LazyList, tk.Frame)
+    assert issubclass(ctk_kit.TextArea, ctk.CTkFrame)
 
 
 def test_public_functions_are_callable():
@@ -71,7 +72,7 @@ def test_public_functions_are_callable():
 
 
 def test_submodules_are_importable():
-    for module in (tokens, theme, buttons, inputs, dropdown, layout, scroll_list):
+    for module in (tokens, theme, buttons, inputs, dropdown, layout, scroll_list, text):
         assert module.__name__.startswith("ctk_kit.")
 
 

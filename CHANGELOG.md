@@ -3,6 +3,12 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+- 新增 `TextArea`：带占位符、字数统计与只读模式的多行文本区
+- 示例输入页增加大文本演示（普通备注 + 只读日志）
+- 测试：新增 `tests/test_text.py`
+
 ## 0.1.0 — 2026-10-28
 
 首个版本。

@@ -411,15 +411,16 @@ def test_form_page_reset_clears_fields(root):
 #  主窗口
 def test_showcase_app_starts_on_overview(showcase_app):
     assert showcase_app._current == "总览"
-    assert showcase_app._pages["总览"].winfo_manager() == "pack"
-    assert showcase_app._pages["表单"].winfo_manager() == ""
+    assert showcase_app._visible_page is showcase_app._pages["总览"]
+    assert showcase_app._pages["总览"].winfo_manager() == "place"
+    assert showcase_app._pages["表单"].winfo_manager() == "place"
 
 
 def test_showcase_app_switches_page(showcase_app):
     showcase_app.show_page("按钮")
     assert showcase_app._current == "按钮"
-    assert showcase_app._pages["按钮"].winfo_manager() == "pack"
-    assert showcase_app._pages["总览"].winfo_manager() == ""
+    assert showcase_app._visible_page is showcase_app._pages["按钮"]
+    assert showcase_app._pages["按钮"].winfo_manager() == "place"
     assert showcase_app._buttons["按钮"].cget("fg_color") == T.COLOR_SEG_SELECTED
 
 
@@ -436,7 +437,8 @@ def test_showcase_app_toggle_appearance_rebuilds(showcase_app):
     assert ctk.get_appearance_mode() == "Dark"
     assert showcase_app._current == "列表"
     assert showcase_app._pages["总览"] is not old
-    assert showcase_app._pages["列表"].winfo_manager() == "pack"
+    assert showcase_app._visible_page is showcase_app._pages["列表"]
+    assert showcase_app._pages["列表"].winfo_manager() == "place"
     assert showcase_app._sidebar.cget("fg_color") == T.COLOR_SIDE
 
 
@@ -477,4 +479,5 @@ def test_showcase_app_settings_switch_keeps_page(showcase_app):
 
     assert ctk.get_appearance_mode() == "Dark"
     assert showcase_app._current == "设置"
-    assert showcase_app._pages["设置"].winfo_manager() == "pack"
+    assert showcase_app._visible_page is showcase_app._pages["设置"]
+    assert showcase_app._pages["设置"].winfo_manager() == "place"

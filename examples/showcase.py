@@ -25,6 +25,7 @@ from __future__ import annotations
 import sys
 import tkinter as tk
 from pathlib import Path
+from typing import Optional
 
 import customtkinter as ctk
 
@@ -1293,6 +1294,7 @@ class ShowcaseApp(ctk.CTk):
         self.configure(fg_color=T.COLOR_BG)
 
         self._current = "总览"
+        self._visible_page: Optional[ctk.CTkFrame] = None
         self._buttons: dict[str, ctk.CTkButton] = {}
         self._pages: dict[str, ctk.CTkFrame] = {}
 
@@ -1362,16 +1364,20 @@ class ShowcaseApp(ctk.CTk):
             "表单": build_form_page(area),
             "设置": build_settings_page(area, on_theme=self.set_appearance_mode),
         }
+        # 所有页面都铺在同一块区域上（place 叠放），切页只 lift 顶层那张。
+        # 用 pack / pack_forget 切换时，旧页先消失、新页再重排，组件多的页面
+        # （列表页）会闪出一帧空白，看起来像页面撕裂。
+        for page in self._pages.values():
+            page.place(relx=0, rely=0, relwidth=1, relheight=1)
+            page.lower()
 
     def show_page(self, name: str) -> None:
         if name not in self._pages:
             raise ValueError(f"未知页面：{name!r}；可选 {list(self.PAGES)}")
         self._current = name
-        for key, page in self._pages.items():
-            if key == name:
-                page.pack(fill="both", expand=True)
-            else:
-                page.pack_forget()
+        page = self._pages[name]
+        page.lift()
+        self._visible_page = page
         for key, button in self._buttons.items():
             active = key == name
             button.configure(

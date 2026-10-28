@@ -62,6 +62,7 @@ class DropField(ctk.CTkFrame):
         self._popup: Optional[ctk.CTkToplevel] = None
         self._root_bind_id: Optional[str] = None
         self._focus_bind_id: Optional[str] = None
+        self._resize_bind_id: Optional[str] = None
 
         self.entry: ctk.CTkEntry = ctk.CTkEntry(
             self,
@@ -174,6 +175,26 @@ class DropField(ctk.CTkFrame):
         self._focus_bind_id = self.winfo_toplevel().bind(
             "<FocusOut>", self._on_root_focus_out, add="+"
         )
+        # 主窗口移动或缩放时，面板要贴着输入框重新对齐
+        self._resize_bind_id = self.winfo_toplevel().bind(
+            "<Configure>", self._follow_root, add="+"
+        )
+
+    def _follow_root(self, _event: Optional[tk.Event] = None) -> None:
+        """主窗口移动 / 缩放后，把面板重新贴回输入框下方。"""
+        popup = self._popup
+        if popup is None or not popup.winfo_exists():
+            return
+        if not self.winfo_ismapped():
+            self._close_menu()
+            return
+        scaling = self.winfo_toplevel()._get_window_scaling()
+        width = max(self.winfo_width(), int(320 * scaling)) / scaling
+        height = (popup.winfo_reqheight() + 2) / scaling
+        popup.geometry(
+            f"{int(width)}x{int(height)}+"
+            f"{self.winfo_rootx()}+{self.winfo_rooty() + self.winfo_height() + 2}"
+        )
 
     def _on_root_focus_out(self, _event: Optional[tk.Event] = None) -> None:
         """顶层窗口失焦后稍等再检查焦点，避免刚点面板就被收起。"""
@@ -259,6 +280,10 @@ class DropField(ctk.CTkFrame):
             with contextlib.suppress(Exception):
                 self.winfo_toplevel().unbind("<FocusOut>", self._focus_bind_id)
             self._focus_bind_id = None
+        if self._resize_bind_id is not None:
+            with contextlib.suppress(Exception):
+                self.winfo_toplevel().unbind("<Configure>", self._resize_bind_id)
+            self._resize_bind_id = None
         with contextlib.suppress(Exception):
             self.arrow.configure(text=_ARROW_CLOSED)
         if self._popup is not None:

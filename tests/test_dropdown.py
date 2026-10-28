@@ -151,3 +151,27 @@ def test_popup_body_is_rounded_and_inset(root):
     assert int(info["padx"]) > 0
     assert int(info["pady"]) > 0
     drop._close_menu()
+
+
+def test_popup_follows_root_resize(root):
+    """主窗口缩放后，面板宽度和位置要重新贴回输入框。"""
+    root.geometry("700x600+0+0")
+    root.update()
+    drop = _make_drop(root)
+    root.update()
+
+    drop.open_menu()
+    root.update()
+    popup = drop._popup
+    before = popup.winfo_width()
+
+    root.geometry("1000x760+0+0")
+    root.update()
+
+    assert popup.winfo_width() > before
+    assert abs(popup.winfo_rootx() - drop.winfo_rootx()) <= 2
+    assert (
+        abs(popup.winfo_rooty() - (drop.winfo_rooty() + drop.winfo_height() + 2)) <= 2
+    )
+    drop._close_menu()
+    assert drop._resize_bind_id is None

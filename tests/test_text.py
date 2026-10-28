@@ -117,6 +117,16 @@ def test_textbox_colors_use_tokens(root):
     assert area.textbox.cget("border_color") == T.COLOR_BORDER
 
 
+def test_bg_color_and_text_color_can_be_overridden(root):
+    """日志场景：底色跟卡片走，不再比周围亮一截。"""
+    area = TextArea(root, bg_color=T.COLOR_CARD, text_color=T.COLOR_MUTED)
+    assert area.textbox.cget("fg_color") == T.COLOR_CARD
+    assert area.textbox.cget("text_color") == T.COLOR_MUTED
+
+    area.set("日志")
+    assert area.textbox.cget("text_color") == T.COLOR_MUTED
+
+
 def test_is_exported():
     assert ctk_kit.TextArea is TextArea
     assert "TextArea" in ctk_kit.__all__

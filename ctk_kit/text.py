@@ -42,6 +42,8 @@ class TextArea(ctk.CTkFrame):
         readonly: bool = False,
         show_counter: bool = True,
         on_change: ChangeHandler = None,
+        bg_color: Any = None,
+        text_color: Any = None,
         **kwargs: Any,
     ) -> None:
         """创建文本区。
@@ -53,6 +55,10 @@ class TextArea(ctk.CTkFrame):
             readonly: 是否只读（禁止编辑，仍可选中与复制）。
             show_counter: 是否在底部显示字数统计，默认 True。
             on_change: 内容变化时的回调，参数是当前全文。
+            bg_color: 文本区底色（颜色元组或 ``"transparent"``），默认用输入框底色
+                ``COLOR_INPUT``。放在卡片里当日志显示时，传 ``COLOR_CARD`` 或
+                ``"transparent"`` 就不会比周围亮一截。
+            text_color: 正文颜色，默认 ``COLOR_TEXT``。
             **kwargs: 透传给外层 ``CTkFrame`` 的参数。
         """
         kwargs.setdefault("fg_color", "transparent")
@@ -62,6 +68,7 @@ class TextArea(ctk.CTkFrame):
         self._placeholder_active = False
         self._readonly = bool(readonly)
         self._on_change = on_change
+        self._text_color: Any = text_color if text_color is not None else T.COLOR_TEXT
 
         self.textbox = ctk.CTkTextbox(
             self,
@@ -69,8 +76,8 @@ class TextArea(ctk.CTkFrame):
             corner_radius=T.RADIUS_MEDIUM,
             border_width=1,
             border_color=T.COLOR_BORDER,
-            fg_color=T.COLOR_INPUT,
-            text_color=T.COLOR_TEXT,
+            fg_color=bg_color if bg_color is not None else T.COLOR_INPUT,
+            text_color=self._text_color,
             font=T.FONT_BODY,
             wrap="word",
         )
@@ -108,12 +115,12 @@ class TextArea(ctk.CTkFrame):
         if text:
             self.textbox.insert("1.0", text)
             self._placeholder_active = False
-            self.textbox.configure(text_color=T.COLOR_TEXT)
+            self.textbox.configure(text_color=self._text_color)
         elif self._placeholder:
             self._show_placeholder()
         else:
             self._placeholder_active = False
-            self.textbox.configure(text_color=T.COLOR_TEXT)
+            self.textbox.configure(text_color=self._text_color)
         self._apply_readonly_state()
         self._refresh()
 
@@ -146,7 +153,7 @@ class TextArea(ctk.CTkFrame):
 
     def _clear_placeholder(self) -> None:
         self.textbox.delete("1.0", "end")
-        self.textbox.configure(text_color=T.COLOR_TEXT)
+        self.textbox.configure(text_color=self._text_color)
         self._placeholder_active = False
 
     def _handle_focus_in(self, _event: Any) -> None:

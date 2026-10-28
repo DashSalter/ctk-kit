@@ -747,7 +747,9 @@ def build_inputs_page(master) -> ctk.CTkFrame:
     field_label(row, "只读日志").pack(side="left")
     hint_label(row, "预设内容，不可编辑，可选中复制").pack(side="left", padx=(8, 0))
 
-    log = TextArea(body, height=96, readonly=True, show_counter=False)
+    log = TextArea(
+        body, height=96, readonly=True, show_counter=False, bg_color=T.COLOR_CARD
+    )
     log.set(
         "22:00  已连接\n"
         "22:01  同步 12 条记录\n"

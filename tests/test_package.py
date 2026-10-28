@@ -80,9 +80,34 @@ def test_py_typed_marker_is_shipped():
     assert Path(ctk_kit.__file__).with_name("py.typed").is_file()
 
 
-def test_showcase_example_is_shipped_in_repo():
-    showcase = Path(__file__).resolve().parents[1] / "examples" / "showcase.py"
-    assert showcase.is_file()
+def test_showcase_is_shipped_in_package():
+    """示例随 wheel 发布：装好包后 ``ctk-kit-showcase`` 直接能跑。"""
+    from ctk_kit import showcase
+
+    assert callable(showcase.main)
+    assert showcase.__file__.endswith("showcase.py")
+    assert Path(showcase.__file__).is_file()
+
+    entry_points = entry_point_names()
+    assert "ctk-kit-showcase" in entry_points, entry_points
+
+
+def test_showcase_example_is_a_thin_wrapper_in_repo():
+    example = Path(__file__).resolve().parents[1] / "examples" / "showcase.py"
+    assert example.is_file()
+    source = example.read_text(encoding="utf-8")
+    assert "from ctk_kit.showcase import main" in source
+
+
+def entry_point_names() -> dict:
+    """已安装时读 console_scripts；没装的话跳过。"""
+    from importlib.metadata import entry_points
+
+    try:
+        installed = entry_points(group="console_scripts")
+    except Exception:  # pragma: no cover - 老版本 Python 的 entry_points 形状不同
+        pytest.skip("当前 importlib.metadata 不支持 group 过滤")
+    return {ep.name: ep.value for ep in installed}
 
 
 def test_installed_metadata_matches_version():

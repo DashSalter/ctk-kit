@@ -29,12 +29,21 @@ primary_button(app, "新建", lambda: None).pack()
 app.mainloop()
 ```
 
-看实际效果：
+看实际效果：示例随包发布，装好 ctk-kit 后可以直接跑：
+
+```
+pip install ctk-kit
+ctk-kit-showcase
+```
+
+也可以从源码运行（不用安装）：
 
 ```
 git clone https://gitee.com/kuangjianke/ctk-kit
 cd ctk-kit
 python examples/showcase.py
+# 等价写法
+python -m ctk_kit.showcase
 ```
 
 展示程序有九个页面：总览、基件、按钮、输入、布局、列表、主题、表单、设置，把每个公开构建都用一遍。
@@ -138,10 +147,12 @@ ctk_kit/
 ├─ inputs.py       输入框 / 分段选择 / 开关
 ├─ dropdown.py     自绘下拉
 ├─ layout.py       页头、卡片、分隔线、空态、滚动容器
-└─ scroll_list.py  懒加载列表
+├─ scroll_list.py  懒加载列表
+├─ text.py         多行文本区
+└─ showcase.py     全组件展示（随包发布，`ctk-kit-showcase`）
 
 examples/
-└─ showcase.py     全组件展示（九个页面，也可当模板改）
+└─ showcase.py     仓库里的快捷入口（转发到 ctk_kit.showcase:main）
 ```
 
 ## 测试
@@ -152,7 +163,7 @@ pytest
 ```
 
 测试跑在真实 Tk 窗口里（窗口全透明，不会在屏幕上闪），覆盖令牌、主题、按钮、输入框、
-下拉、布局、懒加载列表，以及 `examples/showcase.py` 的九个示例页；没有图形环境时相关用例自动 skip。
+下拉、布局、懒加载列表、大文本区，以及 `ctk_kit/showcase.py` 的九个示例页；没有图形环境时相关用例自动 skip。
 
 CI 在 GitHub Actions 上跑 Python 3.8 – 3.14 全矩阵（`.github/workflows/ci.yml`），
 无头环境下用 Xvfb 提供虚拟屏幕；`CI` 环境变量存在时如果建不出窗口会直接失败，而不是静默跳过。

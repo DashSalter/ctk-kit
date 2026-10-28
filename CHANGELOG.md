@@ -13,6 +13,9 @@
   内层总高要乘同一个系数）
 - `TextArea` 新增 `bg_color` / `text_color` 参数：内部底色默认仍是输入框色，
   当日志面板显示时可传 `COLOR_CARD` 或 `"transparent"` 与所在卡片融合
+- 示例随 wheel 发布：新增 `ctk_kit/showcase.py` 与 `ctk-kit-showcase` 命令，
+  `pip install ctk-kit` 之后直接运行 `ctk-kit-showcase` 就能看九个示例页；
+  仓库里的 `examples/showcase.py` 改为转发到 `ctk_kit.showcase:main` 的薄壳
 
 ## 0.2.0 — 2026-10-28
 

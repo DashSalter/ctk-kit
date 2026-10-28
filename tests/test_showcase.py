@@ -2,37 +2,23 @@
 
 Showcase 同时是「文档」和「冒烟测试」：这里的用例保证每个页面构建时不抛异常，
 并且按钮 / 分段 / 下拉这些交互真的接到了页面的反馈条上。
+示例本体在 ``ctk_kit/showcase.py``，随 wheel 一起发布。
 """
 
 from __future__ import annotations
 
-import importlib.util
-import sys
 import time
 import tkinter as tk
-from pathlib import Path
 
 import customtkinter as ctk
 import pytest
 
+from ctk_kit import showcase as _showcase
 from ctk_kit import tokens as T
 from ctk_kit.dropdown import DropField
 from ctk_kit.scroll_list import LazyList
 from ctk_kit.theme import color_of
 
-
-def _load_showcase():
-    """按路径加载 examples/showcase.py —— 示例脚本不属于 ctk_kit 包。"""
-    path = Path(__file__).resolve().parents[1] / "examples" / "showcase.py"
-    spec = importlib.util.spec_from_file_location("ctk_kit_showcase", path)
-    assert spec is not None and spec.loader is not None
-    module = importlib.util.module_from_spec(spec)
-    sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
-    return module
-
-
-_showcase = _load_showcase()
 ShowcaseApp = _showcase.ShowcaseApp
 build_buttons_page = _showcase.build_buttons_page
 build_form_page = _showcase.build_form_page

@@ -21,9 +21,12 @@
     primary_button(box, "立即备份", command=lambda: print("go")).pack(padx=16, pady=16)
     app.mainloop()
 
-全组件展示（示例脚本，见仓库 examples/）::
+全组件展示（随包发布，装好后直接运行）::
 
-    python examples/showcase.py
+    ctk-kit-showcase
+    python -m ctk_kit.showcase
+
+从源码运行时等价写法：``python examples/showcase.py``。
 
 仓库: https://gitee.com/kuangjianke/ctk-kit
 镜像: https://github.com/DashSalter/ctk-kit

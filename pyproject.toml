@@ -40,6 +40,9 @@ dependencies = ["customtkinter>=5.2"]
 [project.optional-dependencies]
 test = ["pytest>=7"]
 
+[project.scripts]
+ctk-kit-showcase = "ctk_kit.showcase:main"
+
 [project.urls]
 Homepage = "https://gitee.com/kuangjianke/ctk-kit"
 Repository = "https://gitee.com/kuangjianke/ctk-kit"

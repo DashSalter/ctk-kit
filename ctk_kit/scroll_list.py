@@ -197,6 +197,17 @@ class LazyList(tk.Frame):
         self._cancel_load()
         self._append(len(self._items) - self._shown)
 
+    def reset(self) -> None:
+        """回到首屏：只保留 ``first_batch`` 张卡并把滚动位置归零。
+
+        适合页面被隐藏时调用。已展开几百张卡时，控件数量会让重新显示
+        或窗口缩放明显变慢；缩回首屏后重排成本就回到常数级。
+        """
+        if not self._items:
+            return
+        self._signature = None
+        self.render(self._items, force=True)
+
     def scroll_units(self, steps: int) -> None:
         """按「行」滚动；steps>0 向下，steps<0 向上。
 

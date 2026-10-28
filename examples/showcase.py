@@ -883,6 +883,7 @@ def build_list_page(master) -> ctk.CTkFrame:
         key_of=lambda item: item["id"],
     )
     listing.pack(fill="both", expand=True)
+    page.listing = listing
 
     divider(area, pady=(12, 10))
     footer = ctk.CTkFrame(area, fg_color="transparent")
@@ -1364,9 +1365,10 @@ class ShowcaseApp(ctk.CTk):
             "表单": build_form_page(area),
             "设置": build_settings_page(area, on_theme=self.set_appearance_mode),
         }
-        # 所有页面都铺在同一块区域上（place 叠放），切页只 lift 顶层那张。
-        # 用 pack / pack_forget 切换时，旧页先消失、新页再重排，组件多的页面
-        # （列表页）会闪出一帧空白，看起来像页面撕裂。
+        # 页面用 place 叠放：切页只换层级，不触发 pack 的重排，避免闪出空帧。
+        # 但同一时刻只让当前页参与布局——9 个页面全 placed 时窗口一缩放，
+        # 所有控件（1500+ 个）都要重新排版，实测一次要 1.2s 以上；隐藏页
+        # unmapped 后同样的操作只要 ~120ms。
         for page in self._pages.values():
             page.place(relx=0, rely=0, relwidth=1, relheight=1)
             page.lower()
@@ -1376,14 +1378,30 @@ class ShowcaseApp(ctk.CTk):
             raise ValueError(f"未知页面：{name!r}；可选 {list(self.PAGES)}")
         self._current = name
         page = self._pages[name]
+        page.place(relx=0, rely=0, relwidth=1, relheight=1)
         page.lift()
         self._visible_page = page
+        for key, other in self._pages.items():
+            if other is not page and other.winfo_manager() == "place":
+                other.place_forget()
+                self._trim_page(other)
         for key, button in self._buttons.items():
             active = key == name
             button.configure(
                 fg_color=T.COLOR_SEG_SELECTED if active else "transparent",
                 text_color=T.COLOR_ACCENT if active else T.COLOR_MUTED,
             )
+
+    @staticmethod
+    def _trim_page(page: ctk.CTkFrame) -> None:
+        """离开页面时把很长的列表缩回首屏。
+
+        列表页滚到底加载了上百张卡后，再切回来时 Tk 要为这些控件重新排版，
+        实测要 1 秒；缩回首屏后重排成本回到常数级。
+        """
+        listing = getattr(page, "listing", None)
+        if listing is not None and len(listing.cards) > 24:
+            listing.reset()
 
     def set_appearance_mode(self, mode: str) -> None:
         """切换外观模式并重建全部页面（原生 tk 控件不会自己变色）。"""

@@ -207,3 +207,15 @@ def test_wheel_scrolls_one_step_of_sixty_pixels(root):
     root.update()
     moved = (canvas.yview()[0] - first) * content_height
     assert abs(moved - 60) <= 2
+
+
+def test_reset_returns_to_first_batch(root):
+    """reset 把长列表缩回首屏，滚动位置回到顶部。"""
+    listing = make_list(root, make_items(30), first_batch=5)
+    listing.flush()
+    assert len(listing.cards) == 30
+
+    listing.reset()
+    root.update()
+    assert len(listing.cards) == 5
+    assert listing.canvas.yview()[0] == 0

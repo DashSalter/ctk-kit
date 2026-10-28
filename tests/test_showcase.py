@@ -413,7 +413,7 @@ def test_showcase_app_starts_on_overview(showcase_app):
     assert showcase_app._current == "总览"
     assert showcase_app._visible_page is showcase_app._pages["总览"]
     assert showcase_app._pages["总览"].winfo_manager() == "place"
-    assert showcase_app._pages["表单"].winfo_manager() == "place"
+    assert showcase_app._pages["表单"].winfo_manager() == ""
 
 
 def test_showcase_app_switches_page(showcase_app):
@@ -421,6 +421,7 @@ def test_showcase_app_switches_page(showcase_app):
     assert showcase_app._current == "按钮"
     assert showcase_app._visible_page is showcase_app._pages["按钮"]
     assert showcase_app._pages["按钮"].winfo_manager() == "place"
+    assert showcase_app._pages["总览"].winfo_manager() == ""
     assert showcase_app._buttons["按钮"].cget("fg_color") == T.COLOR_SEG_SELECTED
 
 
@@ -481,3 +482,4 @@ def test_showcase_app_settings_switch_keeps_page(showcase_app):
     assert showcase_app._current == "设置"
     assert showcase_app._visible_page is showcase_app._pages["设置"]
     assert showcase_app._pages["设置"].winfo_manager() == "place"
+    assert showcase_app._pages["总览"].winfo_manager() == ""

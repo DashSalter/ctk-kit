@@ -109,7 +109,8 @@ python examples/showcase.py
   ```
 
   虚拟滚动要求卡片高度固定（例如自己 `pack_propagate(False)` 并设置 `height`），
-  并把卡片间距算进 `item_height`。
+  并把卡片间距算进 `item_height`。`item_height` 用和控件尺寸一样的逻辑单位，
+  高 DPI 缩放下由 `LazyList` 自己换算。
 
 ## 设计令牌
 

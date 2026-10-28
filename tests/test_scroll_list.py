@@ -247,7 +247,8 @@ def test_virtual_mode_builds_only_viewport_cards(root):
     """虚拟模式只建视口附近的卡片，内层高度按总条数撑开。"""
     listing = make_virtual_list(root)
     assert len(listing.cards) < 25
-    assert int(listing.inner.cget("height")) == 120 * 96
+    scale = ctk.ScalingTracker.get_widget_scaling(listing)
+    assert int(listing.inner.cget("height")) == int(120 * 96 * scale)
 
 
 def test_virtual_mode_reuses_cards_after_scrolling_back(root):

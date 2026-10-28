@@ -307,8 +307,11 @@ class LazyList(tk.Frame):
 
     def _sync_scrollbar(self) -> None:
         """内容装得下时把滑块涂成背景色（布局宽度不变）。"""
-        box = self.canvas.bbox("all")
-        content = (box[3] - box[1]) if box else 0
+        if self.item_height is not None:
+            content = len(self._items) * self.item_height * self._card_scale()
+        else:
+            box = self.canvas.bbox("all")
+            content = (box[3] - box[1]) if box else 0
         visible = content > self.canvas.winfo_height() + 1
         if visible == self._scrollbar_visible:
             return
@@ -349,7 +352,7 @@ class LazyList(tk.Frame):
         self.scrollbar.set(first, last)
         if self.item_height is not None:
             self._sync_scrollbar()
-            self._sync_window()
+            self._sync_window(float(first), float(last))
             return
         if self._loading or self._shown >= len(self._items):
             return
@@ -402,6 +405,13 @@ class LazyList(tk.Frame):
 
     def _sync_scrollregion(self, _event: Optional[tk.Event] = None) -> None:
         """把 canvas 的可滚动区域更新为内容包围盒。"""
+        if self.item_height is not None and self._items:
+            # 虚拟模式的内容高度是算出来的，不依赖当前放上布局的卡片
+            height = self.item_height * len(self._items) * self._card_scale()
+            self.canvas.configure(
+                scrollregion=(0, 0, self.canvas.winfo_width(), height)
+            )
+            return
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _on_canvas_resize(self, event: tk.Event) -> None:
@@ -424,10 +434,18 @@ class LazyList(tk.Frame):
 
     # ------------------------------------------------------------------ #
     #  虚拟滚动
+    def _card_scale(self) -> float:
+        """卡片 place 时 CTk 会按窗口缩放放大坐标，这里取同一个系数。"""
+        try:
+            scale = float(ctk.ScalingTracker.get_widget_scaling(self))
+        except Exception:
+            scale = 1.0
+        return scale if scale > 0 else 1.0
+
     def _layout_virtual(self) -> None:
         """按固定卡片高度把内层撑到总高，然后只铺视口附近的卡片。"""
         height = self.item_height or 0
-        total = len(self._items) * height
+        total = len(self._items) * height * self._card_scale()
         self.inner.configure(height=total)
         self.canvas.itemconfigure(self._window, width=self.canvas.winfo_width())
         self.canvas.configure(
@@ -443,19 +461,37 @@ class LazyList(tk.Frame):
             self._built[index] = card
         return card
 
-    def _sync_window(self, force: bool = False) -> None:
-        """把视口附近的卡片放上布局，滚出视口的收起（保留对象不销毁）。"""
+    def _sync_window(
+        self, first: Optional[float] = None, last: Optional[float] = None, force: bool = False
+    ) -> None:
+        """把视口附近的卡片放上布局，滚出视口的收起（保留对象不销毁）。
+
+        ``first`` / ``last`` 由 yscrollcommand 回调直接给出；不传时读
+        ``canvas.yview()``。滚动过程中回调参数比再读一次更接近真实位置。
+        """
         height = self.item_height
         if height is None:
             return
         count = len(self._items)
         if count == 0:
             return
-        total = count * height
-        first, last = self.canvas.yview()
-        # 缓冲两三张，快速滚动时不会露出空白
-        start = max(0, int(float(first) * total // height) - 2)
-        end = min(count, int(float(last) * total // height) + 3)
+        # 内层是普通 tk.Frame，高度按物理像素算；卡片 place 的坐标是逻辑值，
+        # CTk 会再乘一次缩放，所以总高要乘缩放系数，否则滚动位置会错位。
+        scale = self._card_scale()
+        total = count * height * scale
+        step = height * scale
+        if int(self.inner.cget("height")) != total:
+            # 任何地方把内层改小时都拉回总高，否则滚动条比例会错
+            self.inner.configure(height=total)
+            self.canvas.configure(
+                scrollregion=(0, 0, self.canvas.winfo_width(), total)
+            )
+        if first is None or last is None:
+            current = self.canvas.yview()
+            first, last = float(current[0]), float(current[1])
+        # 缓冲几张，快速滚动或拖动滚动条时不会露出空白
+        start = max(0, int(first * total // step) - 3)
+        end = min(count, int(last * total // step) + 4)
         if not force and (start, end) == self._range:
             return
         self._range = (start, end)

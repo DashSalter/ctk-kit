@@ -1398,13 +1398,16 @@ class ShowcaseApp(ctk.CTk):
 
     @staticmethod
     def _trim_page(page: ctk.CTkFrame) -> None:
-        """离开页面时把很长的列表缩回首屏。
+        """离开页面时把很长的列表缩回首屏（只针对分批模式）。
 
         列表页滚到底加载了上百张卡后，再切回来时 Tk 要为这些控件重新排版，
-        实测要 1 秒；缩回首屏后重排成本回到常数级。
+        实测要 1 秒；缩回首屏后重排成本回到常数级。虚拟滚动模式本来只布局
+        视口附近，卡片也复用着，切回来保持原位置即可。
         """
         listing = getattr(page, "listing", None)
-        if listing is not None and len(listing.cards) > 24:
+        if listing is None or listing.item_height is not None:
+            return
+        if len(listing.cards) > 24:
             listing.reset()
 
     def set_appearance_mode(self, mode: str) -> None:

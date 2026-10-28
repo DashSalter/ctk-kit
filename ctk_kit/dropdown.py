@@ -1,0 +1,242 @@
+"""下拉输入框：输入框 + 右侧箭头，候选用 UI Kit 自己的卡片弹出。
+
+不用 CTkComboBox：它底层是 tkinter.Menu（Windows 原生菜单），带粗白边、
+直角和系统字体，和这套深色卡片的观感对不上。
+
+箭头用字体里的实心三角字符，不做任何自绘——既不会有锯齿，也不会在输入框
+内部留下色块。
+"""
+
+from __future__ import annotations
+
+import contextlib
+import sys
+
+import customtkinter as ctk
+
+from . import tokens as T
+
+_ARROW_CLOSED = "▼"
+_ARROW_OPEN = "▲"
+
+
+
+class DropField(ctk.CTkFrame):
+    """输入框 + 下拉箭头，整体是一个带描边的圆角框。
+
+    用法与输入框接近：``get()`` / ``set(value)``；选中候选后会回调
+    ``command(value)``。
+    """
+
+    def __init__(
+        self,
+        master,
+        *,
+        values_provider,
+        command=None,
+        placeholder: str = "",
+        height: int = 36,
+    ):
+        super().__init__(
+            master,
+            fg_color=T.COLOR_INPUT,
+            border_width=1,
+            border_color=T.COLOR_BORDER,
+            corner_radius=T.RADIUS_SMALL,
+            height=height,
+        )
+        self.pack_propagate(False)
+        self._values_provider = values_provider
+        self._command = command
+        self._popup = None
+        self._root_bind_id = None
+        self._focus_bind_id = None
+
+        self.entry = ctk.CTkEntry(
+            self,
+            fg_color="transparent",
+            border_width=0,
+            corner_radius=0,
+            height=height - 2,
+            font=T.FONT_BODY,
+            text_color=T.COLOR_TEXT,
+            placeholder_text=placeholder,
+            placeholder_text_color=T.COLOR_FAINT,
+        )
+        self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=1)
+
+        self.arrow = ctk.CTkLabel(
+            self,
+            text=_ARROW_CLOSED,
+            width=34,
+            height=26,
+            font=(T.FONT_NAME, 11),
+            text_color=T.COLOR_MUTED,
+            fg_color="transparent",
+            corner_radius=5,
+            anchor="center",
+        )
+        self.arrow.pack(side="right", padx=(0, 4), pady=1)
+        self.arrow.configure(cursor="hand2")
+        self.arrow.bind("<Button-1>", lambda _event: self.open_menu())
+        self.arrow.bind("<Enter>", lambda _event: self._set_hover(True))
+        self.arrow.bind("<Leave>", lambda _event: self._set_hover(False))
+
+    def _set_hover(self, hover: bool) -> None:
+        self.arrow.configure(
+            text_color=T.COLOR_TEXT if hover else T.COLOR_MUTED,
+            fg_color=T.COLOR_HOVER_FAINT if hover else "transparent",
+        )
+
+    # --- 读写 ---
+    def get(self) -> str:
+        return self.entry.get()
+
+    def set(self, value: str) -> None:
+        self.entry.delete(0, "end")
+        self.entry.insert(0, value)
+
+    # --- 下拉面板 ---
+    def open_menu(self) -> None:
+        if self._popup is not None and self._popup.winfo_exists():
+            self._close_menu()
+            return
+
+        values = list(self._values_provider() or [])
+        if not values:
+            return
+
+        popup = ctk.CTkToplevel(self)
+        popup.withdraw()
+        popup.overrideredirect(True)
+        popup.attributes("-topmost", True)
+        popup.configure(fg_color=T.COLOR_CARD)
+
+        body = ctk.CTkFrame(
+            popup,
+            fg_color=T.COLOR_CARD,
+            corner_radius=0,
+            border_width=1,
+            border_color=T.COLOR_BORDER,
+        )
+        body.pack(fill="both", expand=True)
+
+        for value in values:
+            ctk.CTkButton(
+                body,
+                text=value,
+                anchor="w",
+                height=32,
+                corner_radius=T.RADIUS_SMALL,
+                fg_color="transparent",
+                hover_color=T.COLOR_SOFT_HOVER,
+                text_color=T.COLOR_TEXT,
+                font=T.FONT_SMALL,
+                command=lambda v=value: self._pick(v),
+            ).pack(fill="x", padx=5, pady=1)
+
+        popup.update_idletasks()
+        # 宽高按逻辑像素缩放，位置参数直接是物理像素
+        scaling = self.winfo_toplevel()._get_window_scaling()
+        width = max(self.winfo_width(), int(320 * scaling)) / scaling
+        height = (popup.winfo_reqheight() + 2) / scaling
+        popup.geometry(
+            f"{int(width)}x{int(height)}+"
+            f"{self.winfo_rootx()}+{self.winfo_rooty() + self.winfo_height() + 2}"
+        )
+        popup.deiconify()
+        popup.bind("<Escape>", self._close_menu)
+        self._round_window_corners(popup)
+
+        self._popup = popup
+        self.arrow.configure(text=_ARROW_OPEN)
+        # 点击面板以外的地方收起：绑在顶层窗口上（子控件的点击也会冒泡到顶层）
+        self._root_bind_id = self.winfo_toplevel().bind(
+            "<Button-1>", self._maybe_close_menu, add="+"
+        )
+        # 焦点离开本应用（切到别的程序）时也收起，避免面板一直浮在最上面
+        self._focus_bind_id = self.winfo_toplevel().bind(
+            "<FocusOut>", self._on_root_focus_out, add="+"
+        )
+
+    def _on_root_focus_out(self, _event=None) -> None:
+        self.after(100, self._check_focus)
+
+    def _check_focus(self) -> None:
+        if self._popup is None:
+            return
+        try:
+            focused = self.focus_get()
+        except Exception:
+            focused = None
+        if focused is not None:
+            widget_name = str(focused)
+            if widget_name.startswith(str(self._popup)) or widget_name.startswith(
+                str(self.winfo_toplevel())
+            ):
+                return
+        self._close_menu()
+
+    def _round_window_corners(self, popup) -> None:
+        """把窗口本身裁成圆角。
+
+        tk 的窗口永远是直角，靠透明键色抠角又会留下一圈抗锯齿杂边，
+        这里直接用 Windows 的 SetWindowRgn 把窗口区域切掉，四角干净没有残色。
+        """
+        if sys.platform != "win32":
+            return
+        with contextlib.suppress(Exception):
+            import ctypes
+
+            popup.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(popup.winfo_id()) or popup.winfo_id()
+            scaling = self.winfo_toplevel()._get_window_scaling()
+            radius = int(T.RADIUS_MEDIUM * 2 * scaling)
+            width = popup.winfo_width()
+            height = popup.winfo_height()
+            region = ctypes.windll.gdi32.CreateRoundRectRgn(
+                0, 0, width + 1, height + 1, radius, radius
+            )
+            ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+
+    def _maybe_close_menu(self, event) -> None:
+        popup = self._popup
+        if popup is None or not popup.winfo_exists():
+            return
+        if (
+            popup.winfo_rootx()
+            <= event.x_root
+            <= popup.winfo_rootx() + popup.winfo_width()
+            and popup.winfo_rooty()
+            <= event.y_root
+            <= popup.winfo_rooty() + popup.winfo_height()
+        ):
+            return
+        self._close_menu()
+
+    def _pick(self, value: str) -> None:
+        self.set(value)
+        self._close_menu()
+        if self._command is not None:
+            self._command(value)
+
+    def _close_menu(self, _event=None) -> None:
+        if self._root_bind_id is not None:
+            with contextlib.suppress(Exception):
+                self.winfo_toplevel().unbind("<Button-1>", self._root_bind_id)
+            self._root_bind_id = None
+        if self._focus_bind_id is not None:
+            with contextlib.suppress(Exception):
+                self.winfo_toplevel().unbind("<FocusOut>", self._focus_bind_id)
+            self._focus_bind_id = None
+        with contextlib.suppress(Exception):
+            self.arrow.configure(text=_ARROW_CLOSED)
+        if self._popup is not None:
+            with contextlib.suppress(Exception):
+                if self._popup.winfo_exists():
+                    self._popup.destroy()
+            self._popup = None
+
+    def destroy(self):
+        self._close_menu()
+        super().destroy()

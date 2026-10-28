@@ -1,0 +1,144 @@
+# ctk-kit
+
+面向 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 的轻量界面基件：
+一套深浅色设计令牌、一批常用控件，以及一个会自动分页的懒加载列表。
+
+写它的起因很朴素——每个 customtkinter 项目都要重新调一遍颜色、圆角、按钮宽度和滚动列表的
+分批渲染，调完还很难看齐。ctk-kit 把这些收成一层薄薄的公共件，项目之间可以直接复用。
+
+```
+pip install ctk-kit
+```
+
+```python
+import customtkinter as ctk
+from ctk_kit import apply_appearance, primary_button, page_header
+
+apply_appearance("Dark")
+app = ctk.CTk()
+
+head, info = page_header(app, "全部记录")
+head.pack(fill="x", padx=20, pady=(16, 8))
+primary_button(app, "新建", lambda: None).pack()
+app.mainloop()
+```
+
+看实际效果：
+
+```
+python -m ctk_kit.demo
+```
+
+demo 有四页：列表、组件、配色、表单。配色页把 24 个色值连同浅/深两套十六进制值一起列出来，
+换主题时对着它调最直观。
+
+## 三层结构
+
+| 层 | 模块 | 内容 |
+| --- | --- | --- |
+| 令牌 | `tokens` | `COLOR_*`（全部为浅/深二元组）、`FONT_*`、`RADIUS_*`、`SPACE_*` |
+| 主题 | `theme` | `is_dark()`、`color_of()`、`apply_appearance()`、`repaint_native()` |
+| 组件 | `buttons` / `inputs` / `dropdown` / `layout` / `scroll_list` | 见下 |
+
+## 组件
+
+**按钮**（`buttons`）
+
+- `primary_button(master, text, command, *, width=120, height=38, radius=9, font=FONT_BODY)`
+- `soft_button(..., width=76, height=30, font=FONT_SMALL, border=False)` —— 次要操作
+- `danger_button(...)` —— 删除一类不可逆操作
+- `FlatButton(CTkButton)` / `SoftButton(FlatButton)` —— 卡片里的小按钮，宽度按文字实测
+  （内部是 `CTkButton` 子类，所以有圆角）
+
+**输入**（`inputs`）
+
+- `toolbar_entry(master, placeholder, *, height=40)` —— 工具条里的搜索框，聚焦时描边变主色
+- `form_entry(master, *, show="", placeholder="", height=38, password=False)`
+- `segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
+- `switch(master, command=None, *, width=44)`
+
+**下拉**（`dropdown`）
+
+- `DropField(master, *, values_provider, command=None, placeholder="", height=36)` —— 自绘候选卡片，
+  不用 `CTkComboBox`，因为系统下拉框在深浅色之间很难统一
+
+**布局**（`layout`）
+
+- `page_header(master, title) -> (head, info)` —— 左标题右信息
+- `section_title(master, text)`、`card(master)`、`divider(master)`
+- `field_label(master, text, *, width=112)`、`hint_label(master, text)`
+- `empty_hint(master, title, detail="")` —— 空态
+- `scrollable(master)` / `style_scrollable(frame)` —— 统一滚动条的宽度与配色
+
+**列表**（`scroll_list`）
+
+- `LazyList(master, render_card, *, key_of=None, first_batch=12, load_more=8, ...)`
+
+  只创建可见的一批卡片，滚到底再补下一批；内容不足以填满视口时自动补齐。
+  卡片工厂由调用方提供，所以同一个列表能装任何东西：
+
+  ```python
+  def make_card(parent, item):
+      card = ctk.CTkFrame(parent, corner_radius=12, border_width=1, border_color=COLOR_BORDER)
+      ctk.CTkLabel(card, text=item["title"], anchor="w").pack(fill="x", padx=16, pady=(14, 0))
+      return card
+
+  listing = LazyList(frame, make_card, key_of=lambda item: item["id"])
+  listing.pack(fill="both", expand=True)
+  listing.render(items)
+  ```
+
+## 设计令牌
+
+颜色全部是 `(浅色, 深色)` 二元组，交给 `color_of()` 按当前外观取值：
+
+```python
+from ctk_kit import color_of
+from ctk_kit.tokens import COLOR_ACCENT
+
+color_of(COLOR_ACCENT)   # 深色下返回 "#2f6fed"
+```
+
+`LazyList`、`segmented` 这类控件需要跟随外观重建的，切主题后调用 `apply_appearance(mode)`，
+再重建相关控件即可（`repaint_native()` 用于原生 tk 控件，它们的 `configure` 被 CTk 接管过）。
+
+## 目录
+
+```
+ctk_kit/
+├─ tokens.py       设计令牌
+├─ theme.py        取色 / 外观切换 / 原生控件重绘
+├─ buttons.py      按钮
+├─ inputs.py       输入框 / 分段选择 / 开关
+├─ dropdown.py     自绘下拉
+├─ layout.py       页头、卡片、分隔线、空态、滚动容器
+├─ scroll_list.py  懒加载列表
+└─ demo.py         组件总览（也可当模板改）
+```
+
+## 测试
+
+```bash
+pip install -e ".[test]"
+pytest
+```
+
+测试跑在真实 Tk 窗口里（窗口全透明，不会在屏幕上闪），覆盖令牌、主题、按钮、输入框、
+下拉、布局和懒加载列表；没有图形环境时相关用例自动 skip。
+
+## 已知的坑
+
+这些都是踩过的，记下来省得再踩：
+
+- `CTkLabel` 不支持 `border_width` / `border_color`，想加边框只能裹一层 `CTkFrame`。
+- `CTkSegmentedButton` 同样不接受 `border_*`，传了会抛 `ValueError`。
+- `CTkScrollbar.set()` 内部会调 `update_idletasks()`，而 `update_idletasks` 会立刻执行
+  `after_idle` 排的回调——用 `after_idle` 排分批渲染会在这个调用里递归建卡，改用 `after(1, ...)`。
+- 滚动区域变化后，Tk 会回放一次 `yscrollcommand(0, 1)`。判断「滚到底」不能信回调参数，
+  要读 `canvas.yview()`。
+- customtkinter 接管了 `tk.Frame.configure`，给原生控件改背景色得走
+  `widget.tk.call(widget._w, "configure", "-background", bg)`，否则会碰到已销毁的子控件。
+
+## License
+
+MIT

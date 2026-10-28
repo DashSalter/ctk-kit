@@ -1,4 +1,4 @@
-"""发布相关的包级契约：版本号、公开导出、类型标记、demo 入口。"""
+"""发布相关的包级契约：版本号、公开导出、类型标记、示例脚本。"""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import customtkinter as ctk
 import pytest
 
 import ctk_kit
-from ctk_kit import buttons, demo, dropdown, inputs, layout, scroll_list, theme, tokens
+from ctk_kit import buttons, dropdown, inputs, layout, scroll_list, theme, tokens
 
 
 def test_version_is_semver():
@@ -71,7 +71,7 @@ def test_public_functions_are_callable():
 
 
 def test_submodules_are_importable():
-    for module in (tokens, theme, buttons, inputs, dropdown, layout, scroll_list, demo):
+    for module in (tokens, theme, buttons, inputs, dropdown, layout, scroll_list):
         assert module.__name__.startswith("ctk_kit.")
 
 
@@ -79,9 +79,9 @@ def test_py_typed_marker_is_shipped():
     assert Path(ctk_kit.__file__).with_name("py.typed").is_file()
 
 
-def test_demo_exposes_main():
-    assert callable(demo.main)
-    assert demo.APP_TITLE
+def test_showcase_example_is_shipped_in_repo():
+    showcase = Path(__file__).resolve().parents[1] / "examples" / "showcase.py"
+    assert showcase.is_file()
 
 
 def test_installed_metadata_matches_version():

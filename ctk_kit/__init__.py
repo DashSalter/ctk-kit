@@ -6,9 +6,9 @@
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
 - 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``layout`` / ``scroll_list``
 
-组件总览::
+全组件展示（示例脚本，见仓库 examples/）::
 
-    python -m ctk_kit.demo
+    python examples/showcase.py
 """
 
 from __future__ import annotations

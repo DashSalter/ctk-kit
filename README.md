@@ -26,11 +26,13 @@ app.mainloop()
 看实际效果：
 
 ```
-python -m ctk_kit.demo
+git clone https://gitee.com/kuangjianke/ctk-kit
+cd ctk-kit
+python examples/showcase.py
 ```
 
-demo 有四页：列表、组件、配色、表单。配色页把 24 个色值连同浅/深两套十六进制值一起列出来，
-换主题时对着它调最直观。
+展示程序有八个页面：总览、基件、按钮、输入、布局、列表、主题、表单，把每个公开构建都用一遍。
+基件页把 24 个色值连同浅/深两套十六进制值一起列出来，换主题时对着它调最直观。
 
 ## 三层结构
 
@@ -112,8 +114,10 @@ ctk_kit/
 ├─ inputs.py       输入框 / 分段选择 / 开关
 ├─ dropdown.py     自绘下拉
 ├─ layout.py       页头、卡片、分隔线、空态、滚动容器
-├─ scroll_list.py  懒加载列表
-└─ demo.py         组件总览（也可当模板改）
+└─ scroll_list.py  懒加载列表
+
+examples/
+└─ showcase.py     全组件展示（八个页面，也可当模板改）
 ```
 
 ## 测试
@@ -124,7 +128,7 @@ pytest
 ```
 
 测试跑在真实 Tk 窗口里（窗口全透明，不会在屏幕上闪），覆盖令牌、主题、按钮、输入框、
-下拉、布局和懒加载列表；没有图形环境时相关用例自动 skip。
+下拉、布局、懒加载列表，以及 `examples/showcase.py` 的八个示例页；没有图形环境时相关用例自动 skip。
 
 ## 已知的坑
 

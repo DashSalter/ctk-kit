@@ -80,6 +80,8 @@ STATUS_COLORS: Dict[str, ColorPair] = {
 
 # ---------------------------------------------------------------- 尺寸
 SCROLLBAR_WIDTH: int = 12
+# 滚动条滑块两侧留白：滑块的可见宽度 = SCROLLBAR_WIDTH - 2 * SCROLLBAR_SPACING
+SCROLLBAR_SPACING: int = 4
 RADIUS_SMALL: int = 8
 RADIUS_MEDIUM: int = 10
 RADIUS_LARGE: int = 12

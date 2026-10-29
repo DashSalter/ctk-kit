@@ -66,6 +66,7 @@ from .layout import (
     scrollable,
     section_title,
     style_scrollable,
+    style_scrollbar,
 )
 from .notify import Notifier, notify
 from .pages import PageRebuilder
@@ -116,6 +117,7 @@ __all__ = [
     "slider",
     "soft_button",
     "style_scrollable",
+    "style_scrollbar",
     "switch",
     "theme",
     "tokens",

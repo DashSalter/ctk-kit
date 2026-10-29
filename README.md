@@ -108,8 +108,9 @@ python -m ctk_kit.showcase.pages.notify --topmost
   —— 多行文本区：失焦时显示占位符、底部字数统计、可切换只读；读写用 `get()/set()/clear()`。
   内部底色默认 `COLOR_INPUT`（输入框语义）；当日志面板显示时传 `bg_color=COLOR_CARD` 或
   `bg_color="transparent"`，就不会比所在卡片亮一截，`text_color` 也可单独覆盖。
-  纵向滚动条的粗细与配色跟 `scrollable()` 一致（`SCROLLBAR_WIDTH` +
-  `COLOR_SCROLLBAR` / `COLOR_SCROLLBAR_HOVER`），不会出现「文本区灰一截、列表又另一种灰」
+  纵向滚动条的粗细与配色跟 `scrollable()` 一致（`SCROLLBAR_WIDTH`、
+  `SCROLLBAR_SPACING`、`COLOR_SCROLLBAR` / `COLOR_SCROLLBAR_HOVER`），
+  不会出现「文本区灰一截、列表又另一种灰」
 
 **下拉**（`dropdown`）
 
@@ -350,6 +351,10 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 - `CTkSegmentedButton` 同样不接受 `border_*`，传了会抛 `ValueError`。
 - `CTkSlider` 的细轨道是靠 `border_width`（默认 6）缩出来的：把它设成 0，轨道会
   变成一根和控件一样高的粗条，圆形把手也会被吞进轨道里看不出来。
+- `CTkScrollbar` 的滑块可见宽度是「控件宽度 − 2 × `border_spacing`」。`CTkTextbox`
+  内部的两个滚动条间距是 0，`CTkScrollableFrame` 用的是主题里的 4，所以同样
+  `width=12`，文本区会画成 12 宽的粗条、滚动容器才 4 宽，并排放着就是两根粗细
+  不同的条。统一交给 `style_scrollbar()`（用 `SCROLLBAR_SPACING`）去调。
 - `CTkScrollbar.set()` 内部会调 `update_idletasks()`，而 `update_idletasks` 会立刻执行
   `after_idle` 排的回调——用 `after_idle` 排分批渲染会在这个调用里递归建卡，改用 `after(1, ...)`。
 - 滚动区域变化后，Tk 会回放一次 `yscrollcommand(0, 1)`。判断「滚到底」不能信回调参数，

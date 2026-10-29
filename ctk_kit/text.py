@@ -25,6 +25,7 @@ from typing import Any, Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .layout import style_scrollbar
 
 # 内容变化回调：收到最新的全文（空文本时是空字符串）。
 ChangeHandler = Optional[Callable[[str], None]]
@@ -88,8 +89,9 @@ class TextArea(ctk.CTkFrame):
         for name in ("_y_scrollbar", "_x_scrollbar"):
             bar = getattr(self.textbox, name, None)
             if bar is not None:
-                # CTkTextbox 没有暴露滚动条宽度的构造参数，只能构造后补一下
-                bar.configure(width=T.SCROLLBAR_WIDTH)
+                # CTkTextbox 没有暴露滚动条宽度的构造参数，只能构造后补一下；
+                # 间距必须和 scrollable() 用同一个，否则滑块会比页面滚动条粗一圈
+                style_scrollbar(bar)
         self.textbox.bind("<FocusIn>", self._handle_focus_in)
         self.textbox.bind("<FocusOut>", self._handle_focus_out)
         self.textbox.bind("<KeyRelease>", lambda _event: self._refresh())

@@ -26,9 +26,12 @@
 - 移除令牌 `COLOR_SEG_SELECTED`：分段控件的选中态已经并入 `COLOR_ACCENT`
 - 示例「输入」页补三节：勾选框、单选组、滑块与进度条（滑块拖动联动进度条）
 - `TextArea` 的滚动条改用统一令牌：`scrollbar_button_color` / `scrollbar_button_hover_color`
-  取 `COLOR_SCROLLBAR` / `COLOR_SCROLLBAR_HOVER`、宽度补成 `SCROLLBAR_WIDTH`，
-  和 `scrollable()` 的滚动条一致（`CTkTextbox` 没有暴露滚动条宽度的构造参数，
-  只能构造后从 `_y_scrollbar` / `_x_scrollbar` 补一下）
+  取 `COLOR_SCROLLBAR` / `COLOR_SCROLLBAR_HOVER`，并补上 `SCROLLBAR_WIDTH` 宽度与
+  `SCROLLBAR_SPACING` 间距，和 `scrollable()` 的滚动条完全一致
+- 新增 `style_scrollbar(bar)` 与令牌 `SCROLLBAR_SPACING`（默认 4）：`CTkScrollbar`
+  的滑块宽度 = 宽度 − 2 × 间距，`CTkTextbox` 内部的滚动条间距是 0，所以同样的
+  `width=12` 在文本区里会画成 12 宽的粗条、在滚动容器里才 4 宽。两处现在共用
+  `style_scrollbar()`
 - README 补四个工厂的签名与配色说明；「已知的坑」补 `CTkSlider` 的细轨道靠
   `border_width` 缩出来这一条
 

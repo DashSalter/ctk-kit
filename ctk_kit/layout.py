@@ -94,6 +94,30 @@ def divider(master: tk.Misc, *, pady: tuple[int, int] = (T.SPACE_MD, 0)) -> ctk.
     return line
 
 
+def style_scrollbar(bar: ctk.CTkScrollbar) -> ctk.CTkScrollbar:
+    """把任意 ``CTkScrollbar`` 调成窄条淡色。
+
+    ``CTkScrollbar`` 的滑块宽度是「控件宽度减去两侧 ``border_spacing``」，
+    默认间距是 0，所以同样 ``width=12`` 的滚动条在文本区里会画成 12 宽的粗条；
+    滚动容器走的是 CTk 主题里的 4，滑块才 4 宽。两处必须统一用同一个间距，
+    否则并排放着就是「一根粗、一根细」。
+
+    参数:
+        bar: ``CTkScrollbar`` 实例。
+
+    返回:
+        同一个 ``bar``，方便链式调用。
+    """
+    bar.configure(
+        width=T.SCROLLBAR_WIDTH,
+        border_spacing=T.SCROLLBAR_SPACING,
+        fg_color="transparent",
+        button_color=T.COLOR_SCROLLBAR,
+        button_hover_color=T.COLOR_SCROLLBAR_HOVER,
+    )
+    return bar
+
+
 def style_scrollable(frame: ctk.CTkScrollableFrame) -> ctk.CTkScrollableFrame:
     """把 CTkScrollableFrame 的滚动条调成窄条淡色。
 
@@ -108,12 +132,7 @@ def style_scrollable(frame: ctk.CTkScrollableFrame) -> ctk.CTkScrollableFrame:
     """
     bar = getattr(frame, "_scrollbar", None)
     if bar is not None:
-        bar.configure(
-            width=T.SCROLLBAR_WIDTH,
-            fg_color="transparent",
-            button_color=T.COLOR_SCROLLBAR,
-            button_hover_color=T.COLOR_SCROLLBAR_HOVER,
-        )
+        style_scrollbar(bar)
     canvas = getattr(frame, "_parent_canvas", None)
     if canvas is not None:
         # CTk 默认 yscrollincrement=1，一格滚轮只挪 20px；调到 3 倍（60px）

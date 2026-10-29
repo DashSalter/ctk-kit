@@ -161,8 +161,10 @@ def segmented(
 
     original_set = button.set
 
-    def select(value: str) -> None:
-        original_set(value)
+    def select(value: str, **kwargs) -> None:
+        # CTkSegmentedButton 内部点按钮时会调 set(value, from_button_callback=True)，
+        # 所以这里必须把多余的关键字参数原样转回去，不能只声明一个 value。
+        original_set(value, **kwargs)
         paint(value)
 
     def on_click(value: str) -> None:

@@ -352,6 +352,12 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 这些都是踩过的，记下来省得再踩：
 
 - `CTkLabel` 不支持 `border_width` / `border_color`，想加边框只能裹一层 `CTkFrame`。
+- `CTkEntry` / `CTkTextbox` 的 `border_width=1` 在圆角弧线上会被抗锯齿摊薄成断断续续
+  的一圈，白色主题下尤其明显（浅色边框 + 白底）。输入类控件统一用 `border_width=2`，
+  边框才连续。
+- 自己拼「带边框的容器」时（像 `DropField` 那样 `CTkFrame` 里塞子控件），子控件的
+  `padx` / `pady` 内缩量要等于外框的 `border_width`，否则子控件会盖住描边，
+  边框看起来一段粗、一段断。
 - `CTkSegmentedButton` 同样不接受 `border_*`，传了会抛 `ValueError`。
 - `CTkSlider` 的细轨道是靠 `border_width`（默认 6）缩出来的：把它设成 0，轨道会
   变成一根和控件一样高的粗条，圆形把手也会被吞进轨道里看不出来。

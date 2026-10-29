@@ -54,7 +54,7 @@ def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk
         font=T.FONT_BODY,
         fg_color=T.COLOR_INPUT,
         border_color=T.COLOR_BORDER_STRONG,
-        border_width=1,
+        border_width=2,
         text_color=T.COLOR_TEXT,
     )
     entry.bind("<FocusIn>", lambda _event: entry.configure(border_color=T.COLOR_ACCENT))
@@ -99,7 +99,7 @@ def form_entry(
         font=T.FONT_BODY,
         fg_color=T.COLOR_INPUT,
         border_color=T.COLOR_BORDER_STRONG,
-        border_width=1,
+        border_width=2,
         text_color=T.COLOR_TEXT,
     )
 

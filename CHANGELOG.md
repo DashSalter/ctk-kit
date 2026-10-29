@@ -22,6 +22,10 @@
 - 输入类控件的边框从 `COLOR_BORDER` 换成 `COLOR_BORDER_STRONG`（`toolbar_entry`、
   `form_entry`、`TextArea`、`DropField`）：浅色下 `#e3e6eb` 贴在白卡片上几乎看不出边，
   换成 `#c9cfd8` 才有轮廓；卡片与分割线仍用 `COLOR_BORDER`
+- 输入类控件的 `border_width` 从 1 改成 2：1px 描边在圆角弧线上会被抗锯齿摊薄，
+  浅色主题下四个角像断开的虚线；2px 才连续
+- `DropField` 的子控件内缩量从 1 改成 2（= `border_width`），否则 `CTkEntry` 会压住
+  外框描边，边框一段粗一段断
 - `segmented()` 的选中段改用 `COLOR_ACTIVE`，与开关、勾选、单选、滑块、进度条
   的激活色统一：选中段文字自动切成 `COLOR_ACCENT_TEXT`、其余段回到 `COLOR_TEXT`
   （`CTkSegmentedButton` 只有一份 `text_color`，青底和浅底没法共用同一种字色，

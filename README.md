@@ -225,7 +225,7 @@ class App(ctk.CTk):
 
     def toggle_theme(self):
         mode = "light" if is_dark() else "dark"
-        # 钩子跑在重建当前页之前：先把外壳刷好，再到内容
+        # 钩子跑在重建当前页之前：窗口底色（switch 里先刷）→ 侧边栏 → 内容
         self.pages.switch(
             mode,
             window=self,
@@ -233,6 +233,8 @@ class App(ctk.CTk):
         )
 
     def _refresh_sidebar(self):
+        # 让「大面积底色已换」这一帧先上屏，侧边栏和页面随后跟上
+        self.update_idletasks()
         self.sidebar.configure(fg_color=T.COLOR_SIDE)
         recolor_tree(self.sidebar, T.COLOR_SIDE, deep=False)
 ```
@@ -245,8 +247,12 @@ class App(ctk.CTk):
 3. 重建用户正看着的那一页（30~350 ms），其余页面只打「过期」标记，等切换过去时
    由 `pages.show(name)` 自动补建。
 
-**顺序是刻意这么排的**：外壳几十毫秒就能换完，页面重建要一两百毫秒。先刷外壳，
-眼睛先看到「窗口换了」、再看到内容慢慢铺开；反过来会让人一直盯着没反应的侧边栏。
+**顺序是刻意这么排的**：窗口底色是整窗最大的一块，先让它落定；侧边栏只有十几行，
+排在页面重建之前；页面最后换。这样眼睛先看到「整体换了」，再看到导航和内容跟上，
+不会出现「内容一直没变、侧边栏拖到最后」的观感。
+
+`before_rebuild` 里如果想自己控制节奏，可以在刷完外壳后调一次 `update_idletasks()`，
+让那一帧先上屏（示例窗口就是这么做的：大面积先亮，再刷侧边栏）。
 
 `apply_appearance_fast(mode, window=...)` 单独用也可以：它会把窗口底色和标题栏一起刷好，
 并且避开 CTk 那套「withdraw → deiconify → 还焦点」的标题栏处理（那正是切换时闪一下、

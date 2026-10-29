@@ -125,18 +125,18 @@ class App(ctk.CTk):
 
     def toggle_theme(self) -> None:
         mode = "light" if is_dark() else "dark"
-        # 钩子跑在重建当前页之前：外壳几十毫秒就换完色，内容随后再换
-        self.pages.switch(mode, window=self, before_rebuild=self._refresh_sidebar)
+        # 顺序：窗口底色（最大面积）→ 侧边栏 → 当前页组件
+        self.pages.switch(mode, window=self, before_rebuild=lambda: self._refresh_sidebar(mode))
         self.show(self.pages.current or "概览")
-        # 标题栏也跟着刷，否则浅色下系统标题栏和内容区几乎同色
-        set_titlebar_dark(self, mode == "dark")
 
-    def _refresh_sidebar(self) -> None:
+    def _refresh_sidebar(self, mode: str) -> None:
         """侧边栏不属于任何页面，自己刷：父底色 + 按钮的文字/底色。"""
-        self.configure(fg_color=T.COLOR_BG)
+        # 窗口底色（``switch`` 已刷好）先上屏，再动侧边栏，视觉上大面积优先
+        self.update_idletasks()
         self._sidebar.configure(fg_color=T.COLOR_SIDE, bg_color=T.COLOR_SIDE)
         self._paint_nav(self.pages.current or "概览")
         recolor_tree(self._sidebar, T.COLOR_SIDE, deep=False)
+        self.update_idletasks()
 
 
 def main() -> int:

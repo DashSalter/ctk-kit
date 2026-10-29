@@ -212,8 +212,9 @@ class ShowcaseApp(ctk.CTk):
         if (target == "Dark") == was_dark:
             return
 
-        # 顺序很重要：先刷窗口底色和侧边栏（几十毫秒），再重建当前页（一两百毫秒），
-        # 观感上就是「窗口先变、内容后变」；反过来会让人盯着一直不变的侧边栏等。
+        # 顺序：窗口底色（面积最大，最先铺开）→ 侧边栏 → 当前页组件。
+        # 大面积换色最容易被人注意到，先让它落定，视线才不会一直停在没跟上的地方；
+        # 侧边栏只有十几行，放在页面重建之前，避免它成为最后一个变色的区域。
         self.pages.switch(
             mode,
             window=self,
@@ -227,13 +228,17 @@ class ShowcaseApp(ctk.CTk):
             pass
 
     def _refresh_chrome(self, mode_string: str) -> None:
-        """侧边栏这些不属于任何页面的控件，单独刷一遍。
+        """当前页重建之前先刷侧边栏（窗口底色由 ``pages.switch`` 先刷好）。
 
         侧边栏不整块重建（重建 14 个 CTkButton 要 150~240 ms），逐个改颜色即可：
         ``CTkButton`` 的 ``_bg_color`` 是构造时从父容器取死的，得显式重设。
         ``deep=False``：按钮内部的画布和文字由 ``_set_appearance_mode`` 自己重绘，
         再递归进去刷一遍只是白花 20 ms。
         """
+        # ``pages.switch`` 已经把窗口底色和标题栏换成新配色了，先让这一帧上屏：
+        # 中间那块面积最大，让它第一个落定，剩下的侧边栏和页面随后跟上
+        self.update_idletasks()
+
         self._sidebar.configure(fg_color=T.COLOR_SIDE, bg_color=T.COLOR_SIDE)
         # 先把新配色写进每个按钮的属性，再统一让它们重绘一次（省掉每个按钮两次重绘）
         self._paint_nav(self._current or "")
@@ -241,8 +246,7 @@ class ShowcaseApp(ctk.CTk):
         # deep=False 只刷直接子层：底部那层容器里的按钮要单独再刷一遍
         recolor_tree(self._bottom, T.COLOR_SIDE, mode_string, deep=False)
         recolor_tree(self._sidebar, T.COLOR_SIDE, mode_string, deep=False)
-        # 先把「外壳」这一帧画出来，再去重建页面（重建里也有一次 update_idletasks），
-        # 观感上就是侧边栏先换色、内容随后换
+        # 让「侧边栏换色」这一帧先画出来，再进入页面重建
         self.update_idletasks()
 
     def toggle_appearance(self) -> None:

@@ -36,10 +36,15 @@ COLOR_SIDE: ColorPair = ("#ffffff", "#131418")           # 侧边栏 / 状态栏
 # 标题栏：刻意比内容区和侧边栏都亮一档，深浅两套都能看出「顶栏」这一层
 COLOR_TITLEBAR: ColorPair = ("#e8ebf1", "#1c1e25")
 COLOR_CARD: ColorPair = ("#ffffff", "#181920")           # 卡片
-COLOR_INPUT: ColorPair = ("#ffffff", "#1d1f26")          # 输入框、下拉框、分段控件底色
+# 输入类控件（输入框、下拉框、文本区）的底色。描边只有 1px，边界主要靠这层底色
+# 和卡片拉开层次，所以浅色值取「比卡片暗一档的灰」而不是纯白。
+COLOR_INPUT: ColorPair = ("#eef1f6", "#22242c")
 COLOR_BORDER: ColorPair = ("#e3e6eb", "#262831")         # 细边框：卡片、分割线
 COLOR_BORDER_STRONG: ColorPair = ("#c9cfd8", "#3b3e4a")  # 轨道、未选中描边
-COLOR_BORDER_INPUT: ColorPair = ("#aab2c0", "#3a4050")   # 输入框边框（1px 也要看得清）
+# 输入类控件的 1px 描边：比 COLOR_BORDER 深一档，白卡片上才看得出边界。
+# 深色下它常常只在水平边上可见（竖直边被 150% 缩放的半格吃掉），这是 Tk 不抗锯齿的
+# 已知代价，不是颜色选错。
+COLOR_BORDER_INPUT: ColorPair = ("#b0b9c6", "#343a47")
 
 COLOR_TEXT: ColorPair = ("#111827", "#f1f3f6")
 COLOR_MUTED: ColorPair = ("#6b7280", "#98a0ab")
@@ -83,7 +88,11 @@ STATUS_COLORS: Dict[str, ColorPair] = {
 SCROLLBAR_WIDTH: int = 12
 # 滚动条滑块两侧留白：滑块的可见宽度 = SCROLLBAR_WIDTH - 2 * SCROLLBAR_SPACING
 SCROLLBAR_SPACING: int = 4
-# 输入框获得焦点时的边框宽度：1px 在圆角弧线上会被抗锯齿吃掉，2px 才连得上
+# `bind_focus_border()` 用的描边宽度：需要「聚焦亮一圈」时把它传给 CTk 控件。
+# 库里的输入类控件自己用 1px 的 COLOR_BORDER_INPUT（见上），聚焦也不变色，
+# 这个更粗的宽度纯粹是留给调用方的可选项。
+# 值必须是 2：Tk 的 canvas 不做抗锯齿，1px 在 150% 缩放下落在半格上，
+# 圆角弧线和长边都会成段丢像素——那正是「边框断开」的成因。
 BORDER_FOCUS_WIDTH: int = 2
 RADIUS_SMALL: int = 8
 RADIUS_MEDIUM: int = 10

@@ -58,12 +58,12 @@ def build(master) -> ctk.CTkFrame:
     body = _card_body(box)
     row = _row(body, bg)
     field_label(row, "搜索").pack(side="left")
-    search = toolbar_entry(row, "输入关键词，聚焦时描边变强调色")
+    search = toolbar_entry(row, "输入关键词，1px 描边，聚焦不变化")
     search.pack(side="left", fill="x", expand=True)
     search.bind("<KeyRelease>", lambda _e: feedback(f"关键词：{search.get() or '（空）'}"))
-    hint_label(body, "40 高、圆角 12；FocusIn 时 border_color 变 COLOR_ACCENT。").pack(
-        fill="x"
-    )
+    hint_label(
+        body, "40 高、圆角 12；填充底 + 1px 描边，聚焦时不再变色。"
+    ).pack(fill="x")
 
     # --- 表单输入 ---
     section_title(area, "表单输入 form_entry")

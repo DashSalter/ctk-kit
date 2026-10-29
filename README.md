@@ -82,11 +82,11 @@ python -m ctk_kit.showcase.pages.notify --topmost
 
 **输入**（`inputs`）
 
-- `toolbar_entry(master, placeholder, *, height=40)` —— 工具条里的搜索框，聚焦时描边变主色
+- `toolbar_entry(master, placeholder, *, height=40)` —— 工具条里的搜索框，填充底 + 1px 描边
 - `form_entry(master, *, show="", placeholder="", height=38, password=False)`
 - `segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
-  —— 容器底用 `COLOR_SOFT`（比卡片深一档），不用 `COLOR_INPUT`：后者浅色值和
-  `COLOR_CARD` 都是 `#ffffff`，浅色主题下整组分段会和卡片同色、看不出边界
+  —— 容器底用 `COLOR_SOFT`（次要按钮那一档），和输入框的 `COLOR_INPUT` 底色区分开：
+  分段控件是「一组按钮」，两种控件挨在一起时不该糊成一块
 - `switch(master, command=None, *, text="", width=44)` —— 开关；`text` 留空就只显示轨道
 - `checkbox(master, text="", command=None, *, width=20, height=20)` —— 勾选框，选中后填主色打勾
 - `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`
@@ -99,15 +99,16 @@ python -m ctk_kit.showcase.pages.notify --topmost
   选择类控件的配色约定：选中/已填充部分用 `COLOR_ACTIVE`（偏青的激活色，
   浅色 `#1b94a7` / 深色 `#3891a3`），未选中描边和轨道用 `COLOR_BORDER_STRONG`。
   `COLOR_ACTIVE` 比主色 `COLOR_ACCENT` 低一档饱和度：一排控件同时亮起来时不会
-  互相抢，深色下也比输入框底色（`#1d1f26`）明显亮。想让激活色更醒目或换个色相，
+  互相抢，深色下也比输入框底色（`#22242c`）明显亮。想让激活色更醒目或换个色相，
   只改 `tokens.py` 里这两个值即可，六种控件会一起变。
 
   边框分三档：`COLOR_BORDER` 给卡片和分割线这种「不需要看清边界」的地方；
-  输入框、下拉框、文本区用 `COLOR_BORDER_INPUT`（浅 `#aab2c0` / 深 `#3a4050`）；
-  开关轨道、滑块轨道、勾选/单选的未选中描边用 `COLOR_BORDER_STRONG`。
-  输入框那档颜色更深，是因为 1px 描边在圆角弧线上会被抗锯齿摊薄，颜色浅就直接
-  看不见了。聚焦时边框临时加粗到 `BORDER_FOCUS_WIDTH`（2）并换成 `COLOR_ACCENT`：
-  1px 的蓝线在圆角两端接不上，2px 才闭合成一个圈。
+  输入框、下拉框、文本区用 1px 的 `COLOR_BORDER_INPUT`（浅 `#b0b9c6` / 深 `#343a47`），
+  底色 `COLOR_INPUT`（浅 `#eef1f6` / 深 `#22242c`）；开关轨道、滑块轨道、勾选/单选的
+  未选中描边用 `COLOR_BORDER_STRONG`。这 1px 是有代价的：Tk 的 canvas 不做抗锯齿，
+  150% 缩放下竖直边和圆角会落在半格上被吃掉（白主题下圆角偏淡，深色下常常只剩一条
+  水平底边），2px 虽然四边都连续但显厚，这里选了细。要聚焦时再亮一圈，可以自己对
+  控件调 `bind_focus_border()`（`from ctk_kit import bind_focus_border`，默认 2px 主色）。
 
 **大文本**（`text`）
 
@@ -355,14 +356,23 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 这些都是踩过的，记下来省得再踩：
 
 - `CTkLabel` 不支持 `border_width` / `border_color`，想加边框只能裹一层 `CTkFrame`。
-- `CTkEntry` / `CTkTextbox` 的 `border_width=1` 在圆角弧线上会被抗锯齿摊薄，边框色浅
-  时看着就是断断续续的一圈（白色主题下最明显）。加粗到 2px 能连续但显厚，代价最小
-  的做法是把边框色加深一档（见 `COLOR_BORDER_INPUT`）。
-- 聚焦高亮如果只用 1px 换色，深色边框在圆角**两端**会明显接不上（不是变淡，是真的
-  缺一段）；加粗到 2px 才闭合成完整的圈。`bind_focus_border()` 就是这么做的。
+- `CTkEntry` / `CTkTextbox` 的 `border_width=1` 在圆角弧线和竖直边上会成段丢像素：
+  Tk 的 canvas 不做抗锯齿，1px 逻辑边在 150% 缩放下只有 1.5 个物理像素、落在半格上
+  就整段没了。实际观感是：浅色下圆角偏淡、深色下常常只剩一条水平底边——如果看到
+  「控件下面多出一条横线」，那就是这圈 1px 描边的底边，其它三边被吃掉了。换多深的
+  颜色都救不回来，2px 能连续但显厚。库里的输入类控件仍然用 1px（细比完整重要），
+  想彻底没有这条线就把 `border_width` 设 0，只留填充底色。
+- 要「聚焦时描边变主色」又不能位移，就得常态和聚焦用同一个 `border_width`、只换
+  `border_color`（`bind_focus_border()` 的做法）；宽度一变，CTk 会重排内部 grid，
+  文字会左右跳一下。这一圈是可选的，库里的控件默认不加。
+- 焦点事件不会从子控件冒泡到父控件：复合控件（像 `DropField` 那样 `CTkFrame` 里塞
+  entry）如果要用 `bind_focus_border()`，得把 `source` 指向真正的输入控件，
+  否则外框永远不变色。
 - 自己拼「带边框的容器」时（像 `DropField` 那样 `CTkFrame` 里塞子控件），子控件的
   `padx` / `pady` 内缩量要等于外框的 `border_width`，否则子控件会盖住描边，
   边框看起来一段粗、一段断。
+- `border_color` 不接受 `"transparent"`（CTk 只允许 `fg_color` 用）。文本区传
+  `bg_color="transparent"` 时会沿父链找第一个实色当填充色，就是这条限制的绕法。
 - `CTkSegmentedButton` 同样不接受 `border_*`，传了会抛 `ValueError`。
 - `CTkSlider` 的细轨道是靠 `border_width`（默认 6）缩出来的：把它设成 0，轨道会
   变成一根和控件一样高的粗条，圆形把手也会被吞进轨道里看不出来。

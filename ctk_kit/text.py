@@ -70,6 +70,14 @@ class TextArea(ctk.CTkFrame):
         self._readonly = bool(readonly)
         self._on_change = on_change
         self._text_color: Any = text_color if text_color is not None else T.COLOR_TEXT
+        # 文本区的底色默认比卡片暗一档的 COLOR_INPUT，配一圈 1px 的 COLOR_BORDER_INPUT。
+        # 外面传 "transparent" 时换成父容器实色——CTk 的 fg_color 虽然认透明，
+        # 但透明要一层层往上取色，嵌套一多容易露出缝隙。
+        self._bg_color: Any = bg_color if bg_color is not None else T.COLOR_INPUT
+        self._transparent_bg = isinstance(self._bg_color, str) and (
+            self._bg_color.lower() == "transparent"
+        )
+        fill = self._solid_bg()
 
         self.textbox = ctk.CTkTextbox(
             self,
@@ -77,7 +85,7 @@ class TextArea(ctk.CTkFrame):
             corner_radius=T.RADIUS_MEDIUM,
             border_width=1,
             border_color=T.COLOR_BORDER_INPUT,
-            fg_color=bg_color if bg_color is not None else T.COLOR_INPUT,
+            fg_color=fill,
             text_color=self._text_color,
             font=T.FONT_BODY,
             wrap="word",
@@ -150,6 +158,28 @@ class TextArea(ctk.CTkFrame):
         self._apply_readonly_state()
 
     # ------------------------------------------------------------ 内部
+    def _solid_bg(self) -> Any:
+        """文本区实际用的底色。
+
+        传入 ``"transparent"`` 时沿父链找第一个实色：文本区在卡片里当日志面板用
+        时，要的就是「和卡片同色」。返回的可能是 ``(浅色, 深色)`` 二元组，
+        交给 CTk 按当前外观自己取，切主题时会跟着变。
+        """
+        if not self._transparent_bg:
+            return self._bg_color
+        node: Any = getattr(self, "master", None)
+        for _ in range(8):
+            if node is None:
+                break
+            try:
+                value = node.cget("fg_color")
+            except Exception:  # noqa: BLE001 - 原生 tk 控件没有这个属性
+                break
+            if not (isinstance(value, str) and value.lower() == "transparent"):
+                return value
+            node = getattr(node, "master", None)
+        return T.COLOR_CARD
+
     def _apply_readonly_state(self) -> None:
         self.textbox.configure(state="disabled" if self._readonly else "normal")
 
@@ -170,20 +200,8 @@ class TextArea(ctk.CTkFrame):
         # 只读时保留占位符：它不是可编辑内容，不该因为聚焦就消失
         if self._placeholder_active and not self._readonly:
             self._clear_placeholder()
-        try:
-            self.textbox.configure(
-                border_width=T.BORDER_FOCUS_WIDTH, border_color=T.COLOR_ACCENT
-            )
-        except Exception:  # noqa: BLE001 - 控件可能已销毁
-            pass
 
     def _handle_focus_out(self, _event: Any) -> None:
-        try:
-            self.textbox.configure(
-                border_width=1, border_color=T.COLOR_BORDER_INPUT
-            )
-        except Exception:  # noqa: BLE001
-            pass
         if self._placeholder_active:
             return
         if not self.textbox.get("1.0", "end-1c") and self._placeholder:

@@ -36,20 +36,45 @@ RadioCommand = Optional[Callable[[str], None]]
 InsetHook = Optional[Callable[[int], None]]
 
 
-def bind_focus_border(widget: tk.Misc, *, on_width: InsetHook = None) -> None:
-    """绑定「聚焦时边框加粗变主色、失焦复原」的焦点样式。
+def bind_focus_border(
+    widget: tk.Misc,
+    *,
+    source: tk.Misc = None,
+    idle_color: Any = None,
+    width: int = T.BORDER_FOCUS_WIDTH,
+    on_width: InsetHook = None,
+) -> None:
+    """给控件绑定「聚焦才出现描边」的焦点样式（可选）。
 
-    1px 描边在圆角弧线上会被抗锯齿吃掉一半，四角看着像断开；2px 才连得上。
-    所以常态用 1px 细边、聚焦时临时加粗到 ``BORDER_FOCUS_WIDTH``。
+    库里的输入类控件默认**不**绑它：它们只有一圈 1px 的 ``COLOR_BORDER_INPUT``，
+    聚焦时也不变色。想让聚焦时亮一圈主色，对这个控件调用一次即可。
+
+    常态不画线：描边的槽位一直在，只是颜色等于控件自己的底色，于是看不见。
+    聚焦时把同一槽位的颜色换成主色，边框亮出来而内容不会左右跳。
+
+    宽度取 ``BORDER_FOCUS_WIDTH``（2）而不是 1：Tk 的 canvas 不做抗锯齿，
+    1px 逻辑边在 150% 缩放下只有 1.5 个物理像素、落在半格上就会整段丢像素，
+    作为「聚焦提示」不够醒目；库里的 1px 常态描边是另一套取舍（见 tokens）。
 
     参数:
         widget: ``CTkEntry`` / ``CTkTextbox`` / ``CTkFrame`` 这类支持
             ``configure(border_width=..., border_color=...)`` 的控件。
-        on_width: 边框宽度变化后的回调，参数是新的 ``border_width``；
-            自定义容器（例如 ``DropField``）用它同步子控件的内缩量。
+        source: 真正接收焦点的控件；复合控件（``DropField`` 的外框里包着
+            entry）要传进来——焦点事件不会从子控件冒泡到父控件，
+            绑错地方外框就永远不变色。默认就是 ``widget``。
+        idle_color: 未聚焦时的描边颜色，必须等于控件底部的填充色（默认
+            ``COLOR_INPUT``），线才会「消失」。``TextArea`` 这类可换底色的
+            控件要传自己实际用的底色。
+        width: 描边槽位宽度，默认 ``BORDER_FOCUS_WIDTH``；聚焦前后一致，
+            所以不会引起布局位移。
+        on_width: 描边宽度变化时的回调，参数是当前的 ``border_width``；
+            给「子控件内缩量要跟着边框走」的自定义容器用。
     """
 
-    def apply(width: int, color) -> None:
+    resting = T.COLOR_INPUT if idle_color is None else idle_color
+    target = widget if source is None else source
+
+    def apply(color: Any) -> None:
         try:
             widget.configure(border_width=width, border_color=color)
         except Exception:  # noqa: BLE001 - 控件可能已经销毁
@@ -58,20 +83,20 @@ def bind_focus_border(widget: tk.Misc, *, on_width: InsetHook = None) -> None:
             on_width(width)
 
     def focus_in(_event: Any = None) -> None:
-        apply(T.BORDER_FOCUS_WIDTH, T.COLOR_ACCENT)
+        apply(T.COLOR_ACCENT)
 
     def focus_out(_event: Any = None) -> None:
-        apply(1, T.COLOR_BORDER_INPUT)
+        apply(resting)
 
     for sequence, handler in (("<FocusIn>", focus_in), ("<FocusOut>", focus_out)):
         try:
-            widget.bind(sequence, handler, add="+")
+            target.bind(sequence, handler, add="+")
         except Exception:  # noqa: BLE001
-            widget.bind(sequence, handler)
+            target.bind(sequence, handler)
 
 
 def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
-    """页面顶部搜索框：聚焦时描边变强调色。
+    """页面顶部搜索框：填充底 + 1px 描边。
 
     参数:
         master: 父容器。
@@ -79,7 +104,7 @@ def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk
         height: 高度（像素），默认 40。
 
     返回:
-        已经绑好焦点样式、尚未摆位的 ``CTkEntry``。
+        尚未摆位的 ``CTkEntry``。
     """
     entry = ctk.CTkEntry(
         master,
@@ -89,11 +114,10 @@ def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk
         corner_radius=T.RADIUS_LARGE,
         font=T.FONT_BODY,
         fg_color=T.COLOR_INPUT,
-        border_color=T.COLOR_BORDER_INPUT,
         border_width=1,
+        border_color=T.COLOR_BORDER_INPUT,
         text_color=T.COLOR_TEXT,
     )
-    bind_focus_border(entry)
     return entry
 
 
@@ -130,11 +154,10 @@ def form_entry(
         corner_radius=T.RADIUS_SMALL,
         font=T.FONT_BODY,
         fg_color=T.COLOR_INPUT,
-        border_color=T.COLOR_BORDER_INPUT,
         border_width=1,
+        border_color=T.COLOR_BORDER_INPUT,
         text_color=T.COLOR_TEXT,
     )
-    bind_focus_border(entry)
     return entry
 
 
@@ -149,8 +172,8 @@ def segmented(
 ) -> ctk.CTkSegmentedButton:
     """统一样式的分段选择：浅一档的容器底，选中段用主色高亮。
 
-    容器底比卡片深一档（``COLOR_SOFT``），否则浅色主题下和白色卡片同色
-    （``COLOR_INPUT`` 的浅色值就是 ``#ffffff``），整组分段会「消失」在卡片里。
+    容器底用 ``COLOR_SOFT``（次要按钮那一档）：分段控件是「一组按钮」，
+    和输入框的 ``COLOR_INPUT`` 底色区分开，两种控件挨在一起时不会糊成一块。
 
     选中段用 :data:`tokens.COLOR_ACTIVE`（偏青的激活色），和开关、勾选、单选、
     滑块的填充色一致，不再是主按钮那种高饱和蓝。

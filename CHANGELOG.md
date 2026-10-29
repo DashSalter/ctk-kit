@@ -3,6 +3,30 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.8.0 — 2026-10-29
+
+- 输入类控件（`toolbar_entry`、`form_entry`、`TextArea`、`DropField`）统一成
+  「填充底 + 1px 描边」：`COLOR_INPUT` 从 `("#ffffff" / "#1d1f26")` 调到
+  `("#eef1f6" / "#22242c")`，描边用 `COLOR_BORDER_INPUT`（浅 `#b0b9c6` / 深 `#343a47`）
+  - 1px 的已知代价：Tk 的 canvas 不做抗锯齿，150% 缩放下竖直边和圆角会落在半格上
+    被吃掉，深色主题下往往只剩一条水平底边、白主题下则是圆角偏淡。换来的是比 2px
+    细，也不会再出现 0.7.0 那种对角两段粗、两段断的样子
+  - 聚焦不再改描边宽度和颜色，`border_width` 恒为 1：宽度一变 CTk 会重排内部
+    grid，文字会左右跳；一圈主色描边在输入状态下也显得吵
+  - `COLOR_BORDER_INPUT` 与 `BORDER_FOCUS_WIDTH` 都保留，前者就是这圈 1px 的颜色，
+    后者给 `bind_focus_border()` 的默认宽度
+- `bind_focus_border()` 变成可选工具，库里的控件不再默认调用它；签名扩展为
+  `bind_focus_border(widget, *, source=None, idle_color=None, width=BORDER_FOCUS_WIDTH, on_width=None)`
+  - `source`：焦点事件不会从子控件冒泡到父控件，复合控件要把绑定目标指向真正的
+    输入控件（`DropField` 那种场景），否则外框永远不变色
+  - `idle_color`：失焦时的描边颜色，默认取控件底色
+  - 聚焦/失焦只换 `border_color`，不改 `border_width`，内容才不会左右跳
+- `DropField` 删掉 `_inset_children()`：描边宽度固定 1，子控件内缩常量 1 即可，
+  不再需要随焦点切换重排
+- `TextArea(bg_color="transparent")` 不再抛 `ValueError`：CTk 的 `border_color`
+  不接受透明色，现在沿父链取第一个实色当填充色
+- 示例「输入」页的提示文案、README 的边框三档与「已知的坑」同步改写
+
 ## 0.7.0 — 2026-10-29
 
 - 新增四个选择类控件工厂（`ctk_kit/inputs.py`）：

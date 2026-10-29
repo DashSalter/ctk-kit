@@ -35,7 +35,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
 
 from . import tokens, theme
 from .buttons import (
@@ -47,6 +47,7 @@ from .buttons import (
 )
 from .dropdown import DropField
 from .inputs import (
+    bind_focus_border,
     checkbox,
     form_entry,
     progressbar,
@@ -93,6 +94,7 @@ __all__ = [
     "__version__",
     "apply_appearance",
     "apply_appearance_fast",
+    "bind_focus_border",
     "card",
     "checkbox",
     "color_of",

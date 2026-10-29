@@ -17,14 +17,13 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
-from .inputs import bind_focus_border
 
 _ARROW_CLOSED = "▼"
 _ARROW_OPEN = "▲"
 
 
 class DropField(ctk.CTkFrame):
-    """输入框 + 下拉箭头，整体是一个带描边的圆角框。
+    """输入框 + 下拉箭头，整体是一块填充式圆角框，外圈 1px 描边。
 
     用法与输入框接近：``get()`` / ``set(value)``；选中候选后会回调
     ``command(value)``。候选由 ``values_provider()`` 提供，每次展开都会重新
@@ -76,7 +75,7 @@ class DropField(ctk.CTkFrame):
             placeholder_text=placeholder,
             placeholder_text_color=T.COLOR_FAINT,
         )
-        # 内缩量必须等于外框的 border_width，否则子控件会压住描边，边框看起来一段粗一段断
+        # 内缩量等于外框的 border_width，否则子控件会压住那 1px 描边
         self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=1)
 
         self.arrow: ctk.CTkLabel = ctk.CTkLabel(
@@ -95,17 +94,6 @@ class DropField(ctk.CTkFrame):
         self.arrow.bind("<Button-1>", lambda _event: self.open_menu())
         self.arrow.bind("<Enter>", lambda _event: self._set_hover(True))
         self.arrow.bind("<Leave>", lambda _event: self._set_hover(False))
-
-        # 聚焦时外框加粗成主色，子控件要同步让出同样的内缩，否则描边被压住
-        bind_focus_border(self, on_width=self._inset_children)
-
-    def _inset_children(self, width: int) -> None:
-        """按外框的 ``border_width`` 调整子控件的内缩量。"""
-        try:
-            self.entry.pack_configure(pady=width)
-            self.arrow.pack_configure(pady=width)
-        except Exception:  # noqa: BLE001 - 控件可能已销毁
-            pass
 
     def _set_hover(self, hover: bool) -> None:
         """箭头悬停态：文字与底色一起变。"""

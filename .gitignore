@@ -18,3 +18,10 @@ venv/
 # 编辑器
 .idea/
 .vscode/
+
+# 截图脚本用的 PIL 副本（不在虚拟环境里，见 dev/ 下的说明）
+.shotlib/
+
+# 临时截图与探针脚本
+dev/_*
+_*.png

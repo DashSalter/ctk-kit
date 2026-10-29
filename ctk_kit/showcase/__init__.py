@@ -160,11 +160,7 @@ class ShowcaseApp(ctk.CTk):
         self._paint_nav(name)
 
     def _paint_nav(self, active_name: str) -> None:
-        """侧边栏导航的高亮：选中的用主色实底 + 白字，深色下也一眼能认出来。
-
-        不用 ``COLOR_SEG_SELECTED`` 当底：那是分段控件的「选中段」色，深色下
-        提亮之后和 ``COLOR_ACCENT`` 的文字凑成蓝底蓝字，反而看不清。
-        """
+        """侧边栏导航的高亮：选中的用主色实底 + 白字，深色下也一眼能认出来。"""
         for key, button in self._buttons.items():
             active = key == active_name
             button.configure(

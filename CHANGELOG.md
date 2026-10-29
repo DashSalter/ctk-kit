@@ -16,6 +16,14 @@
 - `switch()` 的轨道从 `COLOR_SOFT` 换成 `COLOR_BORDER_STRONG`、把手换成
   `COLOR_MUTED`：原来的深色组合（`#22242c` 轨道 + `#131418` 把手）压在卡片
   `#181920` 上就是一团黑
+- 新增令牌 `COLOR_ACTIVE` / `COLOR_ACTIVE_HOVER`（浅 `#17808f` / 深 `#2f7f8c`）：
+  勾选、单选、开关、滑块、进度条、分段选中段的激活色都走它，比主色偏青一档、
+  比输入框底色（深色 `#1d1f26`）明显亮；想换色只改这两个值
+- `segmented()` 的选中段改用 `COLOR_ACTIVE`，与开关、勾选、单选、滑块、进度条
+  的激活色统一：选中段文字自动切成 `COLOR_ACCENT_TEXT`、其余段回到 `COLOR_TEXT`
+  （`CTkSegmentedButton` 只有一份 `text_color`，青底和浅底没法共用同一种字色，
+  所以在 `set()` 与点击回调里分别重设）
+- 移除令牌 `COLOR_SEG_SELECTED`：分段控件的选中态已经并入 `COLOR_ACCENT`
 - 示例「输入」页补三节：勾选框、单选组、滑块与进度条（滑块拖动联动进度条）
 - README 补四个工厂的签名与配色说明；「已知的坑」补 `CTkSlider` 的细轨道靠
   `border_width` 缩出来这一条

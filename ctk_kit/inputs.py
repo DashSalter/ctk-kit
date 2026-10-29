@@ -112,10 +112,16 @@ def segmented(
     height: int = 34,
     font: T.FontSpec = T.FONT_SMALL,
 ) -> ctk.CTkSegmentedButton:
-    """统一样式的分段选择：浅一档的容器底，选中段淡色高亮。
+    """统一样式的分段选择：浅一档的容器底，选中段用主色高亮。
 
     容器底比卡片深一档（``COLOR_SOFT``），否则浅色主题下和白色卡片同色
     （``COLOR_INPUT`` 的浅色值就是 ``#ffffff``），整组分段会「消失」在卡片里。
+
+    选中段用 :data:`tokens.COLOR_ACTIVE`（偏青的激活色），和开关、勾选、单选、
+    滑块的填充色一致，不再是主按钮那种高饱和蓝。
+    ``CTkSegmentedButton`` 只有一份 ``text_color``，青底和浅底不可能共用同一种
+    文字色，所以这里在选中项变化时把选中段的文字改成 ``COLOR_ACCENT_TEXT``、
+    其余段改回 ``COLOR_TEXT``（``set()`` 也走同一条路径）。
 
     参数:
         master: 父容器。
@@ -137,17 +143,39 @@ def segmented(
         corner_radius=T.RADIUS_SMALL,
         fg_color=T.COLOR_SOFT,
         unselected_color=T.COLOR_SOFT,
-        selected_color=T.COLOR_SEG_SELECTED,
+        selected_color=T.COLOR_ACTIVE,
         unselected_hover_color=T.COLOR_SOFT_HOVER,
-        selected_hover_color=T.COLOR_SEG_SELECTED,
+        selected_hover_color=T.COLOR_ACTIVE_HOVER,
         text_color=T.COLOR_TEXT,
         font=font,
         dynamic_resizing=False,
-        command=command,
     )
+
+    segments = getattr(button, "_buttons_dict", {})
+
+    def paint(value: str) -> None:
+        for name, segment in segments.items():
+            segment.configure(
+                text_color=T.COLOR_ACCENT_TEXT if name == value else T.COLOR_TEXT
+            )
+
+    original_set = button.set
+
+    def select(value: str) -> None:
+        original_set(value)
+        paint(value)
+
+    def on_click(value: str) -> None:
+        paint(value)
+        if command is not None:
+            command(value)
+
+    button.set = select  # type: ignore[method-assign]
+    button.configure(command=on_click)
+
     if values:
         # 不留「一段都没选中」的中间态
-        button.set(values[0])
+        select(values[0])
     return button
 
 
@@ -158,11 +186,12 @@ def switch(
     text: str = "",
     width: int = 44,
 ) -> ctk.CTkSwitch:
-    """设置页的开关：只留轨道，拨到右边时轨道变主色。
+    """设置页的开关：只留轨道，拨到右边时轨道变激活色。
 
     轨道用 ``COLOR_BORDER_STRONG`` 而不是 ``COLOR_SOFT``：后者在深色主题下
     （``#22242c``）和卡片底几乎同色，整个开关看起来就是一团黑；把手则取
     ``COLOR_MUTED``，深色下比轨道亮、浅色下比轨道暗，两个主题都分得清。
+    拨到右边时用 ``COLOR_ACTIVE``（偏青），和勾选、单选、滑块同一个颜色。
 
     参数:
         master: 父容器。
@@ -180,7 +209,7 @@ def switch(
         font=T.FONT_SMALL,
         text_color=T.COLOR_TEXT,
         fg_color=T.COLOR_BORDER_STRONG,
-        progress_color=T.COLOR_ACCENT,
+        progress_color=T.COLOR_ACTIVE,
         button_color=T.COLOR_MUTED,
         button_hover_color=T.COLOR_TEXT,
         command=command,
@@ -217,8 +246,8 @@ def checkbox(
         corner_radius=T.RADIUS_SMALL - 2,
         border_width=2,
         border_color=T.COLOR_BORDER_STRONG,
-        fg_color=T.COLOR_ACCENT,
-        hover_color=T.COLOR_ACCENT_HOVER,
+        fg_color=T.COLOR_ACTIVE,
+        hover_color=T.COLOR_ACTIVE_HOVER,
         checkmark_color=T.COLOR_ACCENT_TEXT,
         text_color=T.COLOR_TEXT,
         font=T.FONT_SMALL,
@@ -270,8 +299,8 @@ def radio_group(
             border_width_unchecked=2,
             border_width_checked=6,
             border_color=T.COLOR_BORDER_STRONG,
-            fg_color=T.COLOR_ACCENT,
-            hover_color=T.COLOR_ACCENT_HOVER,
+            fg_color=T.COLOR_ACTIVE,
+            hover_color=T.COLOR_ACTIVE_HOVER,
             text_color=T.COLOR_TEXT,
             font=T.FONT_SMALL,
         )
@@ -316,9 +345,9 @@ def slider(
         # 轨道那 4px 的细线正是靠默认的 border_width=6 缩出来的，设 0 会变成一根粗条。
         corner_radius=1000,
         fg_color=T.COLOR_BORDER_STRONG,
-        progress_color=T.COLOR_ACCENT,
-        button_color=T.COLOR_ACCENT,
-        button_hover_color=T.COLOR_ACCENT_HOVER,
+        progress_color=T.COLOR_ACTIVE,
+        button_color=T.COLOR_ACTIVE,
+        button_hover_color=T.COLOR_ACTIVE_HOVER,
         button_corner_radius=1000,
         button_length=0,
         command=command,
@@ -350,7 +379,7 @@ def progressbar(
         corner_radius=height // 2,
         border_width=0,
         fg_color=T.COLOR_BORDER_STRONG,
-        progress_color=T.COLOR_ACCENT,
+        progress_color=T.COLOR_ACTIVE,
     )
     bar.set(max(0.0, min(1.0, value)))
     return bar

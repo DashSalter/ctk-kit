@@ -44,16 +44,19 @@ COLOR_TEXT: ColorPair = ("#111827", "#f1f3f6")
 COLOR_MUTED: ColorPair = ("#6b7280", "#98a0ab")
 COLOR_FAINT: ColorPair = ("#9aa1ac", "#6b7280")
 
-COLOR_ACCENT: ColorPair = ("#2563eb", "#2f6fed")        # 主色：主按钮、选中态
+COLOR_ACCENT: ColorPair = ("#2563eb", "#2f6fed")        # 主色：主按钮、链接
 COLOR_ACCENT_HOVER: ColorPair = ("#1d4ed8", "#3b82f6")
 COLOR_ACCENT_TEXT: ColorPair = ("#ffffff", "#ffffff")
+
+# 控件「激活态」专用色：勾选、单选、开关拨到右边、滑块已填充、进度条、分段选中段。
+# 比主色偏青、饱和度低一档，压在卡片上不刺眼；深色值比 COLOR_INPUT（#1d1f26）明显亮。
+COLOR_ACTIVE: ColorPair = ("#17808f", "#2f7f8c")
+COLOR_ACTIVE_HOVER: ColorPair = ("#12697a", "#3b93a2")
 
 COLOR_SOFT: ColorPair = ("#f0f2f5", "#22242c")          # 次要按钮底色
 COLOR_SOFT_HOVER: ColorPair = ("#e4e8ee", "#2c2f38")
 # 比 COLOR_SOFT_HOVER 更淡一档：输入框里的图标按钮悬停时用，别抢输入框本身的注意力
 COLOR_HOVER_FAINT: ColorPair = ("#eef1f6", "#262932")
-# 分段控件选中段：深色下必须比容器明显亮一档，否则「哪个被选中」看不出来
-COLOR_SEG_SELECTED: ColorPair = ("#dbe6fb", "#3a5a95")
 
 COLOR_DANGER: ColorPair = ("#dc2626", "#ef4444")
 COLOR_DANGER_SOFT: ColorPair = ("#fdeaea", "#3a1c1e")

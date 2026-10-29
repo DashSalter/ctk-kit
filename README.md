@@ -59,7 +59,7 @@ python -m ctk_kit.showcase.pages.notify --topmost
 页面代码在 `ctk_kit/showcase/pages/` 下，一页一个文件；`--where` 会打印窗口矩形后退出，方便截图。
 
 展示程序有十个页面：总览、基件、按钮、输入、布局、提示、列表、主题、表单、设置，把每个公开构建都用一遍。
-基件页把 25 个色值连同浅/深两套十六进制值一起列出来，换主题时对着它调最直观。
+基件页把 26 个色值连同浅/深两套十六进制值一起列出来，换主题时对着它调最直观。
 
 ## 四层结构
 
@@ -96,8 +96,11 @@ python -m ctk_kit.showcase.pages.notify --topmost
 - `progressbar(master, *, value=0.0, width=220, height=6)` —— 细进度条，`value` 收 0~1，
   圆角跟随高度
 
-  选择类控件的配色约定：选中/已填充部分用 `COLOR_ACCENT`，未选中描边和轨道用
-  `COLOR_BORDER_STRONG`，这样深色主题下不会一排控件全是高饱和蓝
+  选择类控件的配色约定：选中/已填充部分用 `COLOR_ACTIVE`（偏青的激活色，
+  浅色 `#17808f` / 深色 `#2f7f8c`），未选中描边和轨道用 `COLOR_BORDER_STRONG`。
+  `COLOR_ACTIVE` 比主色 `COLOR_ACCENT` 低一档饱和度：一排控件同时亮起来时不会
+  互相抢，深色下也比输入框底色（`#1d1f26`）明显亮。想让激活色更醒目或换个色相，
+  只改 `tokens.py` 里这两个值即可，六种控件会一起变。
 
 **大文本**（`text`）
 

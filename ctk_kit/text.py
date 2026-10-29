@@ -76,7 +76,7 @@ class TextArea(ctk.CTkFrame):
             height=height,
             corner_radius=T.RADIUS_MEDIUM,
             border_width=1,
-            border_color=T.COLOR_BORDER,
+            border_color=T.COLOR_BORDER_STRONG,
             fg_color=bg_color if bg_color is not None else T.COLOR_INPUT,
             text_color=self._text_color,
             font=T.FONT_BODY,

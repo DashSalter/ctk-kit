@@ -97,10 +97,14 @@ python -m ctk_kit.showcase.pages.notify --topmost
   圆角跟随高度
 
   选择类控件的配色约定：选中/已填充部分用 `COLOR_ACTIVE`（偏青的激活色，
-  浅色 `#17808f` / 深色 `#2f7f8c`），未选中描边和轨道用 `COLOR_BORDER_STRONG`。
+  浅色 `#1b94a7` / 深色 `#3891a3`），未选中描边和轨道用 `COLOR_BORDER_STRONG`。
   `COLOR_ACTIVE` 比主色 `COLOR_ACCENT` 低一档饱和度：一排控件同时亮起来时不会
   互相抢，深色下也比输入框底色（`#1d1f26`）明显亮。想让激活色更醒目或换个色相，
   只改 `tokens.py` 里这两个值即可，六种控件会一起变。
+
+  边框分两档：`COLOR_BORDER` 只给卡片和分割线这种「不需要看清边界」的地方；
+  输入框、下拉框、文本区一律用 `COLOR_BORDER_STRONG`。浅色下 `#e3e6eb` 贴在白卡片上
+  几乎看不见，`#c9cfd8` 才有边。
 
 **大文本**（`text`）
 

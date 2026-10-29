@@ -52,7 +52,7 @@ class DropField(ctk.CTkFrame):
             master,
             fg_color=T.COLOR_INPUT,
             border_width=1,
-            border_color=T.COLOR_BORDER,
+            border_color=T.COLOR_BORDER_STRONG,
             corner_radius=T.RADIUS_SMALL,
             height=height,
         )

@@ -53,13 +53,14 @@ def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk
         corner_radius=T.RADIUS_LARGE,
         font=T.FONT_BODY,
         fg_color=T.COLOR_INPUT,
-        border_color=T.COLOR_BORDER,
+        border_color=T.COLOR_BORDER_STRONG,
         border_width=1,
         text_color=T.COLOR_TEXT,
     )
     entry.bind("<FocusIn>", lambda _event: entry.configure(border_color=T.COLOR_ACCENT))
     entry.bind(
-        "<FocusOut>", lambda _event: entry.configure(border_color=T.COLOR_BORDER)
+        "<FocusOut>",
+        lambda _event: entry.configure(border_color=T.COLOR_BORDER_STRONG),
     )
     return entry
 
@@ -97,7 +98,7 @@ def form_entry(
         corner_radius=T.RADIUS_SMALL,
         font=T.FONT_BODY,
         fg_color=T.COLOR_INPUT,
-        border_color=T.COLOR_BORDER,
+        border_color=T.COLOR_BORDER_STRONG,
         border_width=1,
         text_color=T.COLOR_TEXT,
     )

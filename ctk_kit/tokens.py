@@ -37,8 +37,8 @@ COLOR_SIDE: ColorPair = ("#ffffff", "#131418")           # 侧边栏 / 状态栏
 COLOR_TITLEBAR: ColorPair = ("#e8ebf1", "#1c1e25")
 COLOR_CARD: ColorPair = ("#ffffff", "#181920")           # 卡片
 COLOR_INPUT: ColorPair = ("#ffffff", "#1d1f26")          # 输入框、下拉框、分段控件底色
-COLOR_BORDER: ColorPair = ("#e3e6eb", "#262831")         # 细边框
-COLOR_BORDER_STRONG: ColorPair = ("#c9cfd8", "#3b3e4a")  # 悬停边框
+COLOR_BORDER: ColorPair = ("#e3e6eb", "#262831")         # 细边框：卡片、分割线
+COLOR_BORDER_STRONG: ColorPair = ("#c9cfd8", "#3b3e4a")  # 控件边框：输入框、下拉框、文本区
 
 COLOR_TEXT: ColorPair = ("#111827", "#f1f3f6")
 COLOR_MUTED: ColorPair = ("#6b7280", "#98a0ab")

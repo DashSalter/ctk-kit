@@ -16,9 +16,12 @@
 - `switch()` 的轨道从 `COLOR_SOFT` 换成 `COLOR_BORDER_STRONG`、把手换成
   `COLOR_MUTED`：原来的深色组合（`#22242c` 轨道 + `#131418` 把手）压在卡片
   `#181920` 上就是一团黑
-- 新增令牌 `COLOR_ACTIVE` / `COLOR_ACTIVE_HOVER`（浅 `#17808f` / 深 `#2f7f8c`）：
+- 新增令牌 `COLOR_ACTIVE` / `COLOR_ACTIVE_HOVER`（浅 `#1b94a7` / 深 `#3891a3`）：
   勾选、单选、开关、滑块、进度条、分段选中段的激活色都走它，比主色偏青一档、
   比输入框底色（深色 `#1d1f26`）明显亮；想换色只改这两个值
+- 输入类控件的边框从 `COLOR_BORDER` 换成 `COLOR_BORDER_STRONG`（`toolbar_entry`、
+  `form_entry`、`TextArea`、`DropField`）：浅色下 `#e3e6eb` 贴在白卡片上几乎看不出边，
+  换成 `#c9cfd8` 才有轮廓；卡片与分割线仍用 `COLOR_BORDER`
 - `segmented()` 的选中段改用 `COLOR_ACTIVE`，与开关、勾选、单选、滑块、进度条
   的激活色统一：选中段文字自动切成 `COLOR_ACCENT_TEXT`、其余段回到 `COLOR_TEXT`
   （`CTkSegmentedButton` 只有一份 `text_color`，青底和浅底没法共用同一种字色，

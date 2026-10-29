@@ -17,7 +17,7 @@ from ctk_kit import PageRebuilder, apply_appearance, is_dark, set_titlebar_dark
 from ctk_kit import tokens as T
 from ctk_kit.buttons import primary_button
 from ctk_kit.layout import card, hint_label, page_header, section_title
-from ctk_kit.theme import recolor_tree
+from ctk_kit.theme import recolor_tree, repaint_window
 
 PAGES = ("概览", "设置")
 
@@ -125,21 +125,27 @@ class App(ctk.CTk):
 
     def toggle_theme(self) -> None:
         mode = "light" if is_dark() else "dark"
-        # 顺序：窗口底色（switch 里先刷）→ 当前页整块重建 → 侧边栏
+        # 顺序：侧边栏 → 窗口底色 + 标题栏 → 当前页整块重建
         self.pages.switch(
             mode,
-            window=self,
-            after_rebuild=lambda: self._refresh_sidebar(mode),
+            before_rebuild=lambda: self._refresh_shell(mode),
             defer=True,
         )
         self.show(self.pages.current or "概览")
 
+    def _refresh_shell(self, mode: str) -> None:
+        """侧边栏不属于任何页面，自己刷；然后再刷窗口底色和标题栏。"""
+        self._refresh_sidebar(mode)
+        self.update_idletasks()
+        repaint_window(self, "Light" if mode == "light" else "Dark")
+        set_titlebar_dark(self, mode == "dark")
+        self.update_idletasks()
+
     def _refresh_sidebar(self, mode: str) -> None:
-        """侧边栏不属于任何页面，自己刷：父底色 + 按钮的文字/底色。"""
+        """父底色 + 按钮的文字/底色。"""
         self._sidebar.configure(fg_color=T.COLOR_SIDE, bg_color=T.COLOR_SIDE)
         self._paint_nav(self.pages.current or "概览")
         recolor_tree(self._sidebar, T.COLOR_SIDE, deep=False)
-        self.update_idletasks()
 
 
 def main() -> int:

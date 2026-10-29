@@ -22,7 +22,12 @@ from ctk_kit import tokens as T
 from ctk_kit.buttons import soft_button
 from ctk_kit.notify import Notifier
 from ctk_kit.pages import PageRebuilder
-from ctk_kit.theme import apply_appearance, recolor_tree, set_titlebar_dark
+from ctk_kit.theme import (
+    apply_appearance,
+    recolor_tree,
+    repaint_window,
+    set_titlebar_dark,
+)
 
 from . import pages
 from .data import APP_TITLE, INDEX, PAGES
@@ -212,20 +217,34 @@ class ShowcaseApp(ctk.CTk):
         if (target == "Dark") == was_dark:
             return
 
-        # 顺序：窗口底色（最大面积）→ 当前页整块重建 → 侧边栏。
-        # 页面才是视觉重心，整页重建一次就换完（含卡片），不会出现「底色变了、
-        # 卡片还是黑的」那种半新半旧；侧边栏随后跟上。
-        # defer=True 让「底色已换」这一帧真正上屏，再去重建页面：否则整个切换是
-        # 一个同步调用，窗口在返回前根本没机会重绘。
+        # 顺序：侧边栏（色块小、最先落定）→ 窗口底色 + 标题栏 → 当前页整块重建。
+        # 侧边栏只有十几行，先换它眼睛立刻有反馈；中间那一大块等窗口底色落定后
+        # 随当前页一起整页重建（含卡片），不会出现「底色变了、卡片还是黑的」。
+        # defer=True 让前面这两步真正上屏，再去重建页面：否则整个切换是一个同步
+        # 调用，窗口在返回前根本没机会重绘。
         self.pages.switch(
             mode,
-            window=self,
-            after_rebuild=lambda: self._refresh_sidebar(target),
+            before_rebuild=lambda: self._refresh_shell(target),
             defer=True,
         )
-        # 这里只处理 idle 任务：把「底色 + 侧边栏已经换好」这一帧画出来。
+        # 这里只处理 idle 任务：把「侧边栏 + 底色已经换好」这一帧画出来。
         # 不能用 ``update()``——它会立刻把 ``after(1)`` 排队的页面重建也跑掉，
         # defer 就白设了。
+        try:
+            self.update_idletasks()
+        except Exception:  # noqa: BLE001 - 窗口正在销毁
+            pass
+
+    def _refresh_shell(self, mode_string: str) -> None:
+        """先刷侧边栏，再刷窗口底色和标题栏。"""
+        self._refresh_sidebar(mode_string)
+        # 让「侧边栏已换色」这一帧先上屏，再动窗口底色
+        try:
+            self.update_idletasks()
+        except Exception:  # noqa: BLE001 - 窗口正在销毁
+            pass
+        repaint_window(self, mode_string)
+        set_titlebar_dark(self, mode_string == "Dark")
         try:
             self.update_idletasks()
         except Exception:  # noqa: BLE001 - 窗口正在销毁

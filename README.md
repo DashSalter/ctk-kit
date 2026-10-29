@@ -225,34 +225,35 @@ class App(ctk.CTk):
 
     def toggle_theme(self):
         mode = "light" if is_dark() else "dark"
-        # 顺序：窗口底色（switch 里先刷）→ 当前页整块重建 → 侧边栏
+        # 顺序：侧边栏 → 窗口底色 + 标题栏 → 当前页整块重建
         self.pages.switch(
             mode,
-            window=self,
-            after_rebuild=lambda: self._refresh_sidebar(),
+            before_rebuild=lambda: self._refresh_shell(mode),
             defer=True,
         )
 
-    def _refresh_sidebar(self):
+    def _refresh_shell(self, mode):
         self.sidebar.configure(fg_color=T.COLOR_SIDE)
         recolor_tree(self.sidebar, T.COLOR_SIDE, deep=False)
+        self.update_idletasks()          # 侧边栏先上屏
+        repaint_window(self, "Light" if mode == "light" else "Dark")
+        set_titlebar_dark(self, mode == "dark")
 ```
 
 `pages.switch()` 做了三件事：
 
-1. 用 `apply_appearance_fast()` 更新全局配色和窗口底色，但**不让已有控件逐个重绘**
+1. 用 `apply_appearance_fast()` 更新全局配色，但**不让已有控件逐个重绘**
    （省掉 380 ms）；
-2. 重建用户正看着的那一页（30~350 ms），其余页面只打「过期」标记，等切换过去时
-   由 `pages.show(name)` 自动补建；
-3. 调 `after_rebuild()` 刷外壳——侧边栏、状态栏这类不属于任何页面的容器。
+2. 调 `before_rebuild()` 刷外壳——侧边栏、窗口底色、标题栏这类先在视觉上落定；
+3. 重建用户正看着的那一页（30~350 ms），其余页面只打「过期」标记，等切换过去时
+   由 `pages.show(name)` 自动补建。
 
-**顺序是刻意这么排的**：窗口底色是整窗最大的一块，先让它落定；页面是视觉重心，
-整页重建一次就换完（含卡片，不会出现「底色变了、卡片还是黑的」）；侧边栏只有
-十几行，放在最后补齐即可。`defer=True` 会把页面重建推迟一帧，让「底色已换」
-真的显示出来——不然整个切换是一个同步调用，窗口在返回前根本没机会重绘。
+**顺序是刻意这么排的**：侧边栏只有十几行，先换它眼睛立刻有反馈；窗口底色和标题栏
+跟着落定；中间那一大块随当前页整页重建一次换完（含卡片），不会出现「底色变了、
+卡片还是黑的」那种半新半旧。`defer=True` 会把页面重建推迟一帧，让前面两步真的
+显示出来——不然整个切换是一个同步调用，窗口在返回前根本没机会重绘。
 
-`before_rebuild` 钩子也还在：要给「比页面还该先变」的东西（窗口边框、大面积底纹）
-留位置时用它。
+`after_rebuild` 钩子也还在：要等页面建完再补别的（状态栏、悬浮按钮）就用它。
 
 `apply_appearance_fast(mode, window=...)` 单独用也可以：它会把窗口底色和标题栏一起刷好，
 并且避开 CTk 那套「withdraw → deiconify → 还焦点」的标题栏处理（那正是切换时闪一下、

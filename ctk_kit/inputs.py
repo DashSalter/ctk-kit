@@ -160,6 +160,10 @@ def switch(
 ) -> ctk.CTkSwitch:
     """设置页的开关：只留轨道，拨到右边时轨道变主色。
 
+    轨道用 ``COLOR_BORDER_STRONG`` 而不是 ``COLOR_SOFT``：后者在深色主题下
+    （``#22242c``）和卡片底几乎同色，整个开关看起来就是一团黑；把手则取
+    ``COLOR_MUTED``，深色下比轨道亮、浅色下比轨道暗，两个主题都分得清。
+
     参数:
         master: 父容器。
         command: 拨动回调，不接收参数；用 ``toggle()`` 或点击都会触发。
@@ -175,10 +179,10 @@ def switch(
         width=width,
         font=T.FONT_SMALL,
         text_color=T.COLOR_TEXT,
-        fg_color=T.COLOR_SOFT,
+        fg_color=T.COLOR_BORDER_STRONG,
         progress_color=T.COLOR_ACCENT,
-        button_color=T.COLOR_SIDE,
-        button_hover_color=T.COLOR_CARD,
+        button_color=T.COLOR_MUTED,
+        button_hover_color=T.COLOR_TEXT,
         command=command,
     )
 

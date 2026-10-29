@@ -51,8 +51,8 @@ class DropField(ctk.CTkFrame):
         super().__init__(
             master,
             fg_color=T.COLOR_INPUT,
-            border_width=2,
-            border_color=T.COLOR_BORDER_STRONG,
+            border_width=1,
+            border_color=T.COLOR_BORDER_INPUT,
             corner_radius=T.RADIUS_SMALL,
             height=height,
         )
@@ -69,14 +69,14 @@ class DropField(ctk.CTkFrame):
             fg_color="transparent",
             border_width=0,
             corner_radius=0,
-            height=height - 4,
+            height=height - 2,
             font=T.FONT_BODY,
             text_color=T.COLOR_TEXT,
             placeholder_text=placeholder,
             placeholder_text_color=T.COLOR_FAINT,
         )
         # 内缩量必须等于外框的 border_width，否则子控件会压住描边，边框看起来一段粗一段断
-        self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=2)
+        self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=1)
 
         self.arrow: ctk.CTkLabel = ctk.CTkLabel(
             self,
@@ -89,7 +89,7 @@ class DropField(ctk.CTkFrame):
             corner_radius=5,
             anchor="center",
         )
-        self.arrow.pack(side="right", padx=(0, 4), pady=2)
+        self.arrow.pack(side="right", padx=(0, 4), pady=1)
         self.arrow.configure(cursor="hand2")
         self.arrow.bind("<Button-1>", lambda _event: self.open_menu())
         self.arrow.bind("<Enter>", lambda _event: self._set_hover(True))

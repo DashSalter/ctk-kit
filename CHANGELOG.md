@@ -19,12 +19,11 @@
 - 新增令牌 `COLOR_ACTIVE` / `COLOR_ACTIVE_HOVER`（浅 `#1b94a7` / 深 `#3891a3`）：
   勾选、单选、开关、滑块、进度条、分段选中段的激活色都走它，比主色偏青一档、
   比输入框底色（深色 `#1d1f26`）明显亮；想换色只改这两个值
-- 输入类控件的边框从 `COLOR_BORDER` 换成 `COLOR_BORDER_STRONG`（`toolbar_entry`、
-  `form_entry`、`TextArea`、`DropField`）：浅色下 `#e3e6eb` 贴在白卡片上几乎看不出边，
-  换成 `#c9cfd8` 才有轮廓；卡片与分割线仍用 `COLOR_BORDER`
-- 输入类控件的 `border_width` 从 1 改成 2：1px 描边在圆角弧线上会被抗锯齿摊薄，
-  浅色主题下四个角像断开的虚线；2px 才连续
-- `DropField` 的子控件内缩量从 1 改成 2（= `border_width`），否则 `CTkEntry` 会压住
+- 输入类控件的边框改用新令牌 `COLOR_BORDER_INPUT`（浅 `#aab2c0` / 深 `#4a5162`）：
+  浅色下 `#e3e6eb` 贴在白卡片上几乎看不出边；而 1px 描边要想在圆角弧线上不被
+  抗锯齿摊薄成虚线，边框色必须够深，所以单独给输入框一档更深的颜色。
+  涉及 `toolbar_entry`、`form_entry`、`TextArea`、`DropField`
+- `DropField` 的子控件内缩量保持 1（= `border_width`），否则 `CTkEntry` 会压住
   外框描边，边框一段粗一段断
 - `segmented()` 的选中段改用 `COLOR_ACTIVE`，与开关、勾选、单选、滑块、进度条
   的激活色统一：选中段文字自动切成 `COLOR_ACCENT_TEXT`、其余段回到 `COLOR_TEXT`

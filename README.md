@@ -59,7 +59,7 @@ python -m ctk_kit.showcase.pages.notify --topmost
 页面代码在 `ctk_kit/showcase/pages/` 下，一页一个文件；`--where` 会打印窗口矩形后退出，方便截图。
 
 展示程序有十个页面：总览、基件、按钮、输入、布局、提示、列表、主题、表单、设置，把每个公开构建都用一遍。
-基件页把 26 个色值连同浅/深两套十六进制值一起列出来，换主题时对着它调最直观。
+基件页把 27 个色值连同浅/深两套十六进制值一起列出来，换主题时对着它调最直观。
 
 ## 四层结构
 
@@ -102,9 +102,11 @@ python -m ctk_kit.showcase.pages.notify --topmost
   互相抢，深色下也比输入框底色（`#1d1f26`）明显亮。想让激活色更醒目或换个色相，
   只改 `tokens.py` 里这两个值即可，六种控件会一起变。
 
-  边框分两档：`COLOR_BORDER` 只给卡片和分割线这种「不需要看清边界」的地方；
-  输入框、下拉框、文本区一律用 `COLOR_BORDER_STRONG`。浅色下 `#e3e6eb` 贴在白卡片上
-  几乎看不见，`#c9cfd8` 才有边。
+  边框分三档：`COLOR_BORDER` 给卡片和分割线这种「不需要看清边界」的地方；
+  输入框、下拉框、文本区用 `COLOR_BORDER_INPUT`（浅 `#aab2c0` / 深 `#4a5162`）；
+  开关轨道、滑块轨道、勾选/单选的未选中描边用 `COLOR_BORDER_STRONG`。
+  输入框那档颜色更深，是因为 1px 描边在圆角弧线上会被抗锯齿摊薄，颜色浅就直接
+  看不见了——换 `COLOR_BORDER_STRONG` 会断、加粗到 2px 又太厚。
 
 **大文本**（`text`）
 
@@ -352,9 +354,9 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 这些都是踩过的，记下来省得再踩：
 
 - `CTkLabel` 不支持 `border_width` / `border_color`，想加边框只能裹一层 `CTkFrame`。
-- `CTkEntry` / `CTkTextbox` 的 `border_width=1` 在圆角弧线上会被抗锯齿摊薄成断断续续
-  的一圈，白色主题下尤其明显（浅色边框 + 白底）。输入类控件统一用 `border_width=2`，
-  边框才连续。
+- `CTkEntry` / `CTkTextbox` 的 `border_width=1` 在圆角弧线上会被抗锯齿摊薄，边框色浅
+  时看着就是断断续续的一圈（白色主题下最明显）。加粗到 2px 能连续但显厚，代价最小
+  的做法是把边框色加深一档（见 `COLOR_BORDER_INPUT`）。
 - 自己拼「带边框的容器」时（像 `DropField` 那样 `CTkFrame` 里塞子控件），子控件的
   `padx` / `pady` 内缩量要等于外框的 `border_width`，否则子控件会盖住描边，
   边框看起来一段粗、一段断。

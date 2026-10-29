@@ -225,39 +225,32 @@ class App(ctk.CTk):
 
     def toggle_theme(self):
         mode = "light" if is_dark() else "dark"
-        # 顺序：背景（侧边栏 / 窗口 / 页面容器）→ 组件（当前页整块重建）
-        self.pages.switch(
-            mode,
-            before_rebuild=lambda: self._refresh_background(mode),
-            defer=True,
-        )
+        # 一次做完：全局配色 + 窗口底色 + 当前页重建 + 侧边栏
+        self.pages.switch(mode, window=self)
+        self._refresh_sidebar(mode)
+        self.update_idletasks()
 
-    def _refresh_background(self, mode):
+    def _refresh_sidebar(self, mode):
         self.sidebar.configure(fg_color=T.COLOR_SIDE)
         recolor_tree(self.sidebar, T.COLOR_SIDE, deep=False)
-        self.update_idletasks()          # 侧边栏先上屏
-        repaint_window(self, "Light" if mode == "light" else "Dark")
-        set_titlebar_dark(self, mode == "dark")
-        page = self.pages.frame(self.pages.current or "概览")
-        if page is not None:
-            page.configure(fg_color=T.COLOR_BG)   # 中间那块大面积底色
 ```
 
 `pages.switch()` 做了三件事：
 
-1. 用 `apply_appearance_fast()` 更新全局配色，但**不让已有控件逐个重绘**
+1. 用 `apply_appearance_fast()` 更新全局配色和窗口底色，但**不让已有控件逐个重绘**
    （省掉 380 ms）；
-2. 调 `before_rebuild()` 换掉所有「背景」——侧边栏、窗口底色、标题栏、当前页容器。
-   背景占的面积最大，先整体换掉，屏幕就不会出现「一半旧色」；
-3. 重建用户正看着的那一页（30~350 ms），卡片、文字、按钮按布局从上到下摆出来，
-   其余页面只打「过期」标记，等切换过去时由 `pages.show(name)` 自动补建。
+2. 重建用户正看着的那一页（30~350 ms），其余页面只打「过期」标记，等切换过去时
+   由 `pages.show(name)` 自动补建；
+3. 需要的话还能用 `before_rebuild` / `after_rebuild` 钩子刷外壳（侧边栏、状态栏），
+   `defer=True` 把页面重建推迟一帧。
 
-**顺序是刻意这么排的**：先背景、后组件。背景是一整块，换了就换完了；组件交给整页
-重建一次摆好（含卡片），不会出现「底色变了、卡片还是黑的」那种半新半旧。
-`defer=True` 把页面重建推迟一帧，让背景这一步真的显示出来——不然整个切换是一个
-同步调用，窗口在返回前根本没机会重绘。
+**别在切换中途让出事件循环**。早先试过「先刷底色、再让一帧、再重建页面」，想做出
+渐变式的观感，结果每一帧都是一半新一半旧（底色浅了卡片还是黑的），比一次做完更花。
+现在是一整段同步代码，屏幕只在结束时重绘一次，看到的就是「旧配色 → 新配色」，
+干净利落；代价是这 200 ms 左右窗口不响应，但本来也不该在切换中途去点别的。
 
-`after_rebuild` 钩子也还在：要等页面建完再补别的（状态栏、悬浮按钮）就用它。
+想更快就只重建当前页、其余页延后——这是 `switch()` 默认就在做的；实测设置页
+200 ms、列表页 450 ms（列表页自带六张卡片，重建本身就贵）。
 
 `apply_appearance_fast(mode, window=...)` 单独用也可以：它会把窗口底色和标题栏一起刷好，
 并且避开 CTk 那套「withdraw → deiconify → 还焦点」的标题栏处理（那正是切换时闪一下、

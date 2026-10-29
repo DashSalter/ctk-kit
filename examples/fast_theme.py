@@ -17,7 +17,7 @@ from ctk_kit import PageRebuilder, apply_appearance, is_dark, set_titlebar_dark
 from ctk_kit import tokens as T
 from ctk_kit.buttons import primary_button
 from ctk_kit.layout import card, hint_label, page_header, section_title
-from ctk_kit.theme import recolor_tree, repaint_window
+from ctk_kit.theme import recolor_tree
 
 PAGES = ("概览", "设置")
 
@@ -125,24 +125,11 @@ class App(ctk.CTk):
 
     def toggle_theme(self) -> None:
         mode = "light" if is_dark() else "dark"
-        # 顺序：背景（侧边栏、窗口、页面容器）→ 组件（当前页整块重建）
-        self.pages.switch(
-            mode,
-            before_rebuild=lambda: self._refresh_background(mode),
-            defer=True,
-        )
-        self.show(self.pages.current or "概览")
-
-    def _refresh_background(self, mode: str) -> None:
-        """先换背景：侧边栏、窗口底色、标题栏、当前页容器。"""
+        # 一次做完：全局配色 + 窗口底色 + 当前页重建 + 侧边栏
+        self.pages.switch(mode, window=self)
         self._refresh_sidebar(mode)
         self.update_idletasks()
-        repaint_window(self, "Light" if mode == "light" else "Dark")
-        set_titlebar_dark(self, mode == "dark")
-        page = self.pages.frame(self.pages.current or "概览")
-        if page is not None:
-            page.configure(fg_color=T.COLOR_BG)
-        self.update_idletasks()
+        self.show(self.pages.current or "概览")
 
     def _refresh_sidebar(self, mode: str) -> None:
         """父底色 + 按钮的文字/底色。"""

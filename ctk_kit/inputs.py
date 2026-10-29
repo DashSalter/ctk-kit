@@ -18,7 +18,7 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Callable, Optional, Sequence, Tuple
+from typing import Any, Callable, Optional, Sequence, Tuple
 
 import customtkinter as ctk
 
@@ -153,19 +153,34 @@ def segmented(
 
     segments = getattr(button, "_buttons_dict", {})
 
+    def alive(widget: Any) -> bool:
+        try:
+            return bool(widget.winfo_exists())
+        except Exception:  # noqa: BLE001 - 控件可能已经销毁
+            return False
+
     def paint(value: str) -> None:
         for name, segment in segments.items():
-            segment.configure(
-                text_color=T.COLOR_ACCENT_TEXT if name == value else T.COLOR_TEXT
-            )
+            if not alive(segment):
+                continue
+            try:
+                segment.configure(
+                    text_color=T.COLOR_ACCENT_TEXT if name == value else T.COLOR_TEXT
+                )
+            except Exception:  # noqa: BLE001
+                continue
 
     original_set = button.set
 
     def select(value: str, **kwargs) -> None:
         # CTkSegmentedButton 内部点按钮时会调 set(value, from_button_callback=True)，
         # 所以这里必须把多余的关键字参数原样转回去，不能只声明一个 value。
-        original_set(value, **kwargs)
+        #
+        # 先上色再 set：set 里会触发调用方的 command，而 command 很可能正是
+        # 「切换主题 → 重建整个页面」，一旦重建，这些段按钮就被销毁了，
+        # 之后再 configure 会抛 invalid command name。
         paint(value)
+        original_set(value, **kwargs)
 
     def on_click(value: str) -> None:
         paint(value)

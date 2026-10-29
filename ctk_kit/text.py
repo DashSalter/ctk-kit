@@ -170,8 +170,20 @@ class TextArea(ctk.CTkFrame):
         # 只读时保留占位符：它不是可编辑内容，不该因为聚焦就消失
         if self._placeholder_active and not self._readonly:
             self._clear_placeholder()
+        try:
+            self.textbox.configure(
+                border_width=T.BORDER_FOCUS_WIDTH, border_color=T.COLOR_ACCENT
+            )
+        except Exception:  # noqa: BLE001 - 控件可能已销毁
+            pass
 
     def _handle_focus_out(self, _event: Any) -> None:
+        try:
+            self.textbox.configure(
+                border_width=1, border_color=T.COLOR_BORDER_INPUT
+            )
+        except Exception:  # noqa: BLE001
+            pass
         if self._placeholder_active:
             return
         if not self.textbox.get("1.0", "end-1c") and self._placeholder:

@@ -32,6 +32,42 @@ SwitchCommand = Optional[Callable[[], None]]
 SliderCommand = Optional[Callable[[float], None]]
 # 单选组回调：收到被选中的那一项文字。
 RadioCommand = Optional[Callable[[str], None]]
+# 焦点边框的回调：改完边框后以新的 border_width 调一次（给需要同步内缩的容器用）。
+InsetHook = Optional[Callable[[int], None]]
+
+
+def bind_focus_border(widget: tk.Misc, *, on_width: InsetHook = None) -> None:
+    """绑定「聚焦时边框加粗变主色、失焦复原」的焦点样式。
+
+    1px 描边在圆角弧线上会被抗锯齿吃掉一半，四角看着像断开；2px 才连得上。
+    所以常态用 1px 细边、聚焦时临时加粗到 ``BORDER_FOCUS_WIDTH``。
+
+    参数:
+        widget: ``CTkEntry`` / ``CTkTextbox`` / ``CTkFrame`` 这类支持
+            ``configure(border_width=..., border_color=...)`` 的控件。
+        on_width: 边框宽度变化后的回调，参数是新的 ``border_width``；
+            自定义容器（例如 ``DropField``）用它同步子控件的内缩量。
+    """
+
+    def apply(width: int, color) -> None:
+        try:
+            widget.configure(border_width=width, border_color=color)
+        except Exception:  # noqa: BLE001 - 控件可能已经销毁
+            return
+        if on_width is not None:
+            on_width(width)
+
+    def focus_in(_event: Any = None) -> None:
+        apply(T.BORDER_FOCUS_WIDTH, T.COLOR_ACCENT)
+
+    def focus_out(_event: Any = None) -> None:
+        apply(1, T.COLOR_BORDER_INPUT)
+
+    for sequence, handler in (("<FocusIn>", focus_in), ("<FocusOut>", focus_out)):
+        try:
+            widget.bind(sequence, handler, add="+")
+        except Exception:  # noqa: BLE001
+            widget.bind(sequence, handler)
 
 
 def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
@@ -57,11 +93,7 @@ def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk
         border_width=1,
         text_color=T.COLOR_TEXT,
     )
-    entry.bind("<FocusIn>", lambda _event: entry.configure(border_color=T.COLOR_ACCENT))
-    entry.bind(
-        "<FocusOut>",
-        lambda _event: entry.configure(border_color=T.COLOR_BORDER_INPUT),
-    )
+    bind_focus_border(entry)
     return entry
 
 
@@ -89,7 +121,7 @@ def form_entry(
     返回:
         尚未摆位的 ``CTkEntry``。
     """
-    return ctk.CTkEntry(
+    entry = ctk.CTkEntry(
         master,
         show=("•" if password else show) or "",
         placeholder_text=placeholder,
@@ -102,6 +134,8 @@ def form_entry(
         border_width=1,
         text_color=T.COLOR_TEXT,
     )
+    bind_focus_border(entry)
+    return entry
 
 
 def segmented(

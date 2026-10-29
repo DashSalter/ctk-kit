@@ -103,10 +103,11 @@ python -m ctk_kit.showcase.pages.notify --topmost
   只改 `tokens.py` 里这两个值即可，六种控件会一起变。
 
   边框分三档：`COLOR_BORDER` 给卡片和分割线这种「不需要看清边界」的地方；
-  输入框、下拉框、文本区用 `COLOR_BORDER_INPUT`（浅 `#aab2c0` / 深 `#4a5162`）；
+  输入框、下拉框、文本区用 `COLOR_BORDER_INPUT`（浅 `#aab2c0` / 深 `#3a4050`）；
   开关轨道、滑块轨道、勾选/单选的未选中描边用 `COLOR_BORDER_STRONG`。
   输入框那档颜色更深，是因为 1px 描边在圆角弧线上会被抗锯齿摊薄，颜色浅就直接
-  看不见了——换 `COLOR_BORDER_STRONG` 会断、加粗到 2px 又太厚。
+  看不见了。聚焦时边框临时加粗到 `BORDER_FOCUS_WIDTH`（2）并换成 `COLOR_ACCENT`：
+  1px 的蓝线在圆角两端接不上，2px 才闭合成一个圈。
 
 **大文本**（`text`）
 
@@ -357,6 +358,8 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 - `CTkEntry` / `CTkTextbox` 的 `border_width=1` 在圆角弧线上会被抗锯齿摊薄，边框色浅
   时看着就是断断续续的一圈（白色主题下最明显）。加粗到 2px 能连续但显厚，代价最小
   的做法是把边框色加深一档（见 `COLOR_BORDER_INPUT`）。
+- 聚焦高亮如果只用 1px 换色，深色边框在圆角**两端**会明显接不上（不是变淡，是真的
+  缺一段）；加粗到 2px 才闭合成完整的圈。`bind_focus_border()` 就是这么做的。
 - 自己拼「带边框的容器」时（像 `DropField` 那样 `CTkFrame` 里塞子控件），子控件的
   `padx` / `pady` 内缩量要等于外框的 `border_width`，否则子控件会盖住描边，
   边框看起来一段粗、一段断。

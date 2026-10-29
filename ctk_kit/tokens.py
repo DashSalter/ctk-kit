@@ -39,7 +39,7 @@ COLOR_CARD: ColorPair = ("#ffffff", "#181920")           # 卡片
 COLOR_INPUT: ColorPair = ("#ffffff", "#1d1f26")          # 输入框、下拉框、分段控件底色
 COLOR_BORDER: ColorPair = ("#e3e6eb", "#262831")         # 细边框：卡片、分割线
 COLOR_BORDER_STRONG: ColorPair = ("#c9cfd8", "#3b3e4a")  # 轨道、未选中描边
-COLOR_BORDER_INPUT: ColorPair = ("#aab2c0", "#4a5162")   # 输入框边框（1px 也要看得清）
+COLOR_BORDER_INPUT: ColorPair = ("#aab2c0", "#3a4050")   # 输入框边框（1px 也要看得清）
 
 COLOR_TEXT: ColorPair = ("#111827", "#f1f3f6")
 COLOR_MUTED: ColorPair = ("#6b7280", "#98a0ab")
@@ -83,6 +83,8 @@ STATUS_COLORS: Dict[str, ColorPair] = {
 SCROLLBAR_WIDTH: int = 12
 # 滚动条滑块两侧留白：滑块的可见宽度 = SCROLLBAR_WIDTH - 2 * SCROLLBAR_SPACING
 SCROLLBAR_SPACING: int = 4
+# 输入框获得焦点时的边框宽度：1px 在圆角弧线上会被抗锯齿吃掉，2px 才连得上
+BORDER_FOCUS_WIDTH: int = 2
 RADIUS_SMALL: int = 8
 RADIUS_MEDIUM: int = 10
 RADIUS_LARGE: int = 12

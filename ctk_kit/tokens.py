@@ -67,8 +67,8 @@ COLOR_SUCCESS: ColorPair = ("#15803d", "#4ade80")
 COLOR_WARNING: ColorPair = ("#b45309", "#fbbf24")
 
 # 滚动条比边框还淡一档：它常驻在右侧，太显眼会抢内容
-COLOR_SCROLLBAR: ColorPair = ("#d9dde5", "#23262e")
-COLOR_SCROLLBAR_HOVER: ColorPair = ("#bcc3d0", "#39404f")
+COLOR_SCROLLBAR: ColorPair = ("#c8cdd8", "#3d4350")
+COLOR_SCROLLBAR_HOVER: ColorPair = ("#aab1c0", "#535a6b")
 
 # 顶部提示条按级别取色（"info" / "success" / "warn" / "error"）
 STATUS_COLORS: Dict[str, ColorPair] = {

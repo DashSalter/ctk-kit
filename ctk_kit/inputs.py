@@ -104,7 +104,10 @@ def segmented(
     height: int = 34,
     font: T.FontSpec = T.FONT_SMALL,
 ) -> ctk.CTkSegmentedButton:
-    """统一样式的分段选择：底色同输入框，选中段淡色高亮。
+    """统一样式的分段选择：浅一档的容器底，选中段淡色高亮。
+
+    容器底比卡片深一档（``COLOR_SOFT``），否则浅色主题下和白色卡片同色
+    （``COLOR_INPUT`` 的浅色值就是 ``#ffffff``），整组分段会「消失」在卡片里。
 
     参数:
         master: 父容器。
@@ -124,10 +127,10 @@ def segmented(
         width=width,
         height=height,
         corner_radius=T.RADIUS_SMALL,
-        fg_color=T.COLOR_INPUT,
-        unselected_color=T.COLOR_INPUT,
+        fg_color=T.COLOR_SOFT,
+        unselected_color=T.COLOR_SOFT,
         selected_color=T.COLOR_SEG_SELECTED,
-        unselected_hover_color=T.COLOR_SOFT,
+        unselected_hover_color=T.COLOR_SOFT_HOVER,
         selected_hover_color=T.COLOR_SEG_SELECTED,
         text_color=T.COLOR_TEXT,
         font=font,

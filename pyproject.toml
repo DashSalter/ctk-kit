@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctk-kit"
-version = "0.3.0"
+version = "0.6.0"
 description = "面向 CustomTkinter 的轻量界面基件：深浅色令牌、常用控件与懒加载列表"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -37,9 +37,6 @@ classifiers = [
 ]
 dependencies = ["customtkinter>=5.2"]
 
-[project.optional-dependencies]
-test = ["pytest>=7"]
-
 [project.scripts]
 ctk-kit-showcase = "ctk_kit.showcase:main"
 
@@ -52,11 +49,7 @@ Changelog = "https://gitee.com/kuangjianke/ctk-kit/blob/main/CHANGELOG.md"
 
 [tool.setuptools.packages.find]
 include = ["ctk_kit*"]
-exclude = ["tests*", "examples*"]
+exclude = ["examples*"]
 
 [tool.setuptools.package-data]
 ctk_kit = ["py.typed"]
-
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-addopts = "-ra"

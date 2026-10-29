@@ -1,10 +1,11 @@
 """ctk-kit —— 面向 CustomTkinter 的轻量界面基件。
 
-分三层：
+分四层：
 
 - ``tokens``  设计令牌：颜色（深浅两套）、字体、圆角、间距
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
-- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``layout`` / ``scroll_list`` / ``text``
+- ``pages``   多页面窗口的页面管理：按需重建，切外观不卡
+- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``layout`` / ``notify`` / ``scroll_list`` / ``text``
 
 安装::
 
@@ -34,7 +35,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.3.0"
+__version__ = "0.6.0"
 
 from . import tokens, theme
 from .buttons import (
@@ -57,18 +58,31 @@ from .layout import (
     section_title,
     style_scrollable,
 )
+from .notify import Notifier, notify
+from .pages import PageRebuilder
 from .scroll_list import LazyList
 from .text import TextArea
-from .theme import apply_appearance, color_of, is_dark, repaint_native
+from .theme import (
+    apply_appearance,
+    apply_appearance_fast,
+    color_of,
+    is_dark,
+    recolor_tree,
+    repaint_native,
+    set_titlebar_dark,
+)
 
 __all__ = [
     "DropField",
     "FlatButton",
     "LazyList",
+    "Notifier",
+    "PageRebuilder",
     "SoftButton",
     "TextArea",
     "__version__",
     "apply_appearance",
+    "apply_appearance_fast",
     "card",
     "color_of",
     "danger_button",
@@ -78,12 +92,15 @@ __all__ = [
     "form_entry",
     "hint_label",
     "is_dark",
+    "notify",
     "page_header",
     "primary_button",
+    "recolor_tree",
     "repaint_native",
     "scrollable",
     "section_title",
     "segmented",
+    "set_titlebar_dark",
     "soft_button",
     "style_scrollable",
     "switch",

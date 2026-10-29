@@ -33,6 +33,8 @@ FONT_BADGE: FontSpec = (FONT_NAME, 9)                # 分类徽标
 # ---------------------------------------------------------------- 颜色
 COLOR_BG: ColorPair = ("#f4f5f7", "#0e0f12")             # 窗口底色
 COLOR_SIDE: ColorPair = ("#ffffff", "#131418")           # 侧边栏 / 状态栏
+# 标题栏：刻意比内容区和侧边栏都亮一档，深浅两套都能看出「顶栏」这一层
+COLOR_TITLEBAR: ColorPair = ("#e8ebf1", "#1c1e25")
 COLOR_CARD: ColorPair = ("#ffffff", "#181920")           # 卡片
 COLOR_INPUT: ColorPair = ("#ffffff", "#1d1f26")          # 输入框、下拉框、分段控件底色
 COLOR_BORDER: ColorPair = ("#e3e6eb", "#262831")         # 细边框
@@ -50,7 +52,8 @@ COLOR_SOFT: ColorPair = ("#f0f2f5", "#22242c")          # 次要按钮底色
 COLOR_SOFT_HOVER: ColorPair = ("#e4e8ee", "#2c2f38")
 # 比 COLOR_SOFT_HOVER 更淡一档：输入框里的图标按钮悬停时用，别抢输入框本身的注意力
 COLOR_HOVER_FAINT: ColorPair = ("#eef1f6", "#262932")
-COLOR_SEG_SELECTED: ColorPair = ("#e2ebff", "#1b2a44")  # 分段控件选中段
+# 分段控件选中段：深色下必须比容器明显亮一档，否则「哪个被选中」看不出来
+COLOR_SEG_SELECTED: ColorPair = ("#dbe6fb", "#3a5a95")
 
 COLOR_DANGER: ColorPair = ("#dc2626", "#ef4444")
 COLOR_DANGER_SOFT: ColorPair = ("#fdeaea", "#3a1c1e")

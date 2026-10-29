@@ -217,17 +217,17 @@ class ShowcaseApp(ctk.CTk):
         if (target == "Dark") == was_dark:
             return
 
-        # 顺序：侧边栏（色块小、最先落定）→ 窗口底色 + 标题栏 → 当前页整块重建。
-        # 侧边栏只有十几行，先换它眼睛立刻有反馈；中间那一大块等窗口底色落定后
-        # 随当前页一起整页重建（含卡片），不会出现「底色变了、卡片还是黑的」。
-        # defer=True 让前面这两步真正上屏，再去重建页面：否则整个切换是一个同步
-        # 调用，窗口在返回前根本没机会重绘。
+        # 顺序：背景（侧边栏、窗口、当前页容器，面积大）→ 组件（当前页整块重建，
+        # 按布局从上到下摆出来）→ 其余页切过去时再补。
+        # 背景先落定、组件后出现，眼睛看到的是「底色先换、内容跟上」，而不是
+        # 中间一大块停在旧底色。defer=True 让背景这一步真正上屏，再去重建页面：
+        # 否则整个切换是一个同步调用，窗口在返回前根本没机会重绘。
         self.pages.switch(
             mode,
-            before_rebuild=lambda: self._refresh_shell(target),
+            before_rebuild=lambda: self._refresh_background(target),
             defer=True,
         )
-        # 这里只处理 idle 任务：把「侧边栏 + 底色已经换好」这一帧画出来。
+        # 这里只处理 idle 任务：把「背景已经换好」这一帧画出来。
         # 不能用 ``update()``——它会立刻把 ``after(1)`` 排队的页面重建也跑掉，
         # defer 就白设了。
         try:
@@ -235,16 +235,38 @@ class ShowcaseApp(ctk.CTk):
         except Exception:  # noqa: BLE001 - 窗口正在销毁
             pass
 
-    def _refresh_shell(self, mode_string: str) -> None:
-        """先刷侧边栏，再刷窗口底色和标题栏。"""
+    def _refresh_background(self, mode_string: str) -> None:
+        """先换所有「背景」：侧边栏、窗口、当前页容器（面积最大的几块）。
+
+        组件（卡片、文字、按钮）不在这里动——它们由随后的整页重建一起换成
+        新配色，天然就是从上到下摆出来的。
+        """
         self._refresh_sidebar(mode_string)
-        # 让「侧边栏已换色」这一帧先上屏，再动窗口底色
         try:
-            self.update_idletasks()
+            self.update_idletasks()  # 侧边栏先上屏
         except Exception:  # noqa: BLE001 - 窗口正在销毁
             pass
+
         repaint_window(self, mode_string)
         set_titlebar_dark(self, mode_string == "Dark")
+
+        # 当前页的容器底色：透明容器只画父底色，父底色不换就会留一大片旧色
+        if self._current:
+            page = self.pages.frame(self._current)
+            if page is not None:
+                configure = getattr(page, "configure", None)
+                if callable(configure):
+                    try:
+                        configure(fg_color=T.COLOR_BG, bg_color=T.COLOR_BG)
+                    except Exception:  # noqa: BLE001 - 页面可能在回调里被销毁
+                        pass
+                setter = getattr(page, "_set_appearance_mode", None)
+                if callable(setter):
+                    try:
+                        setter(mode_string)
+                    except Exception:  # noqa: BLE001
+                        pass
+
         try:
             self.update_idletasks()
         except Exception:  # noqa: BLE001 - 窗口正在销毁

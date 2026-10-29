@@ -125,20 +125,23 @@ class App(ctk.CTk):
 
     def toggle_theme(self) -> None:
         mode = "light" if is_dark() else "dark"
-        # 顺序：侧边栏 → 窗口底色 + 标题栏 → 当前页整块重建
+        # 顺序：背景（侧边栏、窗口、页面容器）→ 组件（当前页整块重建）
         self.pages.switch(
             mode,
-            before_rebuild=lambda: self._refresh_shell(mode),
+            before_rebuild=lambda: self._refresh_background(mode),
             defer=True,
         )
         self.show(self.pages.current or "概览")
 
-    def _refresh_shell(self, mode: str) -> None:
-        """侧边栏不属于任何页面，自己刷；然后再刷窗口底色和标题栏。"""
+    def _refresh_background(self, mode: str) -> None:
+        """先换背景：侧边栏、窗口底色、标题栏、当前页容器。"""
         self._refresh_sidebar(mode)
         self.update_idletasks()
         repaint_window(self, "Light" if mode == "light" else "Dark")
         set_titlebar_dark(self, mode == "dark")
+        page = self.pages.frame(self.pages.current or "概览")
+        if page is not None:
+            page.configure(fg_color=T.COLOR_BG)
         self.update_idletasks()
 
     def _refresh_sidebar(self, mode: str) -> None:

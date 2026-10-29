@@ -225,33 +225,37 @@ class App(ctk.CTk):
 
     def toggle_theme(self):
         mode = "light" if is_dark() else "dark"
-        # 顺序：侧边栏 → 窗口底色 + 标题栏 → 当前页整块重建
+        # 顺序：背景（侧边栏 / 窗口 / 页面容器）→ 组件（当前页整块重建）
         self.pages.switch(
             mode,
-            before_rebuild=lambda: self._refresh_shell(mode),
+            before_rebuild=lambda: self._refresh_background(mode),
             defer=True,
         )
 
-    def _refresh_shell(self, mode):
+    def _refresh_background(self, mode):
         self.sidebar.configure(fg_color=T.COLOR_SIDE)
         recolor_tree(self.sidebar, T.COLOR_SIDE, deep=False)
         self.update_idletasks()          # 侧边栏先上屏
         repaint_window(self, "Light" if mode == "light" else "Dark")
         set_titlebar_dark(self, mode == "dark")
+        page = self.pages.frame(self.pages.current or "概览")
+        if page is not None:
+            page.configure(fg_color=T.COLOR_BG)   # 中间那块大面积底色
 ```
 
 `pages.switch()` 做了三件事：
 
 1. 用 `apply_appearance_fast()` 更新全局配色，但**不让已有控件逐个重绘**
    （省掉 380 ms）；
-2. 调 `before_rebuild()` 刷外壳——侧边栏、窗口底色、标题栏这类先在视觉上落定；
-3. 重建用户正看着的那一页（30~350 ms），其余页面只打「过期」标记，等切换过去时
-   由 `pages.show(name)` 自动补建。
+2. 调 `before_rebuild()` 换掉所有「背景」——侧边栏、窗口底色、标题栏、当前页容器。
+   背景占的面积最大，先整体换掉，屏幕就不会出现「一半旧色」；
+3. 重建用户正看着的那一页（30~350 ms），卡片、文字、按钮按布局从上到下摆出来，
+   其余页面只打「过期」标记，等切换过去时由 `pages.show(name)` 自动补建。
 
-**顺序是刻意这么排的**：侧边栏只有十几行，先换它眼睛立刻有反馈；窗口底色和标题栏
-跟着落定；中间那一大块随当前页整页重建一次换完（含卡片），不会出现「底色变了、
-卡片还是黑的」那种半新半旧。`defer=True` 会把页面重建推迟一帧，让前面两步真的
-显示出来——不然整个切换是一个同步调用，窗口在返回前根本没机会重绘。
+**顺序是刻意这么排的**：先背景、后组件。背景是一整块，换了就换完了；组件交给整页
+重建一次摆好（含卡片），不会出现「底色变了、卡片还是黑的」那种半新半旧。
+`defer=True` 把页面重建推迟一帧，让背景这一步真的显示出来——不然整个切换是一个
+同步调用，窗口在返回前根本没机会重绘。
 
 `after_rebuild` 钩子也还在：要等页面建完再补别的（状态栏、悬浮按钮）就用它。
 

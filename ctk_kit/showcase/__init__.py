@@ -212,33 +212,33 @@ class ShowcaseApp(ctk.CTk):
         if (target == "Dark") == was_dark:
             return
 
-        # 顺序：窗口底色（面积最大，最先铺开）→ 侧边栏 → 当前页组件。
-        # 大面积换色最容易被人注意到，先让它落定，视线才不会一直停在没跟上的地方；
-        # 侧边栏只有十几行，放在页面重建之前，避免它成为最后一个变色的区域。
+        # 顺序：窗口底色（最大面积）→ 当前页整块重建 → 侧边栏。
+        # 页面才是视觉重心，整页重建一次就换完（含卡片），不会出现「底色变了、
+        # 卡片还是黑的」那种半新半旧；侧边栏随后跟上。
+        # defer=True 让「底色已换」这一帧真正上屏，再去重建页面：否则整个切换是
+        # 一个同步调用，窗口在返回前根本没机会重绘。
         self.pages.switch(
             mode,
             window=self,
-            before_rebuild=lambda: self._refresh_chrome(target),
+            after_rebuild=lambda: self._refresh_sidebar(target),
+            defer=True,
         )
-        # 重建只做了布局（update_idletasks），文字要等下一次主循环才画；
-        # 这里补一次 update 让它一步到位，免得切换后先看到一片占位灰块
+        # 这里只处理 idle 任务：把「底色 + 侧边栏已经换好」这一帧画出来。
+        # 不能用 ``update()``——它会立刻把 ``after(1)`` 排队的页面重建也跑掉，
+        # defer 就白设了。
         try:
-            self.update()
+            self.update_idletasks()
         except Exception:  # noqa: BLE001 - 窗口正在销毁
             pass
 
-    def _refresh_chrome(self, mode_string: str) -> None:
-        """当前页重建之前先刷侧边栏（窗口底色由 ``pages.switch`` 先刷好）。
+    def _refresh_sidebar(self, mode_string: str) -> None:
+        """当前页重建之后刷侧边栏。
 
         侧边栏不整块重建（重建 14 个 CTkButton 要 150~240 ms），逐个改颜色即可：
         ``CTkButton`` 的 ``_bg_color`` 是构造时从父容器取死的，得显式重设。
         ``deep=False``：按钮内部的画布和文字由 ``_set_appearance_mode`` 自己重绘，
         再递归进去刷一遍只是白花 20 ms。
         """
-        # ``pages.switch`` 已经把窗口底色和标题栏换成新配色了，先让这一帧上屏：
-        # 中间那块面积最大，让它第一个落定，剩下的侧边栏和页面随后跟上
-        self.update_idletasks()
-
         self._sidebar.configure(fg_color=T.COLOR_SIDE, bg_color=T.COLOR_SIDE)
         # 先把新配色写进每个按钮的属性，再统一让它们重绘一次（省掉每个按钮两次重绘）
         self._paint_nav(self._current or "")
@@ -246,7 +246,6 @@ class ShowcaseApp(ctk.CTk):
         # deep=False 只刷直接子层：底部那层容器里的按钮要单独再刷一遍
         recolor_tree(self._bottom, T.COLOR_SIDE, mode_string, deep=False)
         recolor_tree(self._sidebar, T.COLOR_SIDE, mode_string, deep=False)
-        # 让「侧边栏换色」这一帧先画出来，再进入页面重建
         self.update_idletasks()
 
     def toggle_appearance(self) -> None:

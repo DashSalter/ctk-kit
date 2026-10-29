@@ -23,6 +23,10 @@ PageFactory = Callable[[str], ctk.CTkFrame]
 # 离开页面时的回调（比如把很长的列表缩回首屏）。
 PageHook = Callable[[ctk.CTkFrame], None]
 
+# ``switch(defer=True)`` 时延迟多久重建：一帧 16 ms 左右，
+# 留够一次窗口合成的时间，好让「外壳已经换色」这一帧真的显示出来。
+_DEFER_MS = 24
+
 
 class PageRebuilder:
     """管理一组页面，并按需重建某一页。
@@ -196,8 +200,10 @@ class PageRebuilder:
         *,
         window: Optional[tk.Misc] = None,
         before_rebuild: Optional[Callable[[], None]] = None,
+        after_rebuild: Optional[Callable[[], None]] = None,
+        defer: bool = False,
     ) -> None:
-        """切外观：更新全局配色，然后立刻重建当前页。
+        """切外观：更新全局配色，然后重建当前页。
 
         其余页面只打「过期」标记，等用户切过去时由 :meth:`show` 补建——Tk 是
         单线程的，连着重建十页会让窗口僵住一秒多，比原来的全量重绘还难受。
@@ -205,14 +211,43 @@ class PageRebuilder:
         参数:
             mode: ``"light"`` / ``"dark"`` / ``"system"``。
             window: 传了就把这个窗口的底色和标题栏一起刷（通常就是主窗口）。
-            before_rebuild: 重建当前页之前调一次。用来先刷侧边栏、状态栏这些
-                不属于任何页面的「外壳」——外壳几十毫秒就能换完色，页面重建要
-                一两百毫秒，先刷外壳看起来就是「窗口先变、内容后变」，比反过来
-                自然得多。
+            before_rebuild: 重建当前页之前调一次。适合处理「比页面还该先变」的
+                东西，比如窗口边框、大面积底纹。
+            after_rebuild: 重建之后再调一次。侧边栏、状态栏这类「不属于任何页面」
+                的容器放这里：页面占了整块视觉重心，先让它整体换掉，外壳随后
+                跟上，比反过来自然。
+            defer: 把当前页的重建推迟到下一个事件循环。整个 ``switch`` 是同步的，
+                换完底色到重建完成之间窗口根本没有机会重绘；置 ``True`` 可以让
+                「底色已换」这一帧真正上屏之后再重建页面（多花一帧，约二十毫秒）。
         """
         apply_appearance_fast(mode, window=window)
         if before_rebuild is not None:
             before_rebuild()
         self.mark_stale()
-        if self._current is not None:
-            self.rebuild(self._current)
+        name = self._current
+
+        def finish() -> None:
+            if after_rebuild is not None:
+                after_rebuild()
+
+        if name is None:
+            finish()
+            return
+        if not defer:
+            self.rebuild(name)
+            finish()
+            return
+        host = self._host
+        schedule = getattr(host, "after", None)
+        if not callable(schedule):
+            self.rebuild(name)
+            finish()
+            return
+
+        def rebuild_later() -> None:
+            if name in self._stale:
+                self.rebuild(name)
+            finish()
+
+        # 一帧 16 ms 左右：留够一次合成的时间，让「底色已换」真的被人看见
+        schedule(_DEFER_MS, rebuild_later)

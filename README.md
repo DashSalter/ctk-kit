@@ -92,7 +92,7 @@ python -m ctk_kit.showcase.pages.notify --topmost
 - `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`
   —— 一组互斥单选；`CTkRadioButton` 必须共用同一个 `variable` 才互斥，所以直接给一组
 - `slider(master, command=None, *, from_=0.0, to=100.0, steps=0, width=220)` —— 滑块，
-  `command` 收 `float`；`steps>0` 时只能停在等分点
+  `command` 收 `float`；`steps>0` 时只能停在等分点；把手是 12px 正圆，轨道 4px
 - `progressbar(master, *, value=0.0, width=220, height=6)` —— 细进度条，`value` 收 0~1，
   圆角跟随高度
 
@@ -374,8 +374,10 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 - `border_color` 不接受 `"transparent"`（CTk 只允许 `fg_color` 用）。文本区传
   `bg_color="transparent"` 时会沿父链找第一个实色当填充色，就是这条限制的绕法。
 - `CTkSegmentedButton` 同样不接受 `border_*`，传了会抛 `ValueError`。
-- `CTkSlider` 的细轨道是靠 `border_width`（默认 6）缩出来的：把它设成 0，轨道会
-  变成一根和控件一样高的粗条，圆形把手也会被吞进轨道里看不出来。
+- `CTkSlider` 的细轨道是靠 `border_width` 缩出来的：`轨道 = height - 2 * border_width`，
+  把它设成 0，轨道会变成一根和控件一样高的粗条，圆形把手也会被吞进轨道里看不出来。
+  把手直径等于 `height`（`button_length=0` 时），所以想换把手大小要连 `border_width`
+  一起调，才能保住 4px 轨道。
 - `CTkScrollbar` 的滑块可见宽度是「控件宽度 − 2 × `border_spacing`」。`CTkTextbox`
   内部的两个滚动条间距是 0，`CTkScrollableFrame` 用的是主题里的 4，所以同样
   `width=12`，文本区会画成 12 宽的粗条、滚动容器才 4 宽，并排放着就是两根粗细

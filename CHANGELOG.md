@@ -23,6 +23,9 @@
   - 聚焦/失焦只换 `border_color`，不改 `border_width`，内容才不会左右跳
 - `DropField` 删掉 `_inset_children()`：描边宽度固定 1，子控件内缩常量 1 即可，
   不再需要随焦点切换重排
+- `slider()` 的把手从 16px 收到 12px（`height=12`、`border_width=4`，轨道仍是
+  4px）：正圆把手的直径等于控件高度，16 的圆点压在 4px 细轨道上偏重，看着比
+  轨道抢眼；高度降下来后 `border_width` 要一起改，否则轨道会被压没
 - `TextArea(bg_color="transparent")` 不再抛 `ValueError`：CTk 的 `border_color`
   不接受透明色，现在沿父链取第一个实色当填充色
 - 示例「输入」页的提示文案、README 的边框三档与「已知的坑」同步改写

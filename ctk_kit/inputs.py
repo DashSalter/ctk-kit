@@ -414,10 +414,13 @@ def slider(
         to=to,
         number_of_steps=steps if steps > 0 else None,
         width=width,
-        height=16,
+        # 高度就是把手的直径：12 比默认的 16 轻，轨道仍靠 border_width 压成 4px。
+        height=12,
         # 圆角给大值让轨道和把手都成胶囊/正圆；button_length=0 表示把手是正圆。
         # 别把 border_width 设成 0：CTkSlider 是「整高画一圈 border、内层再画 fg」，
-        # 轨道那 4px 的细线正是靠默认的 border_width=6 缩出来的，设 0 会变成一根粗条。
+        # 轨道 = height - 2 * border_width，改成 0 会变成一根粗条。
+        # 12 高配 4px 边框，正好留出 4px 轨道，和改小把手前的观感一致。
+        border_width=4,
         corner_radius=1000,
         fg_color=T.COLOR_BORDER_STRONG,
         progress_color=T.COLOR_ACTIVE,

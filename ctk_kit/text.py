@@ -80,8 +80,16 @@ class TextArea(ctk.CTkFrame):
             text_color=self._text_color,
             font=T.FONT_BODY,
             wrap="word",
+            # 滚动条和其它滚动容器用同一套令牌，免得文本区这里灰一截、列表那里又不一样
+            scrollbar_button_color=T.COLOR_SCROLLBAR,
+            scrollbar_button_hover_color=T.COLOR_SCROLLBAR_HOVER,
         )
         self.textbox.pack(fill="both", expand=True)
+        for name in ("_y_scrollbar", "_x_scrollbar"):
+            bar = getattr(self.textbox, name, None)
+            if bar is not None:
+                # CTkTextbox 没有暴露滚动条宽度的构造参数，只能构造后补一下
+                bar.configure(width=T.SCROLLBAR_WIDTH)
         self.textbox.bind("<FocusIn>", self._handle_focus_in)
         self.textbox.bind("<FocusOut>", self._handle_focus_out)
         self.textbox.bind("<KeyRelease>", lambda _event: self._refresh())

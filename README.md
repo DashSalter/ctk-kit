@@ -107,7 +107,9 @@ python -m ctk_kit.showcase.pages.notify --topmost
 - `TextArea(master, *, placeholder="", height=200, readonly=False, show_counter=True, on_change=None, bg_color=None, text_color=None)`
   —— 多行文本区：失焦时显示占位符、底部字数统计、可切换只读；读写用 `get()/set()/clear()`。
   内部底色默认 `COLOR_INPUT`（输入框语义）；当日志面板显示时传 `bg_color=COLOR_CARD` 或
-  `bg_color="transparent"`，就不会比所在卡片亮一截，`text_color` 也可单独覆盖
+  `bg_color="transparent"`，就不会比所在卡片亮一截，`text_color` 也可单独覆盖。
+  纵向滚动条的粗细与配色跟 `scrollable()` 一致（`SCROLLBAR_WIDTH` +
+  `COLOR_SCROLLBAR` / `COLOR_SCROLLBAR_HOVER`），不会出现「文本区灰一截、列表又另一种灰」
 
 **下拉**（`dropdown`）
 

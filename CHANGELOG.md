@@ -25,6 +25,10 @@
   所以在 `set()` 与点击回调里分别重设）
 - 移除令牌 `COLOR_SEG_SELECTED`：分段控件的选中态已经并入 `COLOR_ACCENT`
 - 示例「输入」页补三节：勾选框、单选组、滑块与进度条（滑块拖动联动进度条）
+- `TextArea` 的滚动条改用统一令牌：`scrollbar_button_color` / `scrollbar_button_hover_color`
+  取 `COLOR_SCROLLBAR` / `COLOR_SCROLLBAR_HOVER`、宽度补成 `SCROLLBAR_WIDTH`，
+  和 `scrollable()` 的滚动条一致（`CTkTextbox` 没有暴露滚动条宽度的构造参数，
+  只能构造后从 `_y_scrollbar` / `_x_scrollbar` 补一下）
 - README 补四个工厂的签名与配色说明；「已知的坑」补 `CTkSlider` 的细轨道靠
   `border_width` 缩出来这一条
 

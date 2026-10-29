@@ -50,8 +50,8 @@ COLOR_ACCENT_TEXT: ColorPair = ("#ffffff", "#ffffff")
 
 # 控件「激活态」专用色：勾选、单选、开关拨到右边、滑块已填充、进度条、分段选中段。
 # 比主色偏青、饱和度低一档，压在卡片上不刺眼；深色值比 COLOR_INPUT（#1d1f26）明显亮。
-COLOR_ACTIVE: ColorPair = ("#17808f", "#2f7f8c")
-COLOR_ACTIVE_HOVER: ColorPair = ("#12697a", "#3b93a2")
+COLOR_ACTIVE: ColorPair = ("#1b94a7", "#3891a3")
+COLOR_ACTIVE_HOVER: ColorPair = ("#157a8a", "#46a3b5")
 
 COLOR_SOFT: ColorPair = ("#f0f2f5", "#22242c")          # 次要按钮底色
 COLOR_SOFT_HOVER: ColorPair = ("#e4e8ee", "#2c2f38")

@@ -3,6 +3,20 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.7.0 — 2026-10-29
+
+- 新增四个选择类控件工厂（`ctk_kit/inputs.py`）：
+  - `checkbox(master, text="", command=None, *, width=20, height=20)`
+  - `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`
+  - `slider(master, command=None, *, from_=0.0, to=100.0, steps=0, width=220)`
+  - `progressbar(master, *, value=0.0, width=220, height=6)`
+- `switch()` 新增 `text` 关键字参数（默认 `""`，保持原有「只有轨道」的观感）
+- 选择类控件的配色约定：选中/已填充用 `COLOR_ACCENT`，未选中描边与轨道用
+  `COLOR_BORDER_STRONG`，深色主题下不再是一排高饱和蓝
+- 示例「输入」页补三节：勾选框、单选组、滑块与进度条（滑块拖动联动进度条）
+- README 补四个工厂的签名与配色说明；「已知的坑」补 `CTkSlider` 的细轨道靠
+  `border_width` 缩出来这一条
+
 ## 0.6.0 — 2026-10-29
 
 - 新增 `ctk_kit/pages.py`：`PageRebuilder`

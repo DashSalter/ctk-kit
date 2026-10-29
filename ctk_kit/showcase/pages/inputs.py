@@ -1,4 +1,4 @@
-"""输入页：六类输入控件，每种都给一个能改状态、能回显的实例。
+"""输入页：十类输入/选择控件，每种都给一个能改状态、能回显的实例。
 
 单独启动：``python -m ctk_kit.showcase.pages.inputs``
 """
@@ -11,7 +11,16 @@ import customtkinter as ctk
 
 from ctk_kit import tokens as T
 from ctk_kit.dropdown import DropField
-from ctk_kit.inputs import form_entry, segmented, switch, toolbar_entry
+from ctk_kit.inputs import (
+    checkbox,
+    form_entry,
+    progressbar,
+    radio_group,
+    segmented,
+    slider,
+    switch,
+    toolbar_entry,
+)
 from ctk_kit.layout import (
     field_label,
     hint_label,
@@ -28,11 +37,13 @@ TITLE = "输入"
 
 
 def build(master) -> ctk.CTkFrame:
-    """六类输入控件，每种都给一个能改状态、能回显的实例。"""
+    """十类输入/选择控件，每种都给一个能改状态、能回显的实例。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
     _, info = page_header(page, TITLE)
-    info.configure(text="工具栏框 / 表单框 / 分段 / 开关 / 下拉 / 大文本")
+    info.configure(
+        text="文本输入 / 分段 / 开关 / 勾选 / 单选 / 滑块 / 进度条 / 下拉 / 大文本"
+    )
 
     feedback = _feedback(page, "改任意输入，回显会出现在这里")
 
@@ -136,6 +147,75 @@ def build(master) -> ctk.CTkFrame:
     switch(row, lambda: feedback("紧凑开关已切换"), width=60).pack(
         side="left", padx=(12, 0)
     )
+
+    # --- 勾选 ---
+    section_title(area, "勾选框 checkbox")
+    box = _card_shell(area)
+    box.pack(fill="x")
+    body = _card_body(box)
+
+    row = _row(body, bg)
+    check_on = checkbox(
+        row, "记住这台设备", lambda: feedback(f"勾选：{bool(check_on.get())}")
+    )
+    check_on.pack(side="left")
+    check_on.select()
+    row = _row(body, bg)
+    checkbox(row, "启动时自动同步", lambda: feedback("自动同步已切换")).pack(
+        side="left"
+    )
+    hint_label(
+        body, "勾选后填主色并打勾；get() 返回 0/1，select() / deselect() 可直接改。"
+    ).pack(fill="x")
+
+    # --- 单选 ---
+    section_title(area, "单选组 radio_group")
+    box = _card_shell(area)
+    box.pack(fill="x")
+    body = _card_body(box)
+
+    group, choice = radio_group(
+        body,
+        ["每次询问", "总是同步", "只在本机保存"],
+        lambda value: feedback(f"单选：{value}"),
+    )
+    group.pack(fill="x")
+    hint_label(
+        body, "返回 (容器, StringVar)：同一个 variable 才互斥，读变量拿当前项。"
+    ).pack(fill="x")
+
+    # --- 滑块与进度条 ---
+    section_title(area, "滑块 slider / 进度条 progressbar")
+    box = _card_shell(area)
+    box.pack(fill="x")
+    body = _card_body(box)
+
+    row = _row(body, bg)
+    field_label(row, "连续").pack(side="left")
+
+    def on_slide(value: float) -> None:
+        bar.set(value / 100.0)
+        feedback(f"滑块：{value:.0f}%")
+
+    track = slider(row, on_slide, width=320)
+    track.pack(side="left", padx=(8, 12))
+    bar = progressbar(row, value=0.0, width=140)
+    bar.pack(side="left")
+
+    row = _row(body, bg)
+    field_label(row, "分段").pack(side="left")
+    slider(row, lambda v: feedback(f"分段档位：{v:.0f}"), steps=4, width=240).pack(
+        side="left", padx=(8, 0)
+    )
+
+    row = _row(body, bg)
+    field_label(row, "细进度条").pack(side="left")
+    progressbar(row, value=0.65, width=200, height=6).pack(side="left", padx=(8, 0))
+    hint_label(
+        body,
+        "拖动「连续」的滑块会同步右边进度条；slider 的 command 收 float，"
+        "progressbar.set() 收 0~1。",
+    ).pack(fill="x")
 
     # --- 下拉框 ---
     section_title(area, "下拉框 DropField")

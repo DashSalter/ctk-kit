@@ -35,7 +35,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 from . import tokens, theme
 from .buttons import (
@@ -46,7 +46,16 @@ from .buttons import (
     soft_button,
 )
 from .dropdown import DropField
-from .inputs import form_entry, segmented, switch, toolbar_entry
+from .inputs import (
+    checkbox,
+    form_entry,
+    progressbar,
+    radio_group,
+    segmented,
+    slider,
+    switch,
+    toolbar_entry,
+)
 from .layout import (
     card,
     divider,
@@ -84,6 +93,7 @@ __all__ = [
     "apply_appearance",
     "apply_appearance_fast",
     "card",
+    "checkbox",
     "color_of",
     "danger_button",
     "divider",
@@ -95,12 +105,15 @@ __all__ = [
     "notify",
     "page_header",
     "primary_button",
+    "progressbar",
+    "radio_group",
     "recolor_tree",
     "repaint_native",
     "scrollable",
     "section_title",
     "segmented",
     "set_titlebar_dark",
+    "slider",
     "soft_button",
     "style_scrollable",
     "switch",

@@ -87,7 +87,17 @@ python -m ctk_kit.showcase.pages.notify --topmost
 - `segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
   —— 容器底用 `COLOR_SOFT`（比卡片深一档），不用 `COLOR_INPUT`：后者浅色值和
   `COLOR_CARD` 都是 `#ffffff`，浅色主题下整组分段会和卡片同色、看不出边界
-- `switch(master, command=None, *, width=44)`
+- `switch(master, command=None, *, text="", width=44)` —— 开关；`text` 留空就只显示轨道
+- `checkbox(master, text="", command=None, *, width=20, height=20)` —— 勾选框，选中后填主色打勾
+- `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`
+  —— 一组互斥单选；`CTkRadioButton` 必须共用同一个 `variable` 才互斥，所以直接给一组
+- `slider(master, command=None, *, from_=0.0, to=100.0, steps=0, width=220)` —— 滑块，
+  `command` 收 `float`；`steps>0` 时只能停在等分点
+- `progressbar(master, *, value=0.0, width=220, height=6)` —— 细进度条，`value` 收 0~1，
+  圆角跟随高度
+
+  选择类控件的配色约定：选中/已填充部分用 `COLOR_ACCENT`，未选中描边和轨道用
+  `COLOR_BORDER_STRONG`，这样深色主题下不会一排控件全是高饱和蓝
 
 **大文本**（`text`）
 
@@ -272,7 +282,7 @@ ctk_kit/
 ├─ theme.py        取色 / 外观切换 / 原生控件重绘
 ├─ pages.py        多页面窗口的页面管理：按需重建、切主题不卡
 ├─ buttons.py      按钮
-├─ inputs.py       输入框 / 分段选择 / 开关
+├─ inputs.py       输入框 / 分段 / 开关 / 勾选 / 单选 / 滑块 / 进度条
 ├─ dropdown.py     自绘下拉
 ├─ layout.py       页头、卡片、分隔线、空态、滚动容器
 ├─ notify.py       窗口顶部/底部浮层提示
@@ -333,6 +343,8 @@ CI（`.github/workflows/ci.yml`）只做构建与导入自检：打出 wheel、�
 
 - `CTkLabel` 不支持 `border_width` / `border_color`，想加边框只能裹一层 `CTkFrame`。
 - `CTkSegmentedButton` 同样不接受 `border_*`，传了会抛 `ValueError`。
+- `CTkSlider` 的细轨道是靠 `border_width`（默认 6）缩出来的：把它设成 0，轨道会
+  变成一根和控件一样高的粗条，圆形把手也会被吞进轨道里看不出来。
 - `CTkScrollbar.set()` 内部会调 `update_idletasks()`，而 `update_idletasks` 会立刻执行
   `after_idle` 排的回调——用 `after_idle` 排分批渲染会在这个调用里递归建卡，改用 `after(1, ...)`。
 - 滚动区域变化后，Tk 会回放一次 `yscrollcommand(0, 1)`。判断「滚到底」不能信回调参数，

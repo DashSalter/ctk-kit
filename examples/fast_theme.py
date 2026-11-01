@@ -11,12 +11,12 @@ from __future__ import annotations
 
 import sys
 
-import customtkinter as ctk
+import ctk_kit as ctk
 
 from ctk_kit import PageRebuilder, apply_appearance, is_dark, set_titlebar_dark
 from ctk_kit import tokens as T
-from ctk_kit.buttons import primary_button
-from ctk_kit.layout import card, hint_label, page_header, section_title
+from ctk_kit.buttons import PrimaryButton
+from ctk_kit.layout import Card, HintLabel, PageHeader, SectionTitle
 from ctk_kit.theme import recolor_tree
 
 PAGES = ("概览", "设置")
@@ -24,9 +24,9 @@ PAGES = ("概览", "设置")
 
 def build_overview(master: ctk.CTkFrame) -> ctk.CTkFrame:
     page = ctk.CTkFrame(master, fg_color="transparent")
-    page_header(page, "概览")
-    section_title(page, "卡片")
-    box = card(page)
+    PageHeader(page, "概览")
+    SectionTitle(page, "卡片")
+    box = Card(page)
     ctk.CTkLabel(
         box,
         text="切主题时这一页会按新配色重建，其余页等切过去再建。",
@@ -37,11 +37,11 @@ def build_overview(master: ctk.CTkFrame) -> ctk.CTkFrame:
         anchor="w",
     ).pack(padx=16, pady=14, fill="x")
     box.pack(fill="x", pady=(0, 12))
-    hint_label(page, "切到「设置」再切回来，配色都是新的。").pack(fill="x")
+    HintLabel(page, "切到「设置」再切回来，配色都是新的。").pack(fill="x")
     scroll = ctk.CTkScrollableFrame(page, fg_color="transparent")
     scroll.pack(fill="both", expand=True, pady=(12, 0))
     for index in range(12):
-        row = card(scroll)
+        row = Card(scroll)
         ctk.CTkLabel(
             row,
             text=f"第 {index + 1} 行内容",
@@ -55,22 +55,20 @@ def build_overview(master: ctk.CTkFrame) -> ctk.CTkFrame:
 
 def build_settings(master: ctk.CTkFrame, on_toggle) -> ctk.CTkFrame:
     page = ctk.CTkFrame(master, fg_color="transparent")
-    page_header(page, "设置")
-    section_title(page, "外观")
-    box = card(page)
-    primary_button(box, "切换深浅色", command=on_toggle).pack(
+    PageHeader(page, "设置")
+    SectionTitle(page, "外观")
+    box = Card(page)
+    PrimaryButton(box, "切换深浅色", command=on_toggle).pack(
         padx=16, pady=14, anchor="w"
     )
     box.pack(fill="x", pady=(0, 12))
-    hint_label(page, "切换后当前页立刻按新配色重建。").pack(fill="x")
+    HintLabel(page, "切换后当前页立刻按新配色重建。").pack(fill="x")
     return page
 
 
-class App(ctk.CTk):
+class ThemeDemo(ctk.App):
     def __init__(self) -> None:
-        super().__init__()
-        self.title("ctk-kit 快速切主题")
-        self.geometry("880x560")
+        super().__init__(title="ctk-kit 快速切主题", size=(880, 560))
         self.configure(fg_color=T.COLOR_BG)
 
         self._sidebar = ctk.CTkFrame(
@@ -140,7 +138,7 @@ class App(ctk.CTk):
 
 def main() -> int:
     apply_appearance("dark")
-    app = App()
+    app = ThemeDemo()
     # 窗口 mapped 之后 DWM 才会真正接管标题栏
     app.after(10, lambda: set_titlebar_dark(app, True))
     if "--where" in sys.argv:

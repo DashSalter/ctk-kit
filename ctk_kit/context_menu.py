@@ -384,7 +384,7 @@ def attach_menu(
         def on_edit(button):
             print("编辑", button.cget("text"))
 
-        save = primary_button(page, "保存")
+        save = PrimaryButton(page, "保存")
         attach_menu(save, [("编辑", on_edit), ("删除", lambda btn: remove(btn, "草稿"))])
 
     参数:

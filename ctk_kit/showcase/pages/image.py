@@ -7,9 +7,9 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from ctk_kit.buttons import soft_button
+from ctk_kit.buttons import SecondaryButton
 from ctk_kit.image_view import ImageViewer
-from ctk_kit.layout import card, hint_label, page_header
+from ctk_kit.layout import Card, HintLabel, PageHeader
 
 from ..shell import _card_body, _code_panel, run_page
 
@@ -119,13 +119,13 @@ def build(master) -> ctk.CTkFrame:
     """一页演示：滚轮缩放 + 拖动平移，缩放比例实时显示。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="滚轮缩放 · 按住左键拖动 · 双击复位")
 
-    box = card(page)
+    box = Card(page)
     bar = ctk.CTkFrame(page, fg_color="transparent")
 
-    zoom_label = hint_label(bar, "100%")
+    zoom_label = HintLabel(bar, "100%")
     zoom_label.pack(side="right")
 
     def report(value: float) -> None:
@@ -141,23 +141,23 @@ def build(master) -> ctk.CTkFrame:
         viewer.set_image(_demo_image(current["variant"]))
         feedback.configure(text=f"换成了第 {current['variant']} 张示意图")
 
-    soft_button(bar, "适配窗口", viewer.fit).pack(side="left")
-    soft_button(bar, "放大", lambda: viewer.set_zoom(viewer.zoom() * 1.3)).pack(
+    SecondaryButton(bar, "适配窗口", viewer.fit).pack(side="left")
+    SecondaryButton(bar, "放大", lambda: viewer.set_zoom(viewer.zoom() * 1.3)).pack(
         side="left", padx=(8, 0)
     )
-    soft_button(bar, "缩小", lambda: viewer.set_zoom(viewer.zoom() / 1.3)).pack(
+    SecondaryButton(bar, "缩小", lambda: viewer.set_zoom(viewer.zoom() / 1.3)).pack(
         side="left", padx=(8, 0)
     )
-    soft_button(bar, "换一张", swap).pack(side="left", padx=(8, 0))
+    SecondaryButton(bar, "换一张", swap).pack(side="left", padx=(8, 0))
 
-    feedback = hint_label(bar, "图片是现场用 Pillow 画的，没有额外素材文件。")
+    feedback = HintLabel(bar, "图片是现场用 Pillow 画的，没有额外素材文件。")
     feedback.pack(side="left", padx=(12, 0))
     page.viewer = viewer
 
     box.pack(fill="both", expand=True, pady=(14, 0))
     bar.pack(fill="x", pady=(12, 0))
 
-    code_box = card(page)
+    code_box = Card(page)
     code_box.pack(fill="x", pady=(12, 0))
     _code_panel(
         _card_body(code_box),

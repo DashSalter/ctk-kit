@@ -10,9 +10,9 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
-from ctk_kit.buttons import danger_button, primary_button, soft_button
+from ctk_kit.buttons import DangerButton, PrimaryButton, SecondaryButton
 from ctk_kit.context_menu import ContextMenu, attach_menu
-from ctk_kit.layout import hint_label, page_header, scrollable, section_title
+from ctk_kit.layout import HintLabel, PageHeader, Scrollable, SectionTitle
 from ctk_kit.text import TextArea
 from ctk_kit.theme import color_of
 
@@ -21,7 +21,7 @@ from ..shell import _card_body, _card_shell, _code_panel, _feedback, _row, run_p
 TITLE = "菜单"
 
 SAMPLE_CODE = '''\
-from ctk_kit import attach_menu, primary_button
+from ctk_kit import attach_menu, PrimaryButton
 
 
 def on_edit(button):           # 第一个参数就是被右键的按钮
@@ -32,7 +32,7 @@ def on_delete(button, name):   # 额外传参用 lambda 收住
     print("删除", name, button.cget("text"))
 
 
-save = primary_button(page, "保存")
+save = PrimaryButton(page, "保存")
 save.pack(side="left")
 
 # 一行挂上菜单：文字配函数，函数可无参，也可接一个参数
@@ -60,17 +60,17 @@ def build(master) -> ctk.CTkFrame:
     """给按钮挂菜单、回调拿按钮、自己弹菜单，三段演示加示例代码。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="右键任意按钮")
 
     feedback = _feedback(page, "右键上面那些按钮，菜单会出现在鼠标位置。")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
     # ---------------------------------------------------------------- 挂菜单
-    section_title(area, "一行代码挂上菜单")
+    SectionTitle(area, "一行代码挂上菜单")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -85,7 +85,7 @@ def build(master) -> ctk.CTkFrame:
     files = ["配置文件.json", "日志 app.log", "草稿 note.md"]
     menus = []
     for index, name in enumerate(files):
-        factory = (primary_button, soft_button, danger_button)[index % 3]
+        factory = (PrimaryButton, SecondaryButton, DangerButton)[index % 3]
         button = factory(row, name, lambda n=name: feedback(f"左键点了「{n}」"))
         button.pack(side="left", padx=(0 if index == 0 else 8, 0))
         menus.append(
@@ -106,20 +106,20 @@ def build(master) -> ctk.CTkFrame:
         )
     page.menus = menus
 
-    hint_label(
+    HintLabel(
         body,
         "attach_menu(按钮, [(文字, 函数), ...])：函数接一个参数时，拿到的就是被右键的按钮。",
     ).pack(fill="x", pady=(4, 0))
 
     # ---------------------------------------------------------------- 回调参数
-    section_title(area, "回调拿到的第一个参数")
+    SectionTitle(area, "回调拿到的第一个参数")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
     row = _row(body, bg)
-    target = soft_button(row, "点我右键", lambda: feedback("左键点了「点我右键」"))
+    target = SecondaryButton(row, "点我右键", lambda: feedback("左键点了「点我右键」"))
     target.pack(side="left")
-    hint_label(
+    HintLabel(
         body,
         "菜单里的每个函数都拿到这个按钮对象，可以读它的文字、改它的状态；"
         "需要更多参数就用 lambda btn: fn(btn, 别的)。",
@@ -142,14 +142,14 @@ def build(master) -> ctk.CTkFrame:
     )
 
     # ---------------------------------------------------------------- 自己弹
-    section_title(area, "自己控制弹出时机")
+    SectionTitle(area, "自己控制弹出时机")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     zone = ctk.CTkFrame(body, fg_color=T.COLOR_SOFT, corner_radius=T.RADIUS_MEDIUM)
     zone.pack(fill="x", pady=(0, 8))
-    hint_label(zone, "这一整块都可以右键，菜单由 ContextMenu 手动弹出").pack(
+    HintLabel(zone, "这一整块都可以右键，菜单由 ContextMenu 手动弹出").pack(
         padx=16, pady=14
     )
 
@@ -163,13 +163,13 @@ def build(master) -> ctk.CTkFrame:
         ],
         deep=True,
     )
-    hint_label(
+    HintLabel(
         body,
         "attach_menu(控件, [...], deep=True)：菜单项、分隔线、弹出位置都自己说了算。",
     ).pack(fill="x")
 
     # ---------------------------------------------------------------- 示例代码
-    section_title(area, "示例代码")
+    SectionTitle(area, "示例代码")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)

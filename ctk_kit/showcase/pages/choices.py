@@ -9,19 +9,19 @@ import customtkinter as ctk
 
 from ctk_kit import tokens as T
 from ctk_kit.inputs import (
-    checkbox,
-    progressbar,
+    Checkbox,
+    ProgressBar,
     radio_group,
-    segmented,
-    slider,
-    switch,
+    Segmented,
+    Slider,
+    Switch,
 )
 from ctk_kit.layout import (
-    field_label,
-    hint_label,
-    page_header,
-    scrollable,
-    section_title,
+    FieldLabel,
+    HintLabel,
+    PageHeader,
+    Scrollable,
+    SectionTitle,
 )
 from ctk_kit.theme import color_of
 
@@ -37,9 +37,9 @@ from ..shell import (
 
 TITLE = "选择"
 
-SEGMENTED_CODE = '''from ctk_kit import segmented
+SEGMENTED_CODE = '''from ctk_kit import Segmented
 
-segmented(
+Segmented(
     row,
     ["全部", "账号", "恢复码", "密钥"],
     command=lambda value: print(value),   # 收选中的文字
@@ -50,10 +50,10 @@ segmented(
 # values=[] 时不预设选中项；dynamic_resizing=False 时宽度恒定
 # 选中段用 COLOR_ACTIVE，文字自动转白'''
 
-SWITCH_CODE = '''from ctk_kit import switch
+SWITCH_CODE = '''from ctk_kit import Switch
 
-toggle = switch(row, command, text="启用", width=44)
-# switch(master, command=None, *, text="", width=44)
+toggle = Switch(row, command, text="启用", width=44)
+# Switch(master, command=None, *, text="", width=44)
 # text 留空就只显示轨道；command 不接收参数，读状态用 toggle.get()
 
 toggle.select()      # 拨到右边
@@ -62,10 +62,10 @@ toggle.toggle()
 
 # 圆球色 COLOR_BUTTON_KNOB、悬停色 COLOR_BUTTON_KNOB_HOVER，都在 tokens 里改'''
 
-CHECKBOX_CODE = '''from ctk_kit import checkbox
+CHECKBOX_CODE = '''from ctk_kit import Checkbox
 
-check = checkbox(row, "记住这台设备", command)
-# checkbox(master, text="", command=None, *, width=20, height=20)
+check = Checkbox(row, "记住这台设备", command)
+# Checkbox(master, text="", command=None, *, width=20, height=20)
 
 check.select()      # 勾上
 check.deselect()
@@ -87,16 +87,16 @@ var.set("总是同步")   # 直接改选中项
 
 # 返回 (容器, StringVar)；控件必须共用同一个 variable 才互斥'''
 
-SLIDER_CODE = '''from ctk_kit import slider, progressbar
+SLIDER_CODE = '''from ctk_kit import Slider, ProgressBar
 
-track = slider(row, on_change, from_=0, to=100, steps=0, width=220)
+track = Slider(row, on_change, from_=0, to=100, steps=0, width=220)
 # command 收 float；steps>0 时只能停在等分点
 
 track.get()
 track.set(65)
 
-bar = progressbar(row, value=0.0, width=220, height=6)
-# progressbar(master, *, value=0.0, width=220, height=6)
+bar = ProgressBar(row, value=0.0, width=220, height=6)
+# ProgressBar(master, *, value=0.0, width=220, height=6)
 bar.set(0.65)        # 收 0~1
 
 # 滑块把手是 12px 正圆，轨道 = height - 2 * border_width（4px）'''
@@ -106,24 +106,24 @@ def build(master) -> ctk.CTkFrame:
     """按钮式的选择控件：分段、开关、勾选、单选、滑块、进度条。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="分段 / 开关 / 勾选 / 单选 / 滑块 / 进度条")
 
     feedback = _feedback(page, "点任意选项，回显会出现在这里")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
     # --- 分段选择 ---
-    section_title(area, "分段选择 segmented")
+    SectionTitle(area, "分段选择 Segmented")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     row = _row(body, bg)
-    field_label(row, "分类").pack(side="left")
-    segmented(
+    FieldLabel(row, "分类").pack(side="left")
+    Segmented(
         row,
         ["全部", "账号", "恢复码", "密钥"],
         lambda value: feedback(f"分段选中：{value}"),
@@ -131,19 +131,19 @@ def build(master) -> ctk.CTkFrame:
     ).pack(side="left")
 
     row = _row(body, bg)
-    field_label(row, "紧凑").pack(side="left")
-    segmented(row, ["日", "周", "月"], width=200, height=30).pack(side="left")
+    FieldLabel(row, "紧凑").pack(side="left")
+    Segmented(row, ["日", "周", "月"], width=200, height=30).pack(side="left")
 
     row = _row(body, bg)
-    field_label(row, "空列表").pack(side="left")
-    segmented(row, [], width=200).pack(side="left")
-    hint_label(
+    FieldLabel(row, "空列表").pack(side="left")
+    Segmented(row, [], width=200).pack(side="left")
+    HintLabel(
         body, "values=[] 时不预设选中项；dynamic_resizing=False 宽度恒定。"
     ).pack(fill="x", pady=(4, 0))
     _code_panel(body, SEGMENTED_CODE, "command 收到的是选中项的文字。")
 
     # --- 开关 ---
-    section_title(area, "开关 switch")
+    SectionTitle(area, "开关 Switch")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -156,12 +156,12 @@ def build(master) -> ctk.CTkFrame:
         color=color_of(T.COLOR_TEXT),
         bg=bg,
     ).pack(side="left")
-    toggle = switch(
+    toggle = Switch(
         row, lambda: feedback("开关已开启" if toggle.get() else "开关已关闭")
     )
     toggle.pack(side="left", padx=(12, 0))
     toggle.select()
-    hint_label(body, "只留轨道、去掉文字，progress_color 跟随主色。").pack(fill="x")
+    HintLabel(body, "只留轨道、去掉文字，progress_color 跟随主色。").pack(fill="x")
 
     row = _row(body, bg)
     _text(
@@ -171,35 +171,35 @@ def build(master) -> ctk.CTkFrame:
         color=color_of(T.COLOR_TEXT),
         bg=bg,
     ).pack(side="left")
-    switch(row, lambda: feedback("紧凑开关已切换"), width=60).pack(
+    Switch(row, lambda: feedback("紧凑开关已切换"), width=60).pack(
         side="left", padx=(12, 0)
     )
     _code_panel(body, SWITCH_CODE, "command 不接收参数，状态用 toggle.get() 读。")
 
     # --- 勾选 ---
-    section_title(area, "勾选框 checkbox")
+    SectionTitle(area, "勾选框 Checkbox")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     row = _row(body, bg)
-    check_on = checkbox(
+    check_on = Checkbox(
         row, "记住这台设备", lambda: feedback(f"勾选：{bool(check_on.get())}")
     )
     check_on.pack(side="left")
     check_on.select()
 
     row = _row(body, bg)
-    checkbox(row, "启动时自动同步", lambda: feedback("自动同步已切换")).pack(
+    Checkbox(row, "启动时自动同步", lambda: feedback("自动同步已切换")).pack(
         side="left"
     )
-    hint_label(
+    HintLabel(
         body, "勾选后填主色并打勾；get() 返回 0/1，select() / deselect() 可直接改。"
     ).pack(fill="x")
-    _code_panel(body, CHECKBOX_CODE, "和 switch 一样，状态要自己读 get()。")
+    _code_panel(body, CHECKBOX_CODE, "和 Switch 一样，状态要自己读 get()。")
 
     # --- 单选 ---
-    section_title(area, "单选组 radio_group")
+    SectionTitle(area, "单选组 radio_group")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -210,44 +210,44 @@ def build(master) -> ctk.CTkFrame:
         lambda value: feedback(f"单选：{value}"),
     )
     group.pack(fill="x")
-    hint_label(
+    HintLabel(
         body, "返回 (容器, StringVar)：同一个 variable 才互斥，读变量拿当前项。"
     ).pack(fill="x")
     _code_panel(body, RADIO_CODE, "传自己的 variable 就能从外部读写选中项。")
 
     # --- 滑块与进度条 ---
-    section_title(area, "滑块 slider / 进度条 progressbar")
+    SectionTitle(area, "滑块 Slider / 进度条 ProgressBar")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     row = _row(body, bg)
-    field_label(row, "连续").pack(side="left")
+    FieldLabel(row, "连续").pack(side="left")
 
     def on_slide(value: float) -> None:
         bar.set(value / 100.0)
         feedback(f"滑块：{value:.0f}%")
 
-    track = slider(row, on_slide, width=320)
+    track = Slider(row, on_slide, width=320)
     track.pack(side="left", padx=(8, 12))
-    bar = progressbar(row, value=0.0, width=140)
+    bar = ProgressBar(row, value=0.0, width=140)
     bar.pack(side="left")
 
     row = _row(body, bg)
-    field_label(row, "分段").pack(side="left")
-    slider(row, lambda v: feedback(f"分段档位：{v:.0f}"), steps=4, width=240).pack(
+    FieldLabel(row, "分段").pack(side="left")
+    Slider(row, lambda v: feedback(f"分段档位：{v:.0f}"), steps=4, width=240).pack(
         side="left", padx=(8, 0)
     )
 
     row = _row(body, bg)
-    field_label(row, "细进度条").pack(side="left")
-    progressbar(row, value=0.65, width=200, height=6).pack(side="left", padx=(8, 0))
-    hint_label(
+    FieldLabel(row, "细进度条").pack(side="left")
+    ProgressBar(row, value=0.65, width=200, height=6).pack(side="left", padx=(8, 0))
+    HintLabel(
         body,
-        "拖动「连续」的滑块会同步右边进度条；slider 的 command 收 float，"
-        "progressbar.set() 收 0~1。",
+        "拖动「连续」的滑块会同步右边进度条；Slider 的 command 收 float，"
+        "ProgressBar.set() 收 0~1。",
     ).pack(fill="x")
-    _code_panel(body, SLIDER_CODE, "slider 的 get() 读数、set() 赋值，和进度条一起用。")
+    _code_panel(body, SLIDER_CODE, "Slider 的 get() 读数、set() 赋值，和进度条一起用。")
 
     return page
 

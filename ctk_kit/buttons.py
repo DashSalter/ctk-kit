@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import tkinter as tk
 import tkinter.font as tkfont
-from typing import Callable, Dict, Optional
+from typing import Any, Callable, Dict, Optional
 
 import customtkinter as ctk
 
@@ -44,7 +44,36 @@ def _measurer(font_spec: T.FontSpec) -> tkfont.Font:
     return cached
 
 
-def primary_button(
+class CTkButton(ctk.CTkButton):
+    """带库默认样式的按钮。
+
+    直接 ``from ctk_kit import CTkButton`` 建出来的按钮就已经是库的风格：
+    正文大小的微软雅黑、38 高、9 圆角、浅灰底深色字。想改哪一项就显式传参，
+    例如 ``CTkButton(master, fg_color=COLOR_ACCENT, text_color=COLOR_ACCENT_TEXT)``
+    就是主按钮的样子。
+
+    默认值:
+        font: :data:`tokens.FONT_BODY`。
+        height: 38。
+        corner_radius: :data:`tokens.RADIUS_SMALL` + 1（9）。
+        fg_color: :data:`tokens.COLOR_SOFT`。
+        hover_color: :data:`tokens.COLOR_SOFT_HOVER`。
+        text_color: :data:`tokens.COLOR_TEXT`。
+        border_spacing: 10。
+    """
+
+    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        kwargs.setdefault("font", T.FONT_BODY)
+        kwargs.setdefault("height", 38)
+        kwargs.setdefault("corner_radius", T.RADIUS_SMALL + 1)
+        kwargs.setdefault("fg_color", T.COLOR_SOFT)
+        kwargs.setdefault("hover_color", T.COLOR_SOFT_HOVER)
+        kwargs.setdefault("text_color", T.COLOR_TEXT)
+        kwargs.setdefault("border_spacing", 10)
+        super().__init__(master, **kwargs)
+
+
+def PrimaryButton(
     master: tk.Misc,
     text: str,
     command: Command = None,
@@ -68,7 +97,7 @@ def primary_button(
     返回:
         尚未摆位的 ``CTkButton``。
     """
-    return ctk.CTkButton(
+    return CTkButton(
         master,
         text=text,
         width=width,
@@ -82,7 +111,7 @@ def primary_button(
     )
 
 
-def soft_button(
+def SecondaryButton(
     master: tk.Misc,
     text: str,
     command: Command = None,
@@ -108,7 +137,7 @@ def soft_button(
     返回:
         尚未摆位的 ``CTkButton``。
     """
-    return ctk.CTkButton(
+    return CTkButton(
         master,
         text=text,
         width=width,
@@ -124,7 +153,7 @@ def soft_button(
     )
 
 
-def danger_button(
+def DangerButton(
     master: tk.Misc,
     text: str,
     command: Command = None,
@@ -146,7 +175,7 @@ def danger_button(
     返回:
         尚未摆位的 ``CTkButton``。
     """
-    return ctk.CTkButton(
+    return CTkButton(
         master,
         text=text,
         width=width,

@@ -14,7 +14,7 @@ import customtkinter as ctk
 
 from ctk_kit import tokens as T
 from ctk_kit.collapse import Collapsible
-from ctk_kit.layout import card, hint_label
+from ctk_kit.layout import Card, HintLabel
 from ctk_kit.text import TextArea
 from ctk_kit.theme import apply_appearance, color_of
 
@@ -59,7 +59,7 @@ def _feedback(page, text: str = "等待交互…") -> Feedback:
     """把反馈条挂在页面底部；先于内容 pack，内容再多也不会把它挤掉。"""
     bar = ctk.CTkFrame(page, fg_color="transparent")
     bar.pack(side="bottom", fill="x", pady=(8, 0))
-    label = hint_label(bar, text)
+    label = HintLabel(bar, text)
     label.pack(fill="x")
     feedback = Feedback(label)
     page.feedback = feedback
@@ -67,7 +67,7 @@ def _feedback(page, text: str = "等待交互…") -> Feedback:
 
 
 def _card_shell(master) -> ctk.CTkFrame:
-    return card(master)
+    return Card(master)
 
 
 def _card_body(box: ctk.CTkFrame) -> tk.Frame:
@@ -115,7 +115,7 @@ def _code_panel(
     view.set(code)
     view.pack(fill="x", padx=10, pady=(10, 4 if note else 10))
     if note:
-        hint_label(panel.body, note).pack(fill="x", padx=10, pady=(0, 10))
+        HintLabel(panel.body, note).pack(fill="x", padx=10, pady=(0, 10))
     return panel
 
 

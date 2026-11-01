@@ -10,7 +10,7 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
-from ctk_kit.layout import hint_label, page_header, scrollable, section_title
+from ctk_kit.layout import HintLabel, PageHeader, Scrollable, SectionTitle
 from ctk_kit.theme import color_of, is_dark
 
 from ..data import COLOR_TOKENS, FONT_TOKENS, RADIUS_TOKENS, SPACE_TOKENS
@@ -31,17 +31,17 @@ def build(master) -> ctk.CTkFrame:
     """tokens 里的每一组值都摆出来：字体、状态色、色板、圆角、间距。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text=f"{len(COLOR_TOKENS)} 个色值 · {len(FONT_TOKENS)} 套字体")
 
     feedback = _feedback(page, "这些值都来自 ctk_kit.tokens")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
     # --- 字体阶梯 ---
-    section_title(area, "字体阶梯")
+    SectionTitle(area, "字体阶梯")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -64,12 +64,12 @@ def build(master) -> ctk.CTkFrame:
             bg=bg,
             anchor="w",
         ).pack(side="left")
-    hint_label(
+    HintLabel(
         body, f"FONT_NAME = {T.FONT_NAME!r}；换平台时只改 tokens 里这一行。"
     ).pack(fill="x", pady=(2, 0))
 
     # --- 状态色 ---
-    section_title(area, "状态色 STATUS_COLORS")
+    SectionTitle(area, "状态色 STATUS_COLORS")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -86,12 +86,12 @@ def build(master) -> ctk.CTkFrame:
             text_color=T.COLOR_ACCENT_TEXT,
             font=T.FONT_TINY,
         ).pack(side="left", padx=(0, 8))
-    hint_label(body, "提示条按级别取色：info / success / warn / error。").pack(
+    HintLabel(body, "提示条按级别取色：info / success / warn / error。").pack(
         fill="x"
     )
 
     # --- 色板 ---
-    section_title(area, "色板（左浅色 / 右深色）")
+    SectionTitle(area, "色板（左浅色 / 右深色）")
     grid = tk.Frame(area, bg=color_of(T.COLOR_BG))
     grid.pack(fill="both", expand=True)
     grid.grid_columnconfigure(0, weight=1, uniform="swatch")
@@ -107,7 +107,7 @@ def build(master) -> ctk.CTkFrame:
         )
 
     # --- 尺寸 ---
-    section_title(area, "圆角、间距与滚动条")
+    SectionTitle(area, "圆角、间距与滚动条")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)

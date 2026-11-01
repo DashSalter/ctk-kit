@@ -7,8 +7,8 @@ from __future__ import annotations
 
 import customtkinter as ctk
 
-from ctk_kit.buttons import soft_button
-from ctk_kit.layout import card, hint_label, page_header
+from ctk_kit.buttons import SecondaryButton
+from ctk_kit.layout import Card, HintLabel, PageHeader
 from ctk_kit.table import Table
 
 from ..shell import _card_body, _code_panel, run_page
@@ -64,10 +64,10 @@ def build(master) -> ctk.CTkFrame:
     """一页演示：固定表头 + 超过可视行数后滚动。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text=f"{len(ROWS)} 行 × {len(COLUMNS)} 列")
 
-    box = card(page)
+    box = Card(page)
     box.pack(fill="x", pady=(14, 0))
 
     table = Table(box, COLUMNS, max_visible_rows=8)
@@ -77,10 +77,10 @@ def build(master) -> ctk.CTkFrame:
 
     bar = ctk.CTkFrame(page, fg_color="transparent")
     bar.pack(fill="x", pady=(12, 0))
-    soft_button(bar, "追加一行", lambda: add_row()).pack(side="left")
-    soft_button(bar, "清空", lambda: clear()).pack(side="left", padx=(8, 0))
-    soft_button(bar, "恢复", lambda: restore()).pack(side="left", padx=(8, 0))
-    feedback = hint_label(bar, "隔行有淡底色；超过 8 行时内容区可滚动，表头不动。")
+    SecondaryButton(bar, "追加一行", lambda: add_row()).pack(side="left")
+    SecondaryButton(bar, "清空", lambda: clear()).pack(side="left", padx=(8, 0))
+    SecondaryButton(bar, "恢复", lambda: restore()).pack(side="left", padx=(8, 0))
+    feedback = HintLabel(bar, "隔行有淡底色；超过 8 行时内容区可滚动，表头不动。")
     feedback.pack(side="right")
 
     def refresh() -> None:
@@ -104,7 +104,7 @@ def build(master) -> ctk.CTkFrame:
         refresh()
         feedback.configure(text="恢复到初始的 12 行")
 
-    code_box = card(page)
+    code_box = Card(page)
     code_box.pack(fill="x", pady=(12, 0))
     _code_panel(
         _card_body(code_box),

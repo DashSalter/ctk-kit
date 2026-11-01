@@ -14,13 +14,13 @@ import customtkinter as ctk
 from ctk_kit import tokens as T
 from ctk_kit.dropdown import DropField
 from ctk_kit.files import DropZone, PathField, has_dnd
-from ctk_kit.inputs import form_entry
+from ctk_kit.inputs import FormEntry
 from ctk_kit.layout import (
-    field_label,
-    hint_label,
-    page_header,
-    scrollable,
-    section_title,
+    FieldLabel,
+    HintLabel,
+    PageHeader,
+    Scrollable,
+    SectionTitle,
 )
 from ctk_kit.text import TextArea
 from ctk_kit.theme import color_of
@@ -29,15 +29,15 @@ from ..shell import _card_body, _card_shell, _code_panel, _feedback, _row, run_p
 
 TITLE = "输入"
 
-FORM_CODE = '''from ctk_kit import form_entry
+FORM_CODE = '''from ctk_kit import FormEntry
 
-entry = form_entry(frame, placeholder="请输入名称")
+entry = FormEntry(frame, placeholder="请输入名称")
 entry.pack(fill="x")
-# form_entry(master, *, show="", placeholder="", height=38, password=False)
+# FormEntry(master, *, show="", placeholder="", height=38, password=False)
 
-form_entry(frame, password=True)   # 内部 Entry 用 • 打码
-form_entry(frame, show="*")        # 自定义替代字符，password 优先
-form_entry(frame, height=28)       # 紧凑行
+FormEntry(frame, password=True)   # 内部 Entry 用 • 打码
+FormEntry(frame, show="*")        # 自定义替代字符，password 优先
+FormEntry(frame, height=28)       # 紧凑行
 
 # get() / set() 与 CTkEntry 一致；placeholder 在空且失焦时显示
 # 返回的就是 ctk.CTkEntry，bind、configure 都照常'''
@@ -112,17 +112,17 @@ def build(master) -> ctk.CTkFrame:
     """文本输入、路径选择与拖入，每种都给一个能改状态、能回显的实例。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="文本框 / 文件与文件夹 / 拖入 / 下拉 / 大文本")
 
     feedback = _feedback(page, "改任意输入，回显会出现在这里")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
     # --- 表单输入 ---
-    section_title(area, "表单输入 form_entry")
+    SectionTitle(area, "表单输入 FormEntry")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -133,8 +133,8 @@ def build(master) -> ctk.CTkFrame:
         ("高 48", {"placeholder": "宽松行", "height": 48}),
     ):
         row = _row(body, bg)
-        field_label(row, text).pack(side="left")
-        entry = form_entry(row, **kwargs)
+        FieldLabel(row, text).pack(side="left")
+        entry = FormEntry(row, **kwargs)
         entry.pack(side="left", fill="x", expand=True)
         entry.bind(
             "<KeyRelease>",
@@ -142,7 +142,7 @@ def build(master) -> ctk.CTkFrame:
                 f"{name}：{widget.get() or '（空）'}"
             ),
         )
-    hint_label(
+    HintLabel(
         body,
         "password=True 时内部 Entry 用 • 打码；带 placeholder 时 cget('show') 读不到状态。",
     ).pack(fill="x")
@@ -153,13 +153,13 @@ def build(master) -> ctk.CTkFrame:
     )
 
     # --- 文件与文件夹选择 ---
-    section_title(area, "文件 / 文件夹选择 PathField")
+    SectionTitle(area, "文件 / 文件夹选择 PathField")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     row = _row(body, bg)
-    field_label(row, "文件").pack(side="left")
+    FieldLabel(row, "文件").pack(side="left")
     file_field = PathField(
         row,
         mode="file",
@@ -169,7 +169,7 @@ def build(master) -> ctk.CTkFrame:
     file_field.pack(side="left", fill="x", expand=True)
 
     row = _row(body, bg)
-    field_label(row, "文件夹").pack(side="left")
+    FieldLabel(row, "文件夹").pack(side="left")
     dir_field = PathField(
         row,
         mode="folder",
@@ -178,7 +178,7 @@ def build(master) -> ctk.CTkFrame:
     )
     dir_field.pack(side="left", fill="x", expand=True)
 
-    hint_label(
+    HintLabel(
         body,
         "PathField(mode=\"file\") 调 askopenfilename，mode=\"folder\" 调 askdirectory；"
         "选中就把路径写进输入框。不想点按钮时，直接把文件或文件夹拖到输入框上同样生效。",
@@ -190,14 +190,14 @@ def build(master) -> ctk.CTkFrame:
     )
 
     # --- 拖入取路径 ---
-    section_title(area, "拖入取路径 DropZone")
+    SectionTitle(area, "拖入取路径 DropZone")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     row = _row(body, bg)
-    field_label(row, "结果").pack(side="left")
-    dropped = form_entry(row, placeholder="拖进来的文件或文件夹路径会出现在这里")
+    FieldLabel(row, "结果").pack(side="left")
+    dropped = FormEntry(row, placeholder="拖进来的文件或文件夹路径会出现在这里")
     dropped.pack(side="left", fill="x", expand=True)
 
     def on_drop(path: str) -> None:
@@ -214,7 +214,7 @@ def build(master) -> ctk.CTkFrame:
     )
     zone.pack(fill="x", pady=(10, 0))
 
-    hint_label(
+    HintLabel(
         body,
         (
             "不用点按钮：文件、文件夹都能直接拖进来。拖放由可选依赖 tkinterdnd2 提供"
@@ -229,13 +229,13 @@ def build(master) -> ctk.CTkFrame:
     )
 
     # --- 下拉框 ---
-    section_title(area, "下拉框 DropField")
+    SectionTitle(area, "下拉框 DropField")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
     row = _row(body, bg)
-    field_label(row, "普通").pack(side="left")
+    FieldLabel(row, "普通").pack(side="left")
     DropField(
         row,
         values_provider=lambda: ["选项 A", "选项 B", "选项 C"],
@@ -244,7 +244,7 @@ def build(master) -> ctk.CTkFrame:
     ).pack(side="left", fill="x", expand=True)
 
     row = _row(body, bg)
-    field_label(row, "空候选").pack(side="left")
+    FieldLabel(row, "空候选").pack(side="left")
     DropField(
         row,
         values_provider=lambda: [],
@@ -252,7 +252,7 @@ def build(master) -> ctk.CTkFrame:
     ).pack(side="left", fill="x", expand=True)
 
     row = _row(body, bg)
-    field_label(row, "预设值").pack(side="left")
+    FieldLabel(row, "预设值").pack(side="left")
     preset = DropField(
         row,
         values_provider=lambda: ["Alpha", "Beta", "Gamma"],
@@ -260,13 +260,13 @@ def build(master) -> ctk.CTkFrame:
     )
     preset.pack(side="left", fill="x", expand=True)
     preset.set("Alpha")
-    preset_value = hint_label(body, "已选：Alpha")
+    preset_value = HintLabel(body, "已选：Alpha")
     preset_value.pack(fill="x")
     preset.entry.bind(
         "<KeyRelease>",
         lambda _e: preset_value.configure(text=f"已选：{preset.get() or '（空）'}"),
     )
-    hint_label(
+    HintLabel(
         body, "get() / set() 与输入框一致；选中候选后回调 command(value)。"
     ).pack(fill="x")
     _code_panel(
@@ -276,7 +276,7 @@ def build(master) -> ctk.CTkFrame:
     )
 
     # --- 大文本 ---
-    section_title(area, "大文本 TextArea")
+    SectionTitle(area, "大文本 TextArea")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -288,13 +288,13 @@ def build(master) -> ctk.CTkFrame:
         on_change=lambda text: feedback(f"备注当前 {len(text)} 字"),
     )
     note.pack(fill="x")
-    hint_label(
+    HintLabel(
         body, "placeholder 在失焦且为空时显示；on_change 收到最新全文。"
     ).pack(fill="x")
 
     row = _row(body, bg)
-    field_label(row, "只读日志").pack(side="left")
-    hint_label(row, "预设内容，不可编辑，可选中复制").pack(side="left", padx=(8, 0))
+    FieldLabel(row, "只读日志").pack(side="left")
+    HintLabel(row, "预设内容，不可编辑，可选中复制").pack(side="left", padx=(8, 0))
 
     log = TextArea(
         body, height=96, readonly=True, show_counter=False, bg_color=T.COLOR_CARD
@@ -305,7 +305,7 @@ def build(master) -> ctk.CTkFrame:
         "22:02  完成，用时 1.4s"
     )
     log.pack(fill="x")
-    hint_label(
+    HintLabel(
         body,
         "readonly=True 时内部 state=disabled；set() 仍可写入，set_readonly() 可随时切换。",
     ).pack(fill="x")

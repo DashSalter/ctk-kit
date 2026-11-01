@@ -11,8 +11,8 @@ import customtkinter as ctk
 
 from ctk_kit import __version__
 from ctk_kit import tokens as T
-from ctk_kit.inputs import segmented
-from ctk_kit.layout import field_label, hint_label, page_header, scrollable, section_title
+from ctk_kit.inputs import Segmented
+from ctk_kit.layout import FieldLabel, HintLabel, PageHeader, Scrollable, SectionTitle
 from ctk_kit.theme import color_of, is_dark
 
 from ..shell import _card_body, _card_shell, _feedback, _row, _text, run_page
@@ -24,19 +24,19 @@ def build(master, *, on_theme=None) -> ctk.CTkFrame:
     """外观模式切换：浅色 / 深色；切换后当前页立刻重建，其余页切过去时再建。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     feedback = _feedback(page, "切换外观模式只重建当前页，其余页切过去时再建")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
-    section_title(area, "外观模式")
+    SectionTitle(area, "外观模式")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
     row = _row(body, bg)
-    field_label(row, "主题", width=64).pack(side="left")
+    FieldLabel(row, "主题", width=64).pack(side="left")
 
     def choose(value: str) -> None:
         if on_theme is None:
@@ -44,7 +44,7 @@ def build(master, *, on_theme=None) -> ctk.CTkFrame:
             return
         on_theme("light" if value == "浅色" else "dark")
 
-    theme = segmented(row, ["浅色", "深色"], command=choose, width=200)
+    theme = Segmented(row, ["浅色", "深色"], command=choose, width=200)
     theme.pack(side="left")
 
     def refresh_theme() -> None:
@@ -55,12 +55,12 @@ def build(master, *, on_theme=None) -> ctk.CTkFrame:
     refresh_theme()
     page.refresh_theme = refresh_theme
 
-    hint_label(
+    HintLabel(
         body,
         "apply_appearance('light' / 'dark')；切换后当前页立刻按新配色重建。",
     ).pack(fill="x", pady=(6, 0))
 
-    section_title(area, "关于")
+    SectionTitle(area, "关于")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -88,7 +88,7 @@ def build(master, *, on_theme=None) -> ctk.CTkFrame:
             bg=bg,
             anchor="w",
         ).pack(side="left")
-    hint_label(body, "主题切换只影响外观；数据与筛选状态不受影响。").pack(fill="x")
+    HintLabel(body, "主题切换只影响外观；数据与筛选状态不受影响。").pack(fill="x")
     return page
 
 

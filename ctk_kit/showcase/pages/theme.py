@@ -10,8 +10,8 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
-from ctk_kit.buttons import soft_button
-from ctk_kit.layout import hint_label, page_header, scrollable, section_title
+from ctk_kit.buttons import SecondaryButton
+from ctk_kit.layout import HintLabel, PageHeader, Scrollable, SectionTitle
 from ctk_kit.theme import color_of, is_dark, repaint_native
 
 from ..shell import _card_body, _card_shell, _feedback, _row, _text, run_page
@@ -23,16 +23,16 @@ def build(master, *, on_toggle=None) -> ctk.CTkFrame:
     """深浅色切换、color_of 取色与 repaint_native 现场演示。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="当前：" + ctk.get_appearance_mode())
 
     feedback = _feedback(page, "点下面的按钮切换外观")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
-    section_title(area, "当前外观")
+    SectionTitle(area, "当前外观")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -60,7 +60,7 @@ def build(master, *, on_toggle=None) -> ctk.CTkFrame:
             anchor="w",
         ).pack(side="left")
 
-    section_title(area, "切换动作")
+    SectionTitle(area, "切换动作")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -72,13 +72,13 @@ def build(master, *, on_toggle=None) -> ctk.CTkFrame:
             return
         on_toggle()
 
-    soft_button(row, "切换深浅色", toggle, width=176).pack(side="left")
-    hint_label(
+    SecondaryButton(row, "切换深浅色", toggle, width=176).pack(side="left")
+    HintLabel(
         body,
         "apply_appearance('light' / 'dark')；切换后原生 tk 控件要自己重绘。",
     ).pack(fill="x")
 
-    section_title(area, "color_of：给原生控件取色")
+    SectionTitle(area, "color_of：给原生控件取色")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -107,11 +107,11 @@ def build(master, *, on_toggle=None) -> ctk.CTkFrame:
             bg=bg,
             justify="left",
         ).pack(pady=(4, 0))
-    hint_label(body, "(浅色, 深色) 二元组按当前外观取值；普通字符串原样返回。").pack(
+    HintLabel(body, "(浅色, 深色) 二元组按当前外观取值；普通字符串原样返回。").pack(
         fill="x"
     )
 
-    section_title(area, "repaint_native：重绘原生控件")
+    SectionTitle(area, "repaint_native：重绘原生控件")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -131,7 +131,7 @@ def build(master, *, on_toggle=None) -> ctk.CTkFrame:
         ("成功色", T.COLOR_SUCCESS),
         ("危险色", T.COLOR_DANGER),
     ):
-        soft_button(
+        SecondaryButton(
             row,
             text,
             lambda name=text, color=token: (
@@ -140,7 +140,7 @@ def build(master, *, on_toggle=None) -> ctk.CTkFrame:
             ),
             width=80,
         ).pack(side="left", padx=(0, 8))
-    hint_label(
+    HintLabel(
         body,
         "原生 tk 控件不会跟着 CTk 变主题；改 Tcl 选项绕开 CTk 的重绘路径，控件已销毁时静默忽略。",
     ).pack(fill="x")

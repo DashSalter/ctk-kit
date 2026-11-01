@@ -12,10 +12,10 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
-from ctk_kit.buttons import danger_button, primary_button, soft_button
+from ctk_kit.buttons import DangerButton, PrimaryButton, SecondaryButton
 from ctk_kit.collapse import Collapsible
-from ctk_kit.inputs import checkbox, form_entry, switch
-from ctk_kit.layout import hint_label, page_header, scrollable, section_title
+from ctk_kit.inputs import Checkbox, FormEntry, Switch
+from ctk_kit.layout import HintLabel, PageHeader, Scrollable, SectionTitle
 from ctk_kit.text import TextArea
 from ctk_kit.theme import color_of
 
@@ -29,7 +29,7 @@ panel = Collapsible(frame, collapsed_text="显示代码", expanded_text="隐藏�
 panel.pack(fill="x")
 
 # body 是普通容器，按钮 / 标签 / 输入框都能放
-primary_button(panel.body, "保存", on_save).pack(padx=10, pady=10)'''
+PrimaryButton(panel.body, "保存", on_save).pack(padx=10, pady=10)'''
 
 API_CODE = '''Collapsible(
     master,
@@ -55,23 +55,23 @@ def build(master) -> ctk.CTkFrame:
     """折叠面板里能放什么：按钮、标签、输入框、开关都行。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="标题行常驻，body 里可以放任意控件")
 
     feedback = _feedback(page, "点面板里的控件，回显会出现在这里")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
     soft = color_of(T.COLOR_SOFT)
 
     # --- 按钮 ---
-    section_title(area, "面板里放按钮")
+    SectionTitle(area, "面板里放按钮")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
 
-    hint_label(
+    HintLabel(
         body, "标题行就是一行文字，点一下展开，再点一下收起；收起时不占高度。"
     ).pack(fill="x")
 
@@ -87,29 +87,29 @@ def build(master) -> ctk.CTkFrame:
 
     row = tk.Frame(button_panel.body, bg=soft)
     row.pack(fill="x", padx=10, pady=(10, 6))
-    primary_button(row, "主按钮", lambda: feedback("面板里的主按钮")).pack(side="left")
-    soft_button(row, "次要按钮", lambda: feedback("面板里的次要按钮")).pack(
+    PrimaryButton(row, "主按钮", lambda: feedback("面板里的主按钮")).pack(side="left")
+    SecondaryButton(row, "次要按钮", lambda: feedback("面板里的次要按钮")).pack(
         side="left", padx=(8, 0)
     )
-    soft_button(
+    SecondaryButton(
         row, "描边按钮", lambda: feedback("面板里的描边按钮"), border=True
     ).pack(side="left", padx=(8, 0))
-    danger_button(row, "危险按钮", lambda: feedback("面板里的危险按钮")).pack(
+    DangerButton(row, "危险按钮", lambda: feedback("面板里的危险按钮")).pack(
         side="left", padx=(8, 0)
     )
 
     row = tk.Frame(button_panel.body, bg=soft)
     row.pack(fill="x", padx=10, pady=(0, 10))
-    hint_label(row, "body 是普通 CTkFrame，按钮放在里面和放在卡片里没区别。").pack(
+    HintLabel(row, "body 是普通 CTkFrame，按钮放在里面和放在卡片里没区别。").pack(
         side="left"
     )
 
     # --- 标签与其它控件 ---
-    section_title(area, "标签、输入框、开关也能放")
+    SectionTitle(area, "标签、输入框、开关也能放")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
-    hint_label(body, "一个面板里混排：文字说明、输入框、开关、勾选、按钮。").pack(
+    HintLabel(body, "一个面板里混排：文字说明、输入框、开关、勾选、按钮。").pack(
         fill="x"
     )
 
@@ -131,7 +131,7 @@ def build(master) -> ctk.CTkFrame:
         bg=soft,
         width=9,
     ).pack(side="left")
-    form_entry(row, placeholder="输入一个名字").pack(
+    FormEntry(row, placeholder="输入一个名字").pack(
         side="left", fill="x", expand=True
     )
 
@@ -145,24 +145,24 @@ def build(master) -> ctk.CTkFrame:
         bg=soft,
         width=9,
     ).pack(side="left")
-    switch(row, lambda: feedback("面板里的开关被拨动")).pack(side="left")
-    checkbox(row, "记住这次选择", lambda: feedback("面板里的勾选被切换")).pack(
+    Switch(row, lambda: feedback("面板里的开关被拨动")).pack(side="left")
+    Checkbox(row, "记住这次选择", lambda: feedback("面板里的勾选被切换")).pack(
         side="left", padx=(16, 0)
     )
 
     row = tk.Frame(mixed.body, bg=soft)
     row.pack(fill="x", padx=10, pady=(4, 10))
-    primary_button(row, "保存", lambda: feedback("面板里的保存")).pack(side="left")
-    soft_button(row, "取消", lambda: feedback("面板里的取消")).pack(
+    PrimaryButton(row, "保存", lambda: feedback("面板里的保存")).pack(side="left")
+    SecondaryButton(row, "取消", lambda: feedback("面板里的取消")).pack(
         side="left", padx=(8, 0)
     )
 
     # --- 自定义文字 ---
-    section_title(area, "改两个状态的文字")
+    SectionTitle(area, "改两个状态的文字")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
-    hint_label(
+    HintLabel(
         body, "collapsed_text 是收起时显示的字，expanded_text 是展开后的字。"
     ).pack(fill="x")
 
@@ -184,7 +184,7 @@ def build(master) -> ctk.CTkFrame:
     api.pack(fill="x", padx=10, pady=(10, 10))
 
     # --- 塞进已有卡片 ---
-    section_title(area, "塞进已有卡片不影响原排版")
+    SectionTitle(area, "塞进已有卡片不影响原排版")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -197,7 +197,7 @@ def build(master) -> ctk.CTkFrame:
         color=color_of(T.COLOR_MUTED),
         bg=bg,
     ).pack(side="left")
-    soft_button(row, "原本的按钮", lambda: feedback("卡片原本的按钮")).pack(
+    SecondaryButton(row, "原本的按钮", lambda: feedback("卡片原本的按钮")).pack(
         side="right"
     )
 
@@ -212,16 +212,16 @@ def build(master) -> ctk.CTkFrame:
     )
     detail.set("这里放长一点的说明、日志都行；收起后整块从布局里消失，卡片高度跟着缩回去。")
     detail.pack(fill="x", padx=10, pady=(10, 4))
-    hint_label(nested.body, "上面的文字和按钮位置没变。").pack(
+    HintLabel(nested.body, "上面的文字和按钮位置没变。").pack(
         fill="x", padx=10, pady=(0, 10)
     )
 
     # --- 初始展开 ---
-    section_title(area, "默认就展开")
+    SectionTitle(area, "默认就展开")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
-    hint_label(body, "expanded=True 时一进来就是展开状态。").pack(fill="x")
+    HintLabel(body, "expanded=True 时一进来就是展开状态。").pack(fill="x")
 
     opened = Collapsible(body, collapsed_text="显示实现", expanded_text="隐藏实现", expanded=True)
     opened.pack(fill="x", pady=(10, 0))

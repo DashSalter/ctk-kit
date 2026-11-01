@@ -19,6 +19,7 @@
 
 from __future__ import annotations
 
+import sys
 import tkinter as tk
 from typing import Any, Callable, Optional
 
@@ -98,11 +99,15 @@ class TextArea(ctk.CTkFrame):
             bar = getattr(self.textbox, name, None)
             if bar is not None:
                 # CTkTextbox 没有暴露滚动条宽度的构造参数，只能构造后补一下；
-                # 间距必须和 scrollable() 用同一个，否则滑块会比页面滚动条粗一圈
+                # 间距必须和 Scrollable() 用同一个，否则滑块会比页面滚动条粗一圈
                 style_scrollbar(bar)
         self.textbox.bind("<FocusIn>", self._handle_focus_in)
         self.textbox.bind("<FocusOut>", self._handle_focus_out)
         self.textbox.bind("<KeyRelease>", lambda _event: self._refresh())
+
+        # 滚轮链：文本区还有内容可滚时先滚文本区；到底（或本来就没内容）时
+        # 把滚轮交给外层 Scrollable，否则鼠标停在输入框上整页就卡住滚不动。
+        self._bind_wheel()
 
         self.counter = ctk.CTkLabel(
             self,
@@ -158,6 +163,53 @@ class TextArea(ctk.CTkFrame):
         self._apply_readonly_state()
 
     # ------------------------------------------------------------ 内部
+    def _bind_wheel(self) -> None:
+        """给内部 tk.Text 挂滚轮：能滚就滚自己，滚到底再交给外层滚动容器。"""
+        text = self.textbox._textbox
+        if sys.platform.startswith("linux"):
+            text.bind("<Button-4>", self._on_wheel_linux, add="+")
+            text.bind("<Button-5>", self._on_wheel_linux, add="+")
+        else:
+            text.bind("<MouseWheel>", self._on_wheel, add="+")
+
+    def _on_wheel(self, event: Any) -> str:
+        """Windows / macOS：delta 为正表示向上滚。"""
+        if not event.delta:
+            return "break"
+        return self._wheel_step(-1 if event.delta > 0 else 1)
+
+    def _on_wheel_linux(self, event: Any) -> str:
+        """Linux：Button-4 向上，Button-5 向下。"""
+        return self._wheel_step(-1 if event.num == 4 else 1)
+
+    def _wheel_step(self, units: int) -> str:
+        """先滚文本区；文本区已经到顶/到底时把滚轮转给外层 Scrollable。"""
+        text = self.textbox._textbox
+        try:
+            top, bottom = text.yview()
+        except Exception:  # noqa: BLE001 - 控件正在销毁
+            return "break"
+        can_scroll = (units > 0 and bottom < 1.0) or (units < 0 and top > 0.0)
+        if can_scroll:
+            # 文本区一次滚 3 行，和常见文本编辑器的滚轮步长一致
+            text.yview_scroll(units * 3, "units")
+            return "break"
+        parent = self._find_scrollable()
+        if parent is not None:
+            # canvas 的 "units" 是像素，给个和页面滚动接近的步长，
+            # 否则一格只挪 1px，看起来像卡住
+            parent._parent_canvas.yview_scroll(units * 20, "units")
+        return "break"
+
+    def _find_scrollable(self) -> Optional[ctk.CTkScrollableFrame]:
+        """向上找最近的 CTkScrollableFrame（Scrollable 是它的子类）。"""
+        node: Any = getattr(self, "master", None)
+        while node is not None:
+            if isinstance(node, ctk.CTkScrollableFrame):
+                return node
+            node = getattr(node, "master", None)
+        return None
+
     def _solid_bg(self) -> Any:
         """文本区实际用的底色。
 

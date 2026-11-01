@@ -12,7 +12,7 @@
 一律用 ``COLOR_BORDER_STRONG`` 描边、``COLOR_SOFT`` 做轨道，避免深色主题下
 一排控件全是高饱和蓝。
 
-所有工厂只返回控件，不负责摆位。
+所有工厂只返回控件，不负责摆位；``CTkEntry`` 是默认带库样式的类。
 """
 
 from __future__ import annotations
@@ -34,6 +34,29 @@ SliderCommand = Optional[Callable[[float], None]]
 RadioCommand = Optional[Callable[[str], None]]
 # 焦点边框的回调：改完边框后以新的 border_width 调一次（给需要同步内缩的容器用）。
 InsetHook = Optional[Callable[[int], None]]
+
+
+class CTkEntry(ctk.CTkEntry):
+    """默认套用 ctk-kit 输入框样式的 ``CTkEntry``。
+
+    参数与 customtkinter 的 ``CTkEntry`` 完全一致，只是把底色、描边、圆角、
+    字体和 placeholder 颜色换成 ``tokens`` 里的值，深浅色自动跟随；显式传
+    同名参数可以覆盖任意一项。
+
+    示例::
+
+        entry = CTkEntry(frame, placeholder_text="输入名字", width=320)
+    """
+
+    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        kwargs.setdefault("fg_color", T.COLOR_INPUT)
+        kwargs.setdefault("border_width", 1)
+        kwargs.setdefault("border_color", T.COLOR_BORDER_INPUT)
+        kwargs.setdefault("corner_radius", T.RADIUS_SMALL)
+        kwargs.setdefault("font", T.FONT_BODY)
+        kwargs.setdefault("text_color", T.COLOR_TEXT)
+        kwargs.setdefault("placeholder_text_color", T.COLOR_FAINT)
+        super().__init__(master, **kwargs)
 
 
 def bind_focus_border(
@@ -95,7 +118,7 @@ def bind_focus_border(
             target.bind(sequence, handler)
 
 
-def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
+def ToolbarEntry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
     """页面顶部搜索框：填充底 + 1px 描边。
 
     参数:
@@ -121,14 +144,14 @@ def toolbar_entry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk
     return entry
 
 
-def form_entry(
+def FormEntry(
     master: tk.Misc,
     *,
     show: str = "",
     placeholder: str = "",
     height: int = 38,
     password: bool = False,
-) -> ctk.CTkEntry:
+) -> CTkEntry:
     """表单里的单行输入。
 
     ``password=True`` 时用圆点打码。注意 CTkEntry 带了 ``placeholder_text``
@@ -145,23 +168,15 @@ def form_entry(
     返回:
         尚未摆位的 ``CTkEntry``。
     """
-    entry = ctk.CTkEntry(
+    return CTkEntry(
         master,
         show=("•" if password else show) or "",
         placeholder_text=placeholder,
-        placeholder_text_color=T.COLOR_FAINT,
         height=height,
-        corner_radius=T.RADIUS_SMALL,
-        font=T.FONT_BODY,
-        fg_color=T.COLOR_INPUT,
-        border_width=1,
-        border_color=T.COLOR_BORDER_INPUT,
-        text_color=T.COLOR_TEXT,
     )
-    return entry
 
 
-def segmented(
+def Segmented(
     master: tk.Misc,
     values: Sequence[str],
     command: SegmentCommand = None,
@@ -254,7 +269,7 @@ def segmented(
     return button
 
 
-def switch(
+def Switch(
     master: tk.Misc,
     command: SwitchCommand = None,
     *,
@@ -291,7 +306,7 @@ def switch(
     )
 
 
-def checkbox(
+def Checkbox(
     master: tk.Misc,
     text: str = "",
     command: SwitchCommand = None,
@@ -388,7 +403,7 @@ def radio_group(
     return frame, var
 
 
-def slider(
+def Slider(
     master: tk.Misc,
     command: SliderCommand = None,
     *,
@@ -434,7 +449,7 @@ def slider(
     )
 
 
-def progressbar(
+def ProgressBar(
     master: tk.Misc,
     *,
     value: float = 0.0,

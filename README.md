@@ -8,13 +8,18 @@
 面向 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 的界面基件：
 一套深浅色设计令牌和一批开箱即用的控件。支持 Python 3.8 – 3.14。
 
+CustomTkinter 的公开接口（`CTk`、`CTkButton`、`CTkImage` 等）也全部从 `ctk_kit`
+转出；根窗口 `App` 还多收标题、尺寸、外观这些构造参数。建窗口和摆控件都只
+import 这一个包就够了。
+
 ## 安装
 
 ```
 pip install ctk-kit
 ```
 
-图片查看器需要 Pillow，单独作为可选项（不装也能用其余全部控件）：
+图片查看器需要 Pillow，单独作为可选项（不装也能用其余全部控件，只有 `ImageViewer`
+和 `CTkImage` 用不了）：
 
 ```
 pip install "ctk-kit[image]"
@@ -23,23 +28,75 @@ pip install "ctk-kit[image]"
 ## 快速开始
 
 ```python
-import customtkinter as ctk
-from ctk_kit import apply_appearance, card, page_header, primary_button
+from ctk_kit import App, Card, PageHeader, PrimaryButton
 
-apply_appearance("dark")
-app = ctk.CTk()
+app = App(title="全部记录", size=(880, 560), min_size=(640, 400), appearance="dark")
 
-head, info = page_header(app, "全部记录")
-head.pack(fill="x", padx=20, pady=(16, 8))
+header = PageHeader(app, "全部记录")
+header.info.configure(text="共 12 条")
+header.pack(fill="x", padx=20, pady=(16, 8))
 
-box = card(app)
+box = Card(app)
 box.pack(fill="x", padx=20)
-primary_button(box, "新建", lambda: None).pack(padx=16, pady=16)
+PrimaryButton(box, "新建", lambda: app.notify("已保存")).pack(padx=16, pady=16)
 
 app.mainloop()
 ```
 
 想看全部控件的实际效果，装好后直接运行 `ctk-kit-showcase`。
+
+逐个起步的最小示例在 `examples/basics/`：
+
+```
+python examples/basics/window.py
+```
+
+### 原生窗口与控件
+
+customtkinter 的公开接口全部从 `ctk_kit` 转出，应用代码不用再 `import customtkinter`：
+
+```python
+from ctk_kit import App, CTkButton, CTkFrame
+
+app = App(title="备份", size=(880, 560), min_size=(640, 400))
+bar = CTkFrame(app)
+CTkButton(bar, text="保存").pack()
+```
+
+`App` 是 `CTk` 的便捷子类，构造时多收这几个参数：
+
+- `title="..."`：窗口标题，等价于 `app.title(...)`
+- `size=(宽, 高)`：初始尺寸，等价于 `app.geometry("宽x高")`
+- `min_size=(宽, 高)`：最小尺寸，等价于 `app.minsize(...)`
+- `appearance="light" | "dark" | "system"`：建窗前设置外观
+- `theme="blue" | "dark-blue" | "green" | 主题文件路径`：建窗前设置配色主题
+- `center=True`：窗口建好后居中
+- `notifier=True`：自动建好提示层 `self.notifier`，可以直接 `app.notify(...)`
+
+窗口标题栏颜色也会自动跟随外观（Windows 11 22H2+ 真正上色），不需要再手动调
+`set_titlebar_dark`。
+
+`CTk` 本身仍然原样导出，需要完全原生的入口时直接用它。
+
+- 窗口：`CTk`、`CTkToplevel`、`CTkInputDialog`
+- 容器：`CTkFrame`、`CTkScrollableFrame`、`CTkTabview`
+- 基础控件：`CTkLabel` `CTkButton` `CTkEntry` `CTkTextbox` `CTkCheckBox`
+  `CTkRadioButton` `CTkSwitch` `CTkSlider` `CTkProgressBar` `CTkComboBox`
+  `CTkOptionMenu` `CTkSegmentedButton` `CTkScrollbar`
+- 字体、图片与绘制基类：`CTkFont` `CTkImage` `CTkCanvas` `CTkBaseClass`
+- 外观：`set_appearance_mode(mode)` / `get_appearance_mode()` / `set_default_color_theme(name)`
+
+除 `App`、`CTkEntry`、`CTkButton` 和 `Frame` 外，这些就是 customtkinter 自己的类，
+参数、行为、回调完全一致，类型标注和 IDE 跳转照常。`App` 是加标题、尺寸等构造参数的
+便捷子类；`CTkEntry` 是默认套用库输入框样式的子类——填充底、1px 描边、圆角、placeholder
+灰字都从 `tokens` 取；`CTkButton` 是默认套用库按钮样式的子类——正文微软雅黑、
+38 高、9 圆角、浅灰底深色字；`Frame` 是默认 `fg_color="transparent"` 的布局容器。
+它们的参数都与原生同名类相同，显式传同名参数即可覆盖。
+`CTkImage` 和 customtkinter 里一样需要 Pillow，但只在真正创建图片对象时才会用到。
+
+和本库 `apply_appearance` 的分工：`set_appearance_mode` 是 CTk 原生语义，
+`"system"` 表示跟随系统；`apply_appearance` 是本库的封装，只认小写 `"light"`，
+其余取值（含 `"system"`）一律按深色处理。
 
 ## 组件
 
@@ -47,54 +104,59 @@ app.mainloop()
 
 | 模块 | 提供 | 备注 |
 | --- | --- | --- |
-| `buttons` | `primary_button` `soft_button` `danger_button` `FlatButton` `SoftButton` | |
-| `inputs` | `toolbar_entry` `form_entry` `segmented` `switch` `checkbox` `radio_group` `slider` `progressbar` `bind_focus_border` | |
+| `buttons` | `PrimaryButton` `SecondaryButton` `DangerButton` `FlatButton` `SoftButton` | |
+| `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `bind_focus_border` | |
 | `text` | `TextArea` | |
 | `dropdown` | `DropField` | |
-| `layout` | `page_header` `section_title` `card` `divider` `field_label` `hint_label` `empty_hint` `scrollable` `style_scrollable` `style_scrollbar` | |
+| `layout` | `Card` `PageHeader` `SectionTitle` `divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | |
 | `notify` | `Notifier` `notify` | |
 | `scroll_list` | `LazyList` | |
 | `context_menu` | `ContextMenu` `attach_menu` | |
 | `collapse` | `Collapsible` | 可折叠面板 |
+| `code_panel` | `CodePanel` | 卡片底部的「查看实现」折叠代码块 |
 | `files` | `PathField` `DropZone` `pick_path` `has_dnd` | 拖放需要 `tkinterdnd2` |
+| `frames` | `Frame` | 默认透明底的布局容器 |
 | `table` | `Table` | |
 | `image_view` | `ImageViewer` | 需要 Pillow |
 | `pages` | `PageRebuilder` | 多页面窗口 |
+| `page` | `PageBase` | 页面基类：注入 `app`，子类建议实现 `bind_events` |
+| `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，见下 |
 | `theme` / `tokens` | `apply_appearance` `color_of` 等 | 外观与设计令牌 |
+| `customtkinter` | `CTk` `App` `CTkButton` `CTkFrame` `CTkImage` `CTkFont` `set_appearance_mode` 等 | 原生类原样转出；`App` / `CTkEntry` / `CTkButton` / `Frame` 是带库默认样式或默认参数的子类，见上 |
 
 ### 按钮（`buttons`）
 
-- `primary_button(master, text, command, *, width=120, height=38, radius=9, font=FONT_BODY)`
+- `PrimaryButton(master, text, command, *, width=120, height=38, radius=9, font=FONT_BODY)`
   主操作，实心主色
-- `soft_button(master, text, command, *, width=76, height=30, font=FONT_SMALL, border=False)`
+- `SecondaryButton(master, text, command, *, width=76, height=30, font=FONT_SMALL, border=False)`
   次要操作，灰底；`border=True` 时加 1px 描边
-- `danger_button(master, text, command, *, width=76, height=30, font=FONT_SMALL)`
+- `DangerButton(master, text, command, *, width=76, height=30, font=FONT_SMALL)`
   删除一类不可逆操作，红底
 - `FlatButton(master, text, command, *, bg=None, hover=None, fg=None, font=FONT_TINY, padx=10, pady=3, radius=8)`
   卡片里的小按钮，宽度按文字实测
   - `bg` / `hover` / `fg` 分别覆盖底色、悬停色、文字色（默认都从令牌取）
 - `SoftButton(master, text, command)` —— `FlatButton` 的灰底版
 
-这些工厂返回的都是 `ctk.CTkButton`，`command` 收一个无参回调。
+这些工厂返回的都是 `CTkButton`，`command` 收一个无参回调。
 
 ### 输入（`inputs`）
 
-- `toolbar_entry(master, placeholder, *, height=40)`
+- `ToolbarEntry(master, placeholder, *, height=40)`
   工具条里的搜索框，填充底 + 1px 描边
-- `form_entry(master, *, show="", placeholder="", height=38, password=False)`
+- `FormEntry(master, *, show="", placeholder="", height=38, password=False)`
   表单里的输入框；`show="•"` 或 `password=True` 走密文
-- `segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
+- `Segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
   分段选择；`command` 收选中的文字
-- `switch(master, command=None, *, text="", width=44)`
+- `Switch(master, command=None, *, text="", width=44)`
   开关，`text` 留空就只显示轨道；`command` 收开关状态。圆球色是
   `COLOR_BUTTON_KNOB`，悬停色是 `COLOR_BUTTON_KNOB_HOVER`（都在 `tokens` 里改）
-- `checkbox(master, text="", command=None, *, width=20, height=20)`
+- `Checkbox(master, text="", command=None, *, width=20, height=20)`
   勾选框，选中后填主色打勾
 - `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`
   一组互斥单选；`gap` 是行距，`variable` 可以传自己的 `StringVar` 进去
-- `slider(master, command=None, *, from_=0.0, to=100.0, steps=0, width=220)`
+- `Slider(master, command=None, *, from_=0.0, to=100.0, steps=0, width=220)`
   滑块，`command` 收 `float`；`steps>0` 时只能停在等分点
-- `progressbar(master, *, value=0.0, width=220, height=6)`
+- `ProgressBar(master, *, value=0.0, width=220, height=6)`
   细进度条，`value` 收 0~1
 - `bind_focus_border(widget, *, source=None, idle_color=None, width=2, on_width=None)`
   给任意控件绑「聚焦才出现描边」的样式；`source` 是真正接焦点事件的子控件，
@@ -123,17 +185,24 @@ app.mainloop()
 
 ### 布局（`layout`）
 
-- `page_header(master, title)` → `(head, info)`：左标题右信息
-- `section_title(master, text)`：分区标题
-- `card(master)`：白底卡片，1px 描边、圆角
+- `PageHeader(master, title)` → `PageHeader`：左标题右信息，右侧标签用 `header.info` 访问（也兼容 `head, info = PageHeader(...)` 解包）
+- `SectionTitle(master, text)`：分区标题
+- `Card(master, *, title="")`：圆角卡片；传 `title` 时在卡片上方放标题（标题在卡片外，卡片要用 pack 放置）
 - `divider(master, *, pady=(12, 0))`：分隔线
-- `field_label(master, text, *, width=112)`：表单左侧字段名
-- `hint_label(master, text)`：灰色说明文字
+- `FieldLabel(master, text, *, width=112)`：表单左侧字段名
+- `HintLabel(master, text)`：灰色说明文字
 - `empty_hint(master, title, detail="")`：空态
-- `scrollable(master)`：统一配色的滚动容器
+- `Scrollable(master, **kwargs)`：透明底、滚动条已统一样式的滚动容器（参数同 `CTkScrollableFrame`）
 - `style_scrollable(frame)` / `style_scrollbar(bar)`：把已有滚动控件的宽度与配色统一
 
 ### 浮层提示（`notify`）
+
+`App` 自带提示层，不用手动建 `Notifier`：
+
+```python
+app.notify("已复制到剪贴板", level="success")
+app.notify("云备份失败", title="网络错误", level="error", style="card", position="bottom")
+```
 
 - `Notifier(master, *, duration=None, max_visible=3)`
   - `.show(message, *, title="", level="info", position="top", style="pill", duration=None, on_close=None)`
@@ -145,14 +214,16 @@ app.mainloop()
     - 返回这条提示的控件，可以传给 `.dismiss()` 手动关掉
   - `.dismiss(view)` 关掉某一条；`.clear()` 全关；`.count(position=None)` 数条数
   - 同一位置最多 `max_visible` 条，超出时最旧的先关
-- `notify(master, message, **kwargs)`：按窗口缓存 `Notifier` 的便捷函数，参数同 `show()`
+- `notify(master, message, **kwargs)`：按窗口缓存 `Notifier` 的便捷函数，参数同 `show()`；
+  传入 `App` 时会直接复用它的 `self.notifier`，不会建出第二个提示层
+- 不需要提示的窗口可以 `App(notifier=False)`，此时没有 `self.notifier`
 
 ```python
-from ctk_kit import Notifier
+from ctk_kit import App
 
-tips = Notifier(app)
-tips.show("已复制到剪贴板", level="success")
-tips.show("云备份失败", title="网络错误", level="error", style="card", position="bottom")
+app = App(title="备份", size=(880, 560))
+app.notify("已复制到剪贴板", level="success")
+app.notifier.show("云备份失败", title="网络错误", level="error", style="card")
 ```
 
 ### 懒加载列表（`scroll_list`）
@@ -189,9 +260,9 @@ listing.render(items)
 菜单开着时：拖动或缩放主窗口它会跟着走；点到外面、按 Esc、窗口失焦都会收起。
 
 ```python
-from ctk_kit import attach_menu, primary_button
+from ctk_kit import attach_menu, PrimaryButton
 
-save = primary_button(frame, "保存")
+save = PrimaryButton(frame, "保存")
 attach_menu(save, [
     ("编辑", lambda btn: print("编辑", btn.cget("text"))),
     ("删除", lambda btn: print("删除", btn.cget("text"))),
@@ -270,7 +341,45 @@ TextArea(panel.body, readonly=True).pack(fill="x", padx=10, pady=10)
 拖放是可选能力：`pip install "ctk-kit[dnd]"`。没装时 `PathField` 的按钮照常可用，
 `DropZone` 会显示成不可拖的提示。
 
-### 多页面（`pages`）
+### 多页面（`pages` / `sidebar`）
+
+`SidebarNav` 把「左侧导航 + 右侧翻页」整个封装好：大标题、小标题、任意数量的
+导航按钮、切页高亮、页面按需创建都在里面。
+
+```python
+from ctk_kit import App, SidebarNav
+
+app = App(title="备份", size=(1000, 680))
+nav = SidebarNav(
+    app,
+    title="备份",
+    subtitle="v0.9.1 · 本地备份工具",
+    pages={"任务": build_tasks, "设置": build_settings},
+)
+nav.pack(fill="both", expand=True)
+nav.show("任务")
+app.mainloop()
+```
+
+- `pages` 是 `{页面名: 建页函数}`；建页函数接收一个父容器，返回这一页的控件。
+  也可以直接传**页面类**：类构造接收父容器，实例就是页面，页面里用
+  `master.winfo_toplevel()` 就能拿到 App：
+  `pages={"任务": TaskPage, "设置": SettingsPage}`
+- `bottom_pages`：不放进导航列表、放在侧边栏底部的页面（例如「设置」）；
+  底部按钮用次要样式，`bottom_width` 控制宽度（默认 176）
+- `width`：整数是固定逻辑像素（如 `200`）；`0` 到 `1` 之间的小数是宽度比例
+  （如 `0.16`），窗口拉宽时侧边栏跟着变宽
+- 拖动窗口边缘时页面区会先保持旧尺寸，松手约 320ms 后再按新尺寸重排，
+  避免大页面在拖动过程中逐帧重画
+- 方法：`show(name)` 切页、`page(name)` 取/建某一页的容器、
+  `set_appearance_mode(mode)` / `toggle_appearance()` 切外观（只重建当前页）
+- 属性：`current`、`frames`、`names`、`rebuilder`（底层的 `PageRebuilder`）
+- `App` 也内置了同名转发：`app.set_appearance_mode("light")` /
+  `app.toggle_appearance()`。窗口上挂了 `nav`（即 `app.nav` 是 `SidebarNav`）时
+  自动转给它、只重建当前页；没有导航时直接切外观并重绘已有控件。中文
+  `"浅色"` / `"深色"` 也可以直接传。
+
+底层 `PageRebuilder` 也可以单独用：
 
 - `PageRebuilder(host, factory, pages, *, on_hide=None)`
   - `factory(name)` 返回该页的控件

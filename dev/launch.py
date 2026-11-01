@@ -76,8 +76,8 @@ def choose() -> Optional[str]:
         import customtkinter as ctk
 
         from ctk_kit import tokens as T
-        from ctk_kit.buttons import soft_button
-        from ctk_kit.layout import hint_label, page_header
+        from ctk_kit.buttons import SecondaryButton
+        from ctk_kit.layout import HintLabel, PageHeader
         from ctk_kit.theme import apply_appearance
     except Exception:  # noqa: BLE001 - 没有 ctk 或没有图形环境
         return None
@@ -98,7 +98,7 @@ def choose() -> Optional[str]:
 
     body = ctk.CTkFrame(app, fg_color="transparent")
     body.pack(fill="both", expand=True, padx=20, pady=16)
-    _, info = page_header(body, "选一个页面")
+    _, info = PageHeader(body, "选一个页面")
     info.configure(text="点一下即打开")
 
     grid = ctk.CTkFrame(body, fg_color="transparent")
@@ -111,12 +111,12 @@ def choose() -> Optional[str]:
         app.destroy()
 
     for index, (module, title) in enumerate(PAGES):
-        button = soft_button(grid, title, lambda m=module: pick(m), width=120, height=34)
+        button = SecondaryButton(grid, title, lambda m=module: pick(m), width=120, height=34)
         button.grid(row=index // 3, column=index % 3, padx=6, pady=6, sticky="ew")
     for column in range(3):
         grid.grid_columnconfigure(column, weight=1)
 
-    hint_label(body, "Esc 关闭").pack(anchor="w", pady=(10, 0))
+    HintLabel(body, "Esc 关闭").pack(anchor="w", pady=(10, 0))
     app.bind("<Escape>", lambda event: app.destroy())
     app.protocol("WM_DELETE_WINDOW", app.destroy)
     app.mainloop()

@@ -10,9 +10,9 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
-from ctk_kit.buttons import SoftButton, danger_button, primary_button, soft_button
-from ctk_kit.inputs import segmented, toolbar_entry
-from ctk_kit.layout import divider, hint_label, page_header
+from ctk_kit.buttons import SoftButton, DangerButton, PrimaryButton, SecondaryButton
+from ctk_kit.inputs import Segmented, ToolbarEntry
+from ctk_kit.layout import divider, HintLabel, PageHeader
 from ctk_kit.scroll_list import LazyList
 from ctk_kit.theme import color_of
 
@@ -26,7 +26,7 @@ def build(master) -> ctk.CTkFrame:
     """LazyList 的完整用法：分批加载、筛选、刷新、清空、空态提示。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text=f"{len(SAMPLE_ITEMS)} 条")
 
     area = ctk.CTkFrame(page, fg_color="transparent")
@@ -34,12 +34,12 @@ def build(master) -> ctk.CTkFrame:
 
     toolbar = ctk.CTkFrame(area, fg_color="transparent")
     toolbar.pack(fill="x", pady=(0, 12))
-    search = toolbar_entry(toolbar, "输入关键词筛选…")
+    search = ToolbarEntry(toolbar, "输入关键词筛选…")
     search.pack(side="left", fill="x", expand=True)
-    primary_button(toolbar, "搜索", lambda: apply_filter(), width=84, height=40).pack(
+    PrimaryButton(toolbar, "搜索", lambda: apply_filter(), width=84, height=40).pack(
         side="left", padx=(10, 0)
     )
-    category = segmented(
+    category = Segmented(
         toolbar,
         ["全部", "账号", "恢复码", "密钥"],
         lambda _value: apply_filter(),
@@ -60,7 +60,7 @@ def build(master) -> ctk.CTkFrame:
     footer = ctk.CTkFrame(area, fg_color="transparent")
     footer.pack(fill="x")
     # feedback 要先于 listing.render 定义：render_card 闭包会在首屏渲染时用到它
-    feedback = Feedback(hint_label(footer, "滚到底部会自动补下一批"))
+    feedback = Feedback(HintLabel(footer, "滚到底部会自动补下一批"))
     feedback.label.pack(side="right")
     page.feedback = feedback
 
@@ -88,11 +88,11 @@ def build(master) -> ctk.CTkFrame:
         info.configure(text="0 条")
         feedback("已清空列表")
 
-    soft_button(footer, "刷新", lambda: apply_filter(force=True), width=72).pack(
+    SecondaryButton(footer, "刷新", lambda: apply_filter(force=True), width=72).pack(
         side="left"
     )
-    danger_button(footer, "清空", clear, width=72).pack(side="left", padx=(8, 0))
-    soft_button(
+    DangerButton(footer, "清空", clear, width=72).pack(side="left", padx=(8, 0))
+    SecondaryButton(
         footer,
         "空态提示",
         lambda: (
@@ -101,7 +101,7 @@ def build(master) -> ctk.CTkFrame:
         ),
         width=88,
     ).pack(side="left", padx=(8, 0))
-    soft_button(
+    SecondaryButton(
         footer,
         "重建",
         lambda: (listing.invalidate(), apply_filter(), feedback("已 invalidate 并重建")),

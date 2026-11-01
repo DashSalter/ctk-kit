@@ -2,7 +2,7 @@
 
 一套页面按这个顺序搭出来，视觉就不会散：
 
-    page_header  →  section(title)  →  card 里的若干行  →  divider  →  footer
+    PageHeader  →  section(title)  →  card 里的若干行  →  divider  →  footer
 
 除滚动容器外，这里的工厂都会顺手 ``pack``（``fill="x"``），因为它们的位置
 在页面骨架里是固定的；按钮、输入框这类需要自己摆位。
@@ -11,72 +11,145 @@
 from __future__ import annotations
 
 import tkinter as tk
+from typing import Any
 
 import customtkinter as ctk
 
 from . import tokens as T
 
 
-def page_header(master: tk.Misc, title: str) -> tuple[ctk.CTkFrame, ctk.CTkLabel]:
-    """页面顶部：左边标题，右边统计信息。
+class PageHeader(ctk.CTkFrame):
+    """页面顶部：左边标题，右边信息标签。
 
-    返回 ``(容器, 信息标签)``，调用方拿到信息标签后自己 ``configure(text=...)``，
-    容器已经 ``pack(fill="x")``。
+    直接当控件用；右侧标签通过 ``header.info`` 访问。为了兼容旧写法，
+    也支持 ``head, info = PageHeader(...)`` 解包。
+    """
+
+    def __init__(self, master: tk.Misc, title: str) -> None:
+        super().__init__(master, fg_color="transparent")
+        self.pack(fill="x")
+        self.title_label = ctk.CTkLabel(
+            self, text=title, font=T.FONT_TITLE, text_color=T.COLOR_TEXT
+        )
+        self.title_label.pack(side="left")
+        self.info = ctk.CTkLabel(
+            self, text="", font=T.FONT_TINY, text_color=T.COLOR_MUTED, anchor="e"
+        )
+        self.info.pack(side="right", pady=(9, 0))
+
+    def __iter__(self):
+        # 兼容 `head, info = PageHeader(...)` 的旧写法
+        return iter((self, self.info))
+
+
+class SectionTitle(ctk.CTkLabel):
+    """分区标题（设置页的「外观」「备份」这一层），构造时即 ``pack``。"""
+
+    def __init__(self, master: tk.Misc, text: str) -> None:
+        super().__init__(
+            master,
+            text=text,
+            font=T.FONT_SECTION,
+            text_color=T.COLOR_TEXT,
+            anchor="w",
+        )
+        self.pack(fill="x", pady=(T.SPACE_LG, T.SPACE_SM - 2))
+
+
+class Card(ctk.CTkFrame):
+    """圆角卡片容器，可选在上方带标题。
+
+    卡片样式（填充、1px 边框、圆角）与 :class:`Card` 相同；传 ``title``
+    时在卡片**外面**的上方放一行标题，卡片内容仍放在卡片内部::
+
+        box = Card(page, title="复杂页面")
+        form = Frame(box)
+        form.pack(fill="x", padx=16, pady=12)
 
     参数:
-        master: 父容器。
-        title: 左侧大标题。
+        title: 卡片标题；不传就没有标题，行为与普通卡片相同。
+        **kwargs: 其余参数与 ``CTkFrame`` 相同，显式传同名参数可覆盖卡片样式。
 
-    返回:
-        ``(head, info)``：``head`` 是透明容器，``info`` 是右侧灰色小字标签。
+    注意:
+        标题是 ``master`` 的子控件、用 ``pack`` 放在卡片上方，所以：
+
+        - 带 ``title`` 的卡片要用 ``pack`` 放进 ``master``（不能用 ``grid``）；
+        - 卡片 ``pack`` 时传的 ``padx`` 会自动同步给标题，标题和卡片左右对齐；
+        - 卡片 ``pack`` 时传的 ``pady`` 顶部值会转给标题，在标题上方留白，
+          卡片本身不再重复留这段顶部间距；底部值仍留给卡片；
+        - 卡片内容不受影响，内部仍可任意用 ``pack`` 或 ``grid``。
     """
-    head = ctk.CTkFrame(master, fg_color="transparent")
-    head.pack(fill="x")
-    ctk.CTkLabel(head, text=title, font=T.FONT_TITLE, text_color=T.COLOR_TEXT).pack(
-        side="left"
-    )
-    info = ctk.CTkLabel(
-        head, text="", font=T.FONT_TINY, text_color=T.COLOR_MUTED, anchor="e"
-    )
-    info.pack(side="right", pady=(9, 0))
-    return head, info
 
+    def __init__(
+        self, master: tk.Misc, *, title: str = "", **kwargs: Any
+    ) -> None:
+        kwargs.setdefault("fg_color", T.COLOR_CARD)
+        kwargs.setdefault("border_width", 1)
+        kwargs.setdefault("border_color", T.COLOR_BORDER)
+        kwargs.setdefault("corner_radius", T.RADIUS_MEDIUM)
+        super().__init__(master, **kwargs)
+        self.title_label = None
+        if title:
+            self.title_label = ctk.CTkLabel(
+                master,
+                text=title,
+                font=T.FONT_SECTION,
+                text_color=T.COLOR_TEXT,
+                anchor="w",
+            )
+            self.title_label.pack(fill="x", pady=(0, T.SPACE_SM))
 
-def section_title(master: tk.Misc, text: str) -> ctk.CTkLabel:
-    """分区标题（设置页的「外观」「备份」这一层）。
+    def pack(self, cnf: Any = None, **kwargs: Any) -> None:
+        """``pack`` 卡片时把 ``padx`` / 顶部 ``pady`` 同步给标题。
 
-    参数:
-        master: 父容器。
-        text: 标题文字。
+        标题是 ``master`` 的子控件，不会自动跟着卡片的外边距走；这里在摆放
+        卡片时顺手把同样的水平边距设给标题，并把顶部间距挪到标题上方——否则
+        卡片自己的顶部 ``pady`` 会把标题和卡片之间的空隙撑大、把标题挤上去。
+        """
+        if self.title_label is not None:
+            padx = kwargs.get("padx")
+            if padx is None and cnf:
+                padx = cnf.get("padx")
+            pady = kwargs.get("pady")
+            if pady is None and cnf:
+                pady = cnf.get("pady")
 
-    返回:
-        已 ``pack(fill="x", pady=(16, 6))`` 的标签。
-    """
-    label = ctk.CTkLabel(
-        master, text=text, font=T.FONT_SECTION, text_color=T.COLOR_TEXT, anchor="w"
-    )
-    label.pack(fill="x", pady=(T.SPACE_LG, T.SPACE_SM - 2))
-    return label
+            scale = getattr(self.title_label, "_apply_widget_scaling", None)
+            if not callable(scale):
+                scale = None
 
+            label_cnf: dict[str, Any] = {}
+            if padx is not None:
+                # 卡片走 CTkBaseClass.pack，会把 padx 按窗口缩放；标题用原生
+                # pack_configure，不缩放，这里补上同样的缩放才能对齐。
+                if scale is not None:
+                    if isinstance(padx, (tuple, list)):
+                        padx = tuple(scale(value) for value in padx)
+                    else:
+                        padx = scale(padx)
+                label_cnf["padx"] = padx
+            if pady is not None:
+                top, bottom = self._split_pady(pady)
+                if scale is not None:
+                    top = scale(top)
+                label_cnf["pady"] = (top, T.SPACE_SM)
+                # 顶部间距已经交给标题，卡片只保留底部间距
+                kwargs = {**kwargs, "pady": (0, bottom)}
+            if label_cnf:
+                self.title_label.pack_configure(**label_cnf)
+        if cnf:
+            kwargs = {**cnf, **kwargs}
+        super().pack(**kwargs)
 
-def card(master: tk.Misc) -> ctk.CTkFrame:
-    """圆角卡片容器：内容都往这里放。
-
-    参数:
-        master: 父容器。
-
-    返回:
-        已 ``pack(fill="x")`` 的卡片 Frame（1px 边框、10 圆角）。
-    """
-    frame = ctk.CTkFrame(
-        master,
-        fg_color=T.COLOR_CARD,
-        border_width=1,
-        border_color=T.COLOR_BORDER,
-        corner_radius=T.RADIUS_MEDIUM,
-    )
-    frame.pack(fill="x")
-    return frame
+    @staticmethod
+    def _split_pady(pady: Any) -> tuple[Any, Any]:
+        """把 ``pady`` 拆成 ``(top, bottom)``；单值表示上下相同。"""
+        if isinstance(pady, (tuple, list)):
+            values = list(pady)
+            if len(values) == 1:
+                return values[0], values[0]
+            return values[0], values[1]
+        return pady, pady
 
 
 def divider(master: tk.Misc, *, pady: tuple[int, int] = (T.SPACE_MD, 0)) -> ctk.CTkFrame:
@@ -140,16 +213,17 @@ def style_scrollable(frame: ctk.CTkScrollableFrame) -> ctk.CTkScrollableFrame:
     return frame
 
 
-def scrollable(master: tk.Misc) -> ctk.CTkScrollableFrame:
-    """已经配好滚动条样式的滚动容器（透明底）。
+class Scrollable(ctk.CTkScrollableFrame):
+    """已配好滚动条样式的透明滚动容器。
 
-    参数:
-        master: 父容器。
-
-    返回:
-        尚未摆位的 ``CTkScrollableFrame``；由调用方决定 ``pack`` 还是 ``grid``。
+    构造参数与 ``CTkScrollableFrame`` 一致（``fg_color`` 默认透明）；
+    摆位由调用方决定，``pack`` / ``grid`` 都行。
     """
-    return style_scrollable(ctk.CTkScrollableFrame(master, fg_color="transparent"))
+
+    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        kwargs.setdefault("fg_color", "transparent")
+        super().__init__(master, **kwargs)
+        style_scrollable(self)
 
 
 def empty_hint(master: tk.Misc, title: str, detail: str = "") -> ctk.CTkFrame:
@@ -176,42 +250,29 @@ def empty_hint(master: tk.Misc, title: str, detail: str = "") -> ctk.CTkFrame:
     return box
 
 
-def field_label(master: tk.Misc, text: str, *, width: int = 112) -> ctk.CTkLabel:
-    """卡片内左对齐的字段名，宽度固定让右边控件能对齐成一列。
+class FieldLabel(ctk.CTkLabel):
+    """卡片内左对齐的字段名，宽度固定让右边控件能对齐成一列。"""
 
-    参数:
-        master: 父容器。
-        text: 字段名。
-        width: 固定宽度（像素），默认 112。
-
-    返回:
-        尚未摆位的 ``CTkLabel``（``anchor="w"``）。
-    """
-    return ctk.CTkLabel(
-        master,
-        text=text,
-        font=T.FONT_SMALL,
-        text_color=T.COLOR_MUTED,
-        width=width,
-        anchor="w",
-    )
+    def __init__(self, master: tk.Misc, text: str, *, width: int = 112) -> None:
+        super().__init__(
+            master,
+            text=text,
+            font=T.FONT_SMALL,
+            text_color=T.COLOR_MUTED,
+            width=width,
+            anchor="w",
+        )
 
 
-def hint_label(master: tk.Misc, text: str) -> ctk.CTkLabel:
-    """字段下方的说明文字。
+class HintLabel(ctk.CTkLabel):
+    """字段下方的说明文字（左对齐、多行左对齐），构造时尚未摆位。"""
 
-    参数:
-        master: 父容器。
-        text: 说明内容，支持 ``\\n`` 换行。
-
-    返回:
-        尚未摆位的 ``CTkLabel``（左对齐、多行左对齐）。
-    """
-    return ctk.CTkLabel(
-        master,
-        text=text,
-        font=T.FONT_SMALL,
-        text_color=T.COLOR_MUTED,
-        anchor="w",
-        justify="left",
-    )
+    def __init__(self, master: tk.Misc, text: str) -> None:
+        super().__init__(
+            master,
+            text=text,
+            font=T.FONT_SMALL,
+            text_color=T.COLOR_MUTED,
+            anchor="w",
+            justify="left",
+        )

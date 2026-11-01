@@ -13,29 +13,29 @@ from ctk_kit import tokens as T
 from ctk_kit.buttons import (
     FlatButton,
     SoftButton,
-    danger_button,
-    primary_button,
-    soft_button,
+    DangerButton,
+    PrimaryButton,
+    SecondaryButton,
 )
-from ctk_kit.layout import hint_label, page_header, scrollable, section_title
+from ctk_kit.layout import HintLabel, PageHeader, Scrollable, SectionTitle
 from ctk_kit.theme import color_of
 
 from ..shell import _card_body, _card_shell, _code_panel, _feedback, _row, run_page
 
 TITLE = "按钮"
 
-BASIC_CODE = '''from ctk_kit import primary_button, soft_button, danger_button
+BASIC_CODE = '''from ctk_kit import PrimaryButton, SecondaryButton, DangerButton
 
-primary_button(frame, "保存", on_save)
-# primary_button(master, text, command=None, *, width=120, height=38,
+PrimaryButton(frame, "保存", on_save)
+# PrimaryButton(master, text, command=None, *, width=120, height=38,
 #                radius=9, font=FONT_BODY)
 
-soft_button(frame, "取消", on_cancel)
-# soft_button(master, text, command=None, *, width=76, height=30,
+SecondaryButton(frame, "取消", on_cancel)
+# SecondaryButton(master, text, command=None, *, width=76, height=30,
 #             font=FONT_SMALL, border=False)   # border=True 多一圈细边
 
-danger_button(frame, "删除", on_delete)
-# danger_button(master, text, command=None, *, width=76, height=30,
+DangerButton(frame, "删除", on_delete)
+# DangerButton(master, text, command=None, *, width=76, height=30,
 #               font=FONT_SMALL)'''
 
 MICRO_CODE = '''from ctk_kit import FlatButton, SoftButton
@@ -49,17 +49,17 @@ SoftButton(frame, "收起", on_collapse)
 # SoftButton(master, text, command=None)
 # 内部就是 fg=COLOR_MUTED、padx=8、pady=2 的 FlatButton'''
 
-SIZE_CODE = '''primary_button(frame, "160×46", on_click, width=160, height=46)
-soft_button(frame, "次要 120", on_click, width=120)
-danger_button(frame, "危险 38 高", on_click, height=38)
+SIZE_CODE = '''PrimaryButton(frame, "160×46", on_click, width=160, height=46)
+SecondaryButton(frame, "次要 120", on_click, width=120)
+DangerButton(frame, "危险 38 高", on_click, height=38)
 
 # 只给 width：高度沿用各自的默认值（主按钮 38、次要/危险 30）
 # 只给 height：宽度沿用默认值（主 120、次 76）
-# soft_button 的高度超过 30 时，圆角自动从 8 加到 9'''
+# SecondaryButton 的高度超过 30 时，圆角自动从 8 加到 9'''
 
-DISABLED_CODE = '''button = primary_button(frame, "已禁用", None)
+DISABLED_CODE = '''button = PrimaryButton(frame, "已禁用", None)
 button.configure(state="disabled")
-# 也可以是 soft_button / danger_button / FlatButton
+# 也可以是 SecondaryButton / DangerButton / FlatButton
 # state="disabled" 保留原来的配色，只降低不透明度，不会变成灰块'''
 
 
@@ -67,31 +67,31 @@ def build(master) -> ctk.CTkFrame:
     """四个工厂函数 + 两个类，连同尺寸矩阵与禁用态。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="4 个工厂函数 + 2 个类")
 
     feedback = _feedback(page, "点任意按钮，回显会出现在这里")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
-    section_title(area, "基础按钮")
+    SectionTitle(area, "基础按钮")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
     row = _row(body, bg)
-    primary_button(row, "主按钮", lambda: feedback("点了「主按钮」")).pack(side="left")
-    soft_button(row, "次要按钮", lambda: feedback("点了「次要按钮」")).pack(
+    PrimaryButton(row, "主按钮", lambda: feedback("点了「主按钮」")).pack(side="left")
+    SecondaryButton(row, "次要按钮", lambda: feedback("点了「次要按钮」")).pack(
         side="left", padx=(8, 0)
     )
-    soft_button(
+    SecondaryButton(
         row, "描边按钮", lambda: feedback("点了「描边按钮」（border=True）"), border=True
     ).pack(side="left", padx=(8, 0))
-    danger_button(row, "危险按钮", lambda: feedback("点了「危险按钮」")).pack(
+    DangerButton(row, "危险按钮", lambda: feedback("点了「危险按钮」")).pack(
         side="left", padx=(8, 0)
     )
-    hint_label(
+    HintLabel(
         body, "主按钮 38 高；次要/危险按钮 30 高；描边版只是多一圈细边。"
     ).pack(fill="x")
     _code_panel(
@@ -100,7 +100,7 @@ def build(master) -> ctk.CTkFrame:
         "三个工厂函数的签名都在上面；command 不接收参数，要传参就用 lambda 包一层。",
     )
 
-    section_title(area, "微型按钮（宽度按文字实测）")
+    SectionTitle(area, "微型按钮（宽度按文字实测）")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -114,7 +114,7 @@ def build(master) -> ctk.CTkFrame:
     FlatButton(row, "更长的文字会自动加宽", lambda: feedback("长文字的宽度是算出来的")).pack(
         side="left", padx=(8, 0)
     )
-    hint_label(body, "卡片里的「复制 / 详情」就用这两个，不会浪费横向空间。").pack(
+    HintLabel(body, "卡片里的「复制 / 详情」就用这两个，不会浪费横向空间。").pack(
         fill="x"
     )
     _code_panel(
@@ -123,13 +123,13 @@ def build(master) -> ctk.CTkFrame:
         "两个类不用传宽高，宽度按文字实测；要改配色就传 bg / hover / fg。",
     )
 
-    section_title(area, "尺寸矩阵")
+    SectionTitle(area, "尺寸矩阵")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
     row = _row(body, bg)
     for width, height in ((84, 30), (120, 38), (160, 46)):
-        primary_button(
+        PrimaryButton(
             row,
             f"{width}×{height}",
             lambda w=width, h=height: feedback(f"主按钮 {w}×{h}"),
@@ -138,7 +138,7 @@ def build(master) -> ctk.CTkFrame:
         ).pack(side="left", padx=(0, 8))
     row = _row(body, bg)
     for width in (60, 76, 120):
-        soft_button(
+        SecondaryButton(
             row,
             f"次要 {width}",
             lambda w=width: feedback(f"次要按钮宽 {w}"),
@@ -147,7 +147,7 @@ def build(master) -> ctk.CTkFrame:
     row = tk.Frame(body, bg=bg)
     row.pack(fill="x")
     for height in (26, 30, 38):
-        danger_button(
+        DangerButton(
             row,
             f"危险 {height} 高",
             lambda h=height: feedback(f"危险按钮高 {h}"),
@@ -159,20 +159,20 @@ def build(master) -> ctk.CTkFrame:
         "width / height 都是像素；省略哪个就用那个函数的默认值。",
     )
 
-    section_title(area, "禁用态")
+    SectionTitle(area, "禁用态")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
     row = _row(body, bg)
     for factory, text in (
-        (primary_button, "主按钮"),
-        (soft_button, "次要按钮"),
-        (danger_button, "危险按钮"),
+        (PrimaryButton, "主按钮"),
+        (SecondaryButton, "次要按钮"),
+        (DangerButton, "危险按钮"),
     ):
         button = factory(row, text, lambda: None)
         button.configure(state="disabled")
         button.pack(side="left", padx=(0, 8))
-    hint_label(body, "state='disabled' 后仍保持原来的配色，只降低不透明度。").pack(
+    HintLabel(body, "state='disabled' 后仍保持原来的配色，只降低不透明度。").pack(
         fill="x"
     )
     _code_panel(

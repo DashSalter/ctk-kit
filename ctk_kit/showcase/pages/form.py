@@ -10,16 +10,16 @@ import tkinter as tk
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
-from ctk_kit.buttons import primary_button, soft_button
+from ctk_kit.buttons import PrimaryButton, SecondaryButton
 from ctk_kit.dropdown import DropField
-from ctk_kit.inputs import form_entry, segmented, switch
+from ctk_kit.inputs import FormEntry, Segmented, Switch
 from ctk_kit.layout import (
     divider,
-    field_label,
-    hint_label,
-    page_header,
-    scrollable,
-    section_title,
+    FieldLabel,
+    HintLabel,
+    PageHeader,
+    Scrollable,
+    SectionTitle,
 )
 from ctk_kit.theme import color_of
 
@@ -32,16 +32,16 @@ def build(master) -> ctk.CTkFrame:
     """把输入、下拉、分段、开关与底部动作拼成一张真实表单。"""
     page = ctk.CTkFrame(master, fg_color="transparent")
 
-    _, info = page_header(page, TITLE)
+    _, info = PageHeader(page, TITLE)
     info.configure(text="输入 + 下拉 + 分段 + 开关")
 
     feedback = _feedback(page, "填完点「保存」，会回显读到的值")
 
-    area = scrollable(page)
+    area = Scrollable(page)
     area.pack(fill="both", expand=True, pady=(14, 0))
     bg = color_of(T.COLOR_CARD)
 
-    section_title(area, "基本信息")
+    SectionTitle(area, "基本信息")
     box = _card_shell(area)
     box.pack(fill="x")
     body = _card_body(box)
@@ -53,18 +53,18 @@ def build(master) -> ctk.CTkFrame:
         ("密码", "选填，可点右侧生成", True),
     ):
         row = _row(body, bg)
-        field_label(row, label).pack(side="left")
-        entry = form_entry(row, placeholder=placeholder, password=password)
+        FieldLabel(row, label).pack(side="left")
+        entry = FormEntry(row, placeholder=placeholder, password=password)
         entry.pack(side="left", fill="x", expand=True)
         entries[label] = entry
 
     row = _row(body, bg)
-    field_label(row, "分类").pack(side="left")
-    category = segmented(row, ["账号", "恢复码", "密钥"], width=280)
+    FieldLabel(row, "分类").pack(side="left")
+    category = Segmented(row, ["账号", "恢复码", "密钥"], width=280)
     category.pack(side="left")
 
     row = _row(body, bg)
-    field_label(row, "来源").pack(side="left")
+    FieldLabel(row, "来源").pack(side="left")
     source = DropField(
         row,
         values_provider=lambda: ["手动录入", "导入", "浏览器插件"],
@@ -81,14 +81,14 @@ def build(master) -> ctk.CTkFrame:
         color=color_of(T.COLOR_TEXT),
         bg=bg,
     ).pack(side="left")
-    notify = switch(row)
+    notify = Switch(row)
     notify.pack(side="left", padx=(12, 0))
     notify.select()
 
     divider(body, pady=(14, 12))
     footer = tk.Frame(body, bg=bg)
     footer.pack(fill="x")
-    hint_label(footer, "带 * 为必填；保存后立即加密写入").pack(side="left")
+    HintLabel(footer, "带 * 为必填；保存后立即加密写入").pack(side="left")
 
     def save() -> None:
         summary = " / ".join(
@@ -107,8 +107,8 @@ def build(master) -> ctk.CTkFrame:
         notify.deselect()
         feedback("已重置表单")
 
-    primary_button(footer, "保存", save, width=104).pack(side="right")
-    soft_button(footer, "重置", reset, width=80, height=38, border=True).pack(
+    PrimaryButton(footer, "保存", save, width=104).pack(side="right")
+    SecondaryButton(footer, "重置", reset, width=80, height=38, border=True).pack(
         side="right", padx=(0, 10)
     )
     return page

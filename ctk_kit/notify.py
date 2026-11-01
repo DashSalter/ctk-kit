@@ -589,7 +589,8 @@ def notify(master, message: str, **kwargs):
     """用默认参数的 :class:`Notifier` 弹出一条提示。
 
     同一个 ``master`` 会复用同一个 ``Notifier``，所以连续调用时多条提示
-    会正常堆叠。
+    会正常堆叠。``App`` 自带 ``self.notifier``，这里会优先复用它，避免同一
+    个窗口出现两个提示层（那样同一位置的提示会互相叠）。
 
     参数:
         master: 提示条所属的窗口或容器。
@@ -599,8 +600,10 @@ def notify(master, message: str, **kwargs):
     返回:
         这条提示的 ``CTkFrame``。
     """
-    notifier = _NOTIFIERS.get(master)
+    notifier = getattr(master, "notifier", None)
     if notifier is None:
-        notifier = Notifier(master)
-        _NOTIFIERS[master] = notifier
+        notifier = _NOTIFIERS.get(master)
+        if notifier is None:
+            notifier = Notifier(master)
+            _NOTIFIERS[master] = notifier
     return notifier.show(message, **kwargs)

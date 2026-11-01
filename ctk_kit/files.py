@@ -14,8 +14,8 @@ from typing import Any, Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
-from .buttons import soft_button
-from .inputs import form_entry
+from .buttons import SecondaryButton
+from .inputs import FormEntry
 
 try:  # pragma: no cover - 取决于有没有装可选依赖
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -141,9 +141,9 @@ class PathField(ctk.CTkFrame):
         self._title = title
         self._on_change = on_change
 
-        self.entry = form_entry(self, placeholder=placeholder, height=height)
+        self.entry = FormEntry(self, placeholder=placeholder, height=height)
         self.entry.pack(side="left", fill="x", expand=True)
-        self.button = soft_button(self, button_text, self.browse, width=64, height=height)
+        self.button = SecondaryButton(self, button_text, self.browse, width=64, height=height)
         self.button.pack(side="left", padx=(8, 0))
 
         self.entry.bind("<KeyRelease>", lambda _e: self._changed(), add="+")

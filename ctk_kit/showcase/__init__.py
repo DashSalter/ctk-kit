@@ -21,7 +21,7 @@ import customtkinter as ctk
 
 from ctk_kit import __version__
 from ctk_kit import tokens as T
-from ctk_kit.buttons import soft_button
+from ctk_kit.buttons import SecondaryButton
 from ctk_kit.notify import Notifier
 from ctk_kit.pages import PageRebuilder
 from ctk_kit.theme import apply_appearance, color_of, recolor_tree, set_titlebar_dark
@@ -141,7 +141,7 @@ class ShowcaseApp(ctk.CTk):
         bottom.pack(side="bottom", fill="x", padx=12, pady=(0, 16))
         # 存起来：切外观时这两层都要重刷（CTk 按钮的颜色是构造时算死的）
         self._bottom = bottom
-        self._settings_button = soft_button(
+        self._settings_button = SecondaryButton(
             bottom, "设置", lambda: self.show_page("设置"), width=176
         )
         self._settings_button.pack()

@@ -173,7 +173,15 @@ class PageRebuilder:
             self._build(name)
 
         page = self._frames[name]
-        page.place(relx=0, rely=0, relwidth=1, relheight=1)
+        if page.winfo_manager() != "place":
+            # 首次显示（或外部把页面拿掉了）：摆满父容器并等布局完成
+            page.place(relx=0, rely=0, relwidth=1, relheight=1)
+            try:
+                page.update_idletasks()
+            except Exception:  # noqa: BLE001 - 控件可能在回调里被销毁
+                pass
+        # 已经 place 过的页面直接抬到最上层即可：重复 place 会触发页面内
+        # 重新布局，切页就多花几十毫秒。
         page.lift()
         self._current = name
 

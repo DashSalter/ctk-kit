@@ -14,7 +14,7 @@ from ctk_kit.notify import LEVELS, Notifier
 from ctk_kit.text import TextArea
 from ctk_kit.theme import color_of
 
-from ..shell import _card_body, _card_shell, _feedback, _row, run_page
+from ..shell import _card_body, _card_shell, _code_panel, _feedback, _row, run_page
 
 TITLE = "提示"
 
@@ -202,13 +202,10 @@ def build(master, *, notifier: Notifier) -> ctk.CTkFrame:
 
     # --- 代码示例 ---
     section_title(area, "用法")
-    example = TextArea(
-        area, readonly=True, height=250, bg_color=T.COLOR_CARD, show_counter=False
-    )
-    example.pack(fill="x")
-    example.set(NOTIFY_USAGE)
-    hint_label(area, "只读展示；完整参数见 Notifier.show 的文档字符串。").pack(
-        fill="x", pady=(4, 0)
+    _code_panel(
+        area,
+        NOTIFY_USAGE,
+        "只读展示；完整参数见 Notifier.show 的文档字符串。",
     )
     return page
 

@@ -285,8 +285,8 @@ def switch(
         text_color=T.COLOR_TEXT,
         fg_color=T.COLOR_BORDER_STRONG,
         progress_color=T.COLOR_ACTIVE,
-        button_color=T.COLOR_MUTED,
-        button_hover_color=T.COLOR_TEXT,
+        button_color=T.COLOR_BUTTON_KNOB,
+        button_hover_color=T.COLOR_BUTTON_KNOB_HOVER,
         command=command,
     )
 
@@ -372,7 +372,9 @@ def radio_group(
             radiobutton_height=18,
             corner_radius=9,
             border_width_unchecked=2,
-            border_width_checked=6,
+            # 选中时 CTk 画的是「粗环 + 中间挖空」，挖空圆的直径 = 宽度 - 2 * 这个值。
+            # 取 6 时挖空只剩 6px，150% 缩放下被取整成方块；取 4 留出 10px，才是圆的。
+            border_width_checked=4,
             border_color=T.COLOR_BORDER_STRONG,
             fg_color=T.COLOR_ACTIVE,
             hover_color=T.COLOR_ACTIVE_HOVER,

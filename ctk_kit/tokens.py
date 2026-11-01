@@ -55,9 +55,13 @@ COLOR_ACCENT_HOVER: ColorPair = ("#1d4ed8", "#3b82f6")
 COLOR_ACCENT_TEXT: ColorPair = ("#ffffff", "#ffffff")
 
 # 控件「激活态」专用色：勾选、单选、开关拨到右边、滑块已填充、进度条、分段选中段。
-# 比主色偏青、饱和度低一档，压在卡片上不刺眼；深色值比 COLOR_INPUT（#1d1f26）明显亮。
-COLOR_ACTIVE: ColorPair = ("#1b94a7", "#3891a3")
-COLOR_ACTIVE_HOVER: ColorPair = ("#157a8a", "#46a3b5")
+# 比主色偏青，色相统一；两套取值都要在卡片底色上足够亮，选中一眼能看出来。
+COLOR_ACTIVE: ColorPair = ("#17a6bd", "#4fb6cc")
+COLOR_ACTIVE_HOVER: ColorPair = ("#13899d", "#6acbdd")
+# 开关的圆球：要和青色轨道拉开明度差，拨到右边时圆球才看得清
+COLOR_BUTTON_KNOB: ColorPair = ("#559FE8", "#47F6FF")
+# 鼠标移到开关上时的圆球色（悬停）；想关掉悬停变色，把 switch 的 hover 传 False
+COLOR_BUTTON_KNOB_HOVER: ColorPair = ("#3DD3DB", "#3ACAD1")
 
 COLOR_SOFT: ColorPair = ("#f0f2f5", "#22242c")          # 次要按钮底色
 COLOR_SOFT_HOVER: ColorPair = ("#e4e8ee", "#2c2f38")

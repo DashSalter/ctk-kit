@@ -13,7 +13,9 @@ from typing import Callable
 import customtkinter as ctk
 
 from ctk_kit import tokens as T
+from ctk_kit.collapse import Collapsible
 from ctk_kit.layout import card, hint_label
+from ctk_kit.text import TextArea
 from ctk_kit.theme import apply_appearance, color_of
 
 from .data import APP_TITLE
@@ -79,6 +81,42 @@ def _row(body, bg: str) -> tk.Frame:
     row = tk.Frame(body, bg=bg)
     row.pack(fill="x", pady=(0, 8))
     return row
+
+
+# 代码块的字号：比正文再大一点，展开后不用凑近看
+CODE_FONT = ("Consolas", 14)
+
+
+def _code_panel(
+    body,
+    code: str,
+    note: str = "",
+    *,
+    collapsed_text: str = "查看实现",
+    expanded_text: str = "收起实现",
+) -> Collapsible:
+    """卡片底部的「展开看代码」：把示例代码和一句参数说明折叠起来。"""
+    panel = Collapsible(
+        body,
+        collapsed_text=collapsed_text,
+        expanded_text=expanded_text,
+    )
+    panel.pack(fill="x", pady=(6, 0))
+
+    lines = code.splitlines() or [""]
+    view = TextArea(
+        panel.body,
+        height=min(26 + len(lines) * 20, 620),
+        readonly=True,
+        show_counter=False,
+        bg_color=T.COLOR_CARD,
+    )
+    view.textbox.configure(font=CODE_FONT)
+    view.set(code)
+    view.pack(fill="x", padx=10, pady=(10, 4 if note else 10))
+    if note:
+        hint_label(panel.body, note).pack(fill="x", padx=10, pady=(0, 10))
+    return panel
 
 
 def run_page(

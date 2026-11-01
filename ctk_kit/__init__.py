@@ -35,7 +35,7 @@
 
 from __future__ import annotations
 
-__version__ = "0.8.1"
+__version__ = "0.9.0"
 
 from . import tokens, theme
 from .buttons import (
@@ -45,7 +45,10 @@ from .buttons import (
     primary_button,
     soft_button,
 )
+from .collapse import Collapsible
+from .context_menu import ContextMenu, attach_menu
 from .dropdown import DropField
+from .files import DropZone, PathField, has_dnd, pick_path
 from .inputs import (
     bind_focus_border,
     checkbox,
@@ -72,6 +75,7 @@ from .layout import (
 from .notify import Notifier, notify
 from .pages import PageRebuilder
 from .scroll_list import LazyList
+from .table import Table
 from .text import TextArea
 from .theme import (
     apply_appearance,
@@ -84,16 +88,23 @@ from .theme import (
 )
 
 __all__ = [
+    "Collapsible",
+    "ContextMenu",
     "DropField",
+    "DropZone",
     "FlatButton",
+    "ImageViewer",
     "LazyList",
     "Notifier",
     "PageRebuilder",
+    "PathField",
     "SoftButton",
+    "Table",
     "TextArea",
     "__version__",
     "apply_appearance",
     "apply_appearance_fast",
+    "attach_menu",
     "bind_focus_border",
     "card",
     "checkbox",
@@ -103,10 +114,12 @@ __all__ = [
     "empty_hint",
     "field_label",
     "form_entry",
+    "has_dnd",
     "hint_label",
     "is_dark",
     "notify",
     "page_header",
+    "pick_path",
     "primary_button",
     "progressbar",
     "radio_group",
@@ -125,3 +138,16 @@ __all__ = [
     "tokens",
     "toolbar_entry",
 ]
+
+
+def __getattr__(name: str):
+    """``ImageViewer`` 依赖 Pillow，真的用到时才导入。
+
+    这样没装 ``pillow`` 的项目 ``import ctk_kit`` 依然能用其余全部控件，
+    只有 ``ctk_kit.ImageViewer`` 会在导入时给出明确的安装提示。
+    """
+    if name == "ImageViewer":
+        from .image_view import ImageViewer
+
+        return ImageViewer
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

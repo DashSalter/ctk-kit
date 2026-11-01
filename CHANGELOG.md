@@ -3,6 +3,71 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.9.0 — 2026-11-01
+
+- 新增 `Table`（`ctk_kit/table.py`）：带固定表头的表格
+  - 表头和内容各用一块 canvas 自绘，配色全部从 `tokens` 取；不用 `ttk.Treeview`，
+    因为它在 Windows 上走系统主题，表头、行、滚动条的配色没法跟深浅色对齐
+  - `columns` 每项是 `(标题, 宽度, 对齐)`，宽度为 `None` 的列吃掉剩余宽度
+  - 表头固定不滚动；行数超过 `max_visible_rows` 才出现滚动条，否则高度按行数自适应
+  - 滚动条独占表格右侧一列，不压在内容上，并且跨表头与内容两行、从上到下铺满
+  - 隔行淡底色、空数据居中提示、鼠标滚轮滚动
+- 新增 `ImageViewer`（`ctk_kit/image_view.py`）：图片查看器
+  - 滚轮以光标位置为中心缩放，按住左键拖动看局部，双击回到「适配窗口」；
+    另有 `fit()` / `set_zoom()` / `zoom()` / `set_image()`，`on_zoom` 回调用来显示倍率
+  - 只对「画布上看得见的那一块」重采样，渲染尺寸与放大倍率无关——否则放大到 8 倍
+    会去生成一张上亿像素的位图，越放越卡
+  - 缩小时用 LANCZOS、放大时用 BICUBIC；拖动时只平移已有的位图，挪到头了才重采样
+  - `min_zoom` 默认 `1.0`，最小就是「适配窗口」，不会缩成一团小图；
+    目标尺寸由取整后的源矩形反算，宽高比与原图严格一致
+  - Pillow 成为可选依赖：`pip install "ctk-kit[image]"`。没装时 `import ctk_kit`
+    照常可用，只有访问 `ctk_kit.ImageViewer` 时才提示安装
+- 新增 `ContextMenu`（`ctk_kit/context_menu.py`）与 `attach_menu()`
+  - `attach_menu(按钮, [("编辑", on_edit), ...])` 一行给任意控件挂右键菜单；
+    回调接一个参数时，拿到的就是被右键的那个控件，额外传参用 `lambda btn: fn(btn, ...)`
+  - 菜单不用 `tk.Menu`：无边框 `CTkToplevel` 铺底做 1px 描边、DWM 裁圆角，
+    悬停色 `COLOR_SOFT_HOVER`，与下拉面板、提示浮窗同一套做法
+  - 点中某项先关菜单再执行回调；点到外面、按 Esc、切走窗口（失焦）都会收起
+  - 菜单开着时拖动或缩放主窗口，菜单按同样的位移跟着走
+- 示例窗新增「菜单」页：挂菜单、回调拿控件、自己控制弹出时机，附示例代码
+- 示例窗新增「表格」「图片」「选择」「展开」四页，都能 `python -m ctk_kit.showcase.pages.<名字>` 单独启动
+- `pyproject.toml` 增加 `[project.optional-dependencies] image = ["pillow>=9"]`
+
+### 0.9.0 追加
+
+- 新增 `Collapsible`（`ctk_kit/collapse.py`）：可折叠面板
+  - 标题行常驻（`▼ 显示代码` / `▲ 隐藏代码`），点击向下展开 `body`，再点收起；
+    收起时内容区完全退出布局，不会在卡片里留下一块空白
+  - `collapsed_text` / `expanded_text` 分别控制两个状态的文字，`expanded` 可让面板默认展开，
+    `on_toggle(expanded)` 拿到新状态
+  - 另有 `expand()` / `collapse()` / `toggle()` / `set_expanded()` / `set_texts()`，
+    标题那一行就是 `panel.button`，想换字号颜色直接改
+- 新增 `PathField` / `DropZone` / `pick_path` / `has_dnd`（`ctk_kit/files.py`）
+  - `PathField` 是「输入框 + 浏览按钮」，`mode="file"` 选文件、`"folder"` 选文件夹，
+    选中后路径覆盖输入框内容；`accept_drop=True` 时文件/文件夹也能直接拖到输入框上
+  - `DropZone` 是一个拖放区，松手回调路径，`mode` 可过滤文件/文件夹
+  - 拖放依赖可选的 `tkinterdnd2`：`pip install "ctk-kit[dnd]"`；没装时按钮选择照常可用，
+    `DropZone` 显示成不可拖的提示
+- 示例窗「输入」页拆成「输入」「选择」两页：输入页只留文本框、文件与文件夹选择、
+  拖入取路径、下拉、大文本；分段、开关、勾选、单选、滑块、进度条移到「选择」页
+- 新增「展开」页：`Collapsible` 的基础用法、两个状态文字、嵌进已有卡片、默认展开
+- 示例窗的按钮、输入、选择、表格、图片、提示、菜单七页，每块功能下面都多了一个
+  折叠的「查看实现」：点开是这段控件的示例代码和参数说明，代码用 14 号等宽字体，
+  高度按行数算，收起时只占一行标题
+- `COLOR_ACTIVE` / `COLOR_ACTIVE_HOVER` 整体提亮一档：选中态（分段、开关轨道、勾选、
+  单选、滑块、进度条）在深浅两套底色上都更容易一眼看出
+- 新增 `COLOR_BUTTON_KNOB` / `COLOR_BUTTON_KNOB_HOVER`：开关圆球与它的悬停色单独可调
+- `radio_group` 的 `border_width_checked` 从 6 改成 4：CTk 选中态画的是「粗环 + 中间挖空」，
+  挖空直径 = 宽度 - 2×该值，取 6 时只剩 6px，150% 缩放下被取整成方块
+
+## 0.8.1 — 2026-10-31
+
+- `slider()` 的把手从 16px 收到 12px（`height=12`、`border_width=4`，轨道仍是
+  4px）：正圆把手的直径等于控件高度，16 的圆点压在 4px 细轨道上偏重，看着比
+  轨道抢眼；高度降下来后 `border_width` 要一起改，否则轨道会被压没
+- README 的 `slider` 签名说明和「已知的坑」补上 `轨道 = height - 2 * border_width`
+  这条换算，换把手大小时不会把轨道压没
+
 ## 0.8.0 — 2026-10-29
 
 - 输入类控件（`toolbar_entry`、`form_entry`、`TextArea`、`DropField`）统一成
@@ -26,14 +91,6 @@
 - `TextArea(bg_color="transparent")` 不再抛 `ValueError`：CTk 的 `border_color`
   不接受透明色，现在沿父链取第一个实色当填充色
 - 示例「输入」页的提示文案、README 的边框三档与「已知的坑」同步改写
-
-## 0.8.1 — 2026-10-31
-
-- `slider()` 的把手从 16px 收到 12px（`height=12`、`border_width=4`，轨道仍是
-  4px）：正圆把手的直径等于控件高度，16 的圆点压在 4px 细轨道上偏重，看着比
-  轨道抢眼；高度降下来后 `border_width` 要一起改，否则轨道会被压没
-- README 的 `slider` 签名说明和「已知的坑」补上 `轨道 = height - 2 * border_width`
-  这条换算，换把手大小时不会把轨道压没
 
 ## 0.7.0 — 2026-10-29
 

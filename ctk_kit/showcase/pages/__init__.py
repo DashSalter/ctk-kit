@@ -19,14 +19,18 @@ import importlib
 
 _NAMES = (
     "buttons",
+    "choices",
+    "collapse",
     "foundation",
     "form",
+    "image",
     "inputs",
-    "layout",
     "listing",
+    "menu",
     "notify",
     "overview",
     "settings",
+    "table",
     "theme",
 )
 

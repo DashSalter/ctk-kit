@@ -101,6 +101,9 @@ class ShowcaseApp(ctk.CTk):
         ).pack(fill="x", padx=18, pady=(0, 20))
 
         for name in self.PAGES:
+            # 「设置」只留底栏那一个入口，列表里不再重复
+            if name == "设置":
+                continue
             button = ctk.CTkButton(
                 self._sidebar,
                 text=name,
@@ -140,10 +143,18 @@ class ShowcaseApp(ctk.CTk):
             return pages.buttons.build(area)
         if name == "输入":
             return pages.inputs.build(area)
-        if name == "布局":
-            return pages.layout.build(area)
+        if name == "选择":
+            return pages.choices.build(area)
+        if name == "展开":
+            return pages.collapse.build(area)
+        if name == "表格":
+            return pages.table.build(area)
+        if name == "图片":
+            return pages.image.build(area)
         if name == "提示":
             return pages.notify.build(area, notifier=self._notifier)
+        if name == "菜单":
+            return pages.menu.build(area)
         if name == "列表":
             return pages.listing.build(area)
         if name == "主题":

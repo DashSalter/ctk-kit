@@ -11,15 +11,63 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import time
 import tkinter as tk
 from typing import Callable, Optional, Sequence
 
 import customtkinter as ctk
 
 from . import tokens as T
+from .theme import color_of
 
 _ARROW_CLOSED = "▼"
 _ARROW_OPEN = "▲"
+
+# 面板最多铺几行，超出就在面板内部滚动
+_MAX_VISIBLE_ROWS = 8
+# 控件位置轮询间隔（毫秒）：页面滚动不会触发 <Configure>，只能主动看
+_FOLLOW_MS = 60
+# 窗口正在被拖动缩放时，面板保持不动，停手这么久之后再归位（秒）
+_RESIZE_QUIET = 0.30
+# 面板与输入框之间的间隙（逻辑像素）
+_PANEL_GAP = 2
+
+
+class _PopupList(tk.Frame):
+    """面板里的候选列表：内容超出时自己滚动。
+
+    不用 ``CTkScrollableFrame``：它内部用 ``bind_all`` 抢全应用的滚轮，
+    面板开关几次就会留下幽灵绑定；这里只绑自己的 canvas。
+    """
+
+    def __init__(self, master: tk.Misc, bg: str) -> None:
+        super().__init__(master, bg=bg, highlightthickness=0, bd=0)
+        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
+        self.inner = tk.Frame(self.canvas, bg=bg)
+        self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
+        self.canvas.pack(side="left", fill="both", expand=True)
+        self.scrollable = False
+
+        self.inner.bind("<Configure>", self._sync_region)
+        self.canvas.bind("<Configure>", self._sync_width)
+        for widget in (self, self.canvas, self.inner):
+            widget.bind("<MouseWheel>", self._on_wheel, add="+")
+
+    def bind_wheel(self, widget: tk.Misc) -> None:
+        """按钮自己也要绑：鼠标停在按钮上时滚轮事件不会冒泡到 canvas。"""
+        widget.bind("<MouseWheel>", self._on_wheel, add="+")
+
+    def _sync_region(self, _event: tk.Event = None) -> None:
+        self.canvas.configure(scrollregion=self.canvas.bbox("all"))
+
+    def _sync_width(self, event: tk.Event) -> None:
+        self.canvas.itemconfigure(self._window, width=event.width)
+
+    def _on_wheel(self, event: tk.Event) -> Optional[str]:
+        if not self.scrollable:
+            return None
+        self.canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
+        return "break"
 
 
 class DropField(ctk.CTkFrame):
@@ -63,6 +111,13 @@ class DropField(ctk.CTkFrame):
         self._root_bind_id: Optional[str] = None
         self._focus_bind_id: Optional[str] = None
         self._resize_bind_id: Optional[str] = None
+        self._follow_job: Optional[str] = None
+        self._place_job: Optional[str] = None
+        self._last_key: Optional[tuple] = None
+        self._resize_quiet_until: float = 0.0
+        self._last_root_size: tuple = ()
+        self._rows: int = 0
+        self._listing: Optional[_PopupList] = None
 
         self.entry: ctk.CTkEntry = ctk.CTkEntry(
             self,
@@ -139,9 +194,11 @@ class DropField(ctk.CTkFrame):
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
+        listing = _PopupList(body, color_of(T.COLOR_CARD))
+        listing.pack(fill="both", expand=True, padx=5, pady=5)
         for value in values:
-            ctk.CTkButton(
-                body,
+            button = ctk.CTkButton(
+                listing.inner,
                 text=value,
                 anchor="w",
                 height=32,
@@ -151,22 +208,22 @@ class DropField(ctk.CTkFrame):
                 text_color=T.COLOR_TEXT,
                 font=T.FONT_SMALL,
                 command=lambda v=value: self._pick(v),
-            ).pack(fill="x", padx=5, pady=1)
+            )
+            button.pack(fill="x", pady=1)
+            listing.bind_wheel(button)
 
         popup.update_idletasks()
-        # 宽高按逻辑像素缩放，位置参数直接是物理像素
-        scaling = self.winfo_toplevel()._get_window_scaling()
-        width = max(self.winfo_width(), int(320 * scaling)) / scaling
-        height = (popup.winfo_reqheight() + 2) / scaling
-        popup.geometry(
-            f"{int(width)}x{int(height)}+"
-            f"{self.winfo_rootx()}+{self.winfo_rooty() + self.winfo_height() + 2}"
-        )
+        self._popup = popup
+        self._rows = len(values)
+        self._listing = listing
+        self._last_key = None
+        if not self._place_popup():
+            self._close_menu()
+            return
         popup.deiconify()
         popup.bind("<Escape>", self._close_menu)
         self._round_window_corners(popup)
 
-        self._popup = popup
         self.arrow.configure(text=_ARROW_OPEN)
         # 点击面板以外的地方收起：绑在顶层窗口上（子控件的点击也会冒泡到顶层）
         self._root_bind_id = self.winfo_toplevel().bind(
@@ -176,26 +233,181 @@ class DropField(ctk.CTkFrame):
         self._focus_bind_id = self.winfo_toplevel().bind(
             "<FocusOut>", self._on_root_focus_out, add="+"
         )
-        # 主窗口移动或缩放时，面板要贴着输入框重新对齐
+        # 窗口移动 / 缩放走 <Configure>，但要过滤掉子控件冒泡上来的事件，
+        # 否则页面一滚动就被疯狂触发；页面滚动本身交给轮询。
         self._resize_bind_id = self.winfo_toplevel().bind(
-            "<Configure>", self._follow_root, add="+"
+            "<Configure>", self._on_root_configure, add="+"
+        )
+        self._schedule_follow()
+
+    # --- 面板定位 ---
+    def _anchor_key(self) -> tuple:
+        """只要这些值没变，面板就不用重算位置。"""
+        root = self.winfo_toplevel()
+        return (
+            self.winfo_rootx(),
+            self.winfo_rooty(),
+            self.winfo_width(),
+            self.winfo_height(),
+            root.winfo_rootx(),
+            root.winfo_rooty(),
+            root.winfo_width(),
+            root.winfo_height(),
         )
 
-    def _follow_root(self, _event: Optional[tk.Event] = None) -> None:
-        """主窗口移动 / 缩放后，把面板重新贴回输入框下方。"""
+    def _place_popup(self) -> bool:
+        """把面板摆到输入框下方或上方；摆不下就返回 False（调用方收起面板）。
+
+        优先向下；下方装不下就往上翻。实在放不下就裁到能放的高度，
+        剩下的候选靠面板内部滚动。
+        """
+        popup = self._popup
+        if popup is None or not popup.winfo_exists():
+            return False
+        if not self.winfo_ismapped():
+            return False
+
+        root = self.winfo_toplevel()
+        scaling = root._get_window_scaling()
+        root_left = root.winfo_rootx()
+        root_top = root.winfo_rooty()
+        root_right = root_left + root.winfo_width()
+        root_bottom = root_top + root.winfo_height()
+
+        widget_top = self.winfo_rooty()
+        widget_bottom = widget_top + self.winfo_height()
+        widget_left = self.winfo_rootx()
+
+        # 控件被滚出可视区（或窗口缩到装不下它）：收起，别把面板留在窗口外面
+        if widget_bottom <= root_top or widget_top >= root_bottom:
+            return False
+        if widget_left + self.winfo_width() <= root_left or widget_left >= root_right:
+            return False
+        # 右边被窗口切掉太多时也不再硬塞：留不足一个最小面板宽就不显示
+        min_width = int(140 * scaling)
+        if root_right - widget_left < min_width:
+            return False
+
+        row_px = int(34 * scaling)
+        pad_px = int(10 * scaling)
+        visible_rows = min(self._rows, _MAX_VISIBLE_ROWS)
+        needed = visible_rows * row_px + pad_px
+        gap = int(_PANEL_GAP * scaling)
+
+        space_below = root_bottom - widget_bottom - gap
+        space_above = widget_top - root_top - gap
+        below = space_below >= needed or space_below >= space_above
+        available = space_below if below else space_above
+
+        height_px = min(needed, available)
+        if height_px < row_px:
+            # 上下都塞不下一行，收起面板比画一半好
+            return False
+
+        width_px = max(self.winfo_width(), int(320 * scaling))
+        width_px = min(width_px, root_right - root_left)
+        left_px = min(widget_left, root_right - width_px)
+        left_px = max(left_px, root_left)
+
+        top_px = widget_bottom + gap if below else widget_top - gap - height_px
+
+        popup.geometry(
+            f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
+            f"+{left_px}+{top_px}"
+        )
+
+        if self._listing is not None:
+            content_px = self._rows * row_px + pad_px
+            self._listing.scrollable = content_px > height_px
+        self._last_key = self._anchor_key()
+        return True
+
+    def _schedule_follow(self) -> None:
+        self._follow_job = self.after(_FOLLOW_MS, self._follow_tick)
+
+    def _on_root_configure(self, event: tk.Event) -> None:
+        """主窗口自己动的时候处理跟随；子控件的 Configure 一律忽略。
+
+        Tk 的 bindtags 会让绑定在顶层窗口上的 ``<Configure>`` 收到所有子控件的
+        事件，滚动页面时每帧几十个，所以这里先按 ``event.widget`` 过滤。
+
+        移动窗口和缩放窗口要分开对待：
+        - 移动：面板立刻整体平移，跟手
+        - 缩放：面板先别动（每帧重排会把它一帧帧推到左边），停手之后再归位
+        """
+        if event.widget is not self.winfo_toplevel():
+            return
+        size = (event.width, event.height)
+        if size == self._last_root_size:
+            # 尺寸没变 = 窗口在挪位置，直接跟
+            if self._popup is not None and self._popup.winfo_exists():
+                self._place_popup()
+            return
+        self._last_root_size = size
+        self._resize_quiet_until = time.monotonic() + _RESIZE_QUIET
+
+    def _clip_popup_to_window(self) -> bool:
+        """拖动缩窗时只裁右/下边界：左边和上边不动，超出窗口的部分切掉。
+
+        返回 ``False`` 表示整块都被挤出窗口了，该收起。
+        """
+        popup = self._popup
+        if popup is None or not popup.winfo_exists():
+            return False
+        root = self.winfo_toplevel()
+        scaling = root._get_window_scaling()
+        margin = int(6 * scaling)
+
+        left = popup.winfo_rootx()
+        top = popup.winfo_rooty()
+        right_limit = root.winfo_rootx() + root.winfo_width() - margin
+        bottom_limit = root.winfo_rooty() + root.winfo_height() - margin
+
+        if left >= right_limit or top >= bottom_limit:
+            return False
+
+        width_px = min(popup.winfo_width(), right_limit - left)
+        height_px = min(popup.winfo_height(), bottom_limit - top)
+        if width_px <= 1 or height_px <= 1:
+            return False
+
+        popup.geometry(
+            f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
+            f"+{left}+{top}"
+        )
+        return True
+
+    def _flush_place(self) -> None:
+        self._place_job = None
+        if self._popup is None or not self._popup.winfo_exists():
+            return
+        if time.monotonic() < self._resize_quiet_until:
+            return
+        if not self._place_popup():
+            self._close_menu()
+
+    def _follow_tick(self) -> None:
+        """控件或窗口动了就重新摆面板；控件滚出可视区就收起。"""
+        self._follow_job = None
         popup = self._popup
         if popup is None or not popup.winfo_exists():
             return
-        if not self.winfo_ismapped():
-            self._close_menu()
+        # 窗口正在被拖大拖小：面板别整块重排（会被一帧帧推走），只裁右/下边界
+        if time.monotonic() < self._resize_quiet_until:
+            if not self._clip_popup_to_window():
+                self._close_menu()
+                return
+            self._schedule_follow()
             return
-        scaling = self.winfo_toplevel()._get_window_scaling()
-        width = max(self.winfo_width(), int(320 * scaling)) / scaling
-        height = (popup.winfo_reqheight() + 2) / scaling
-        popup.geometry(
-            f"{int(width)}x{int(height)}+"
-            f"{self.winfo_rootx()}+{self.winfo_rooty() + self.winfo_height() + 2}"
-        )
+        if self._anchor_key() != self._last_key:
+            # 先按当前坐标收一次，保证面板不会停在窗口外面；
+            # 窗口刚变尺寸时子控件还没重排完，等这一轮布局结束再精确对齐。
+            if not self._place_popup():
+                self._close_menu()
+                return
+            if self._place_job is None:
+                self._place_job = self.after_idle(self._flush_place)
+        self._schedule_follow()
 
     def _on_root_focus_out(self, _event: Optional[tk.Event] = None) -> None:
         """顶层窗口失焦后稍等再检查焦点，避免刚点面板就被收起。"""
@@ -206,7 +418,7 @@ class DropField(ctk.CTkFrame):
         if self._popup is None:
             return
         try:
-            focused = self.focus_get()
+            focused = self.winfo_toplevel().focus_get()
         except Exception:
             focused = None
         if focused is not None:
@@ -281,6 +493,14 @@ class DropField(ctk.CTkFrame):
             with contextlib.suppress(Exception):
                 self.winfo_toplevel().unbind("<FocusOut>", self._focus_bind_id)
             self._focus_bind_id = None
+        if self._follow_job is not None:
+            with contextlib.suppress(Exception):
+                self.after_cancel(self._follow_job)
+            self._follow_job = None
+        if self._place_job is not None:
+            with contextlib.suppress(Exception):
+                self.after_cancel(self._place_job)
+            self._place_job = None
         if self._resize_bind_id is not None:
             with contextlib.suppress(Exception):
                 self.winfo_toplevel().unbind("<Configure>", self._resize_bind_id)
@@ -292,6 +512,8 @@ class DropField(ctk.CTkFrame):
                 if self._popup.winfo_exists():
                     self._popup.destroy()
             self._popup = None
+        self._listing = None
+        self._last_key = None
 
     def destroy(self) -> None:
         """销毁前先收起面板，避免浮窗残留。"""

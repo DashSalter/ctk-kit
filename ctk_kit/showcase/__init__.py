@@ -12,8 +12,10 @@
 
 from __future__ import annotations
 
+import contextlib
 import sys
-from typing import Dict
+import tkinter as tk
+from typing import Dict, Optional, Tuple
 
 import customtkinter as ctk
 
@@ -22,11 +24,15 @@ from ctk_kit import tokens as T
 from ctk_kit.buttons import soft_button
 from ctk_kit.notify import Notifier
 from ctk_kit.pages import PageRebuilder
-from ctk_kit.theme import apply_appearance, recolor_tree, set_titlebar_dark
+from ctk_kit.theme import apply_appearance, color_of, recolor_tree, set_titlebar_dark
 
 from . import pages
 from .data import APP_TITLE, INDEX, PAGES
 from .shell import MARGIN_BOTTOM, MARGIN_TOP, MARGIN_X
+
+# 拖窗口时冻结布局，停手这么久之后才重排（毫秒）。
+# 要比一帧的重排耗时更长，否则拖到一半就解冻、再冻结，反而更卡。
+_THAW_MS = 320
 
 __all__ = ["APP_TITLE", "INDEX", "PAGES", "ShowcaseApp", "main"]
 
@@ -61,23 +67,31 @@ class ShowcaseApp(ctk.CTk):
         self._sidebar.pack_propagate(False)
         self._build_sidebar()
 
-        self._area = ctk.CTkFrame(self, fg_color="transparent")
-        self._area.pack(
-            side="left",
-            fill="both",
-            expand=True,
-            padx=MARGIN_X,
-            pady=(MARGIN_TOP, MARGIN_BOTTOM),
-        )
+        # 页面外面再套一层：它由 place 管尺寸，拖动窗口时停更就是「冻结」
+        self._shell = tk.Frame(self, bg=color_of(T.COLOR_BG), highlightthickness=0)
+        # 面积容器给一个跟随外观的实色：透明的查找链走到原生 shell 就断了，
+        # CTk 取不到 fg_color 会退回深色，浅色主题下整块变黑
+        self._area = ctk.CTkFrame(self._shell, fg_color=T.COLOR_BG)
+        self._area.pack(fill="both", expand=True)
 
         # 提示浮层挂在根窗口上：切页、重建页面都不会打断正在显示的提示
         self._notifier = Notifier(self)
+
+        # 拖窗口边缘时冻结页面布局：CTk 每个控件 resize 都要重画圆角描边，
+        # 一页五十来个控件就是 200ms/帧。冻结后只动窗口，松手再重排一次。
+        self._frozen = False
+        self._frozen_size = (0, 0)
+        self._thaw_job: Optional[str] = None
+        self._last_window_size: Tuple[int, int] = (0, 0)
+        self.bind("<Configure>", self._on_window_resize, add="+")
 
         self.pages = PageRebuilder(
             self._area, self._create_page, self.PAGES, on_hide=self._trim_page
         )
         self.pages.build_all()
         self.show_page("总览")
+        # 外壳由 place 管，首帧先摆一次
+        self._place_shell()
         # 窗口 mapped 之后 DWM 才会真正接管标题栏
         self.after(10, lambda: set_titlebar_dark(self, ctk.get_appearance_mode() == "Dark"))
 
@@ -132,6 +146,67 @@ class ShowcaseApp(ctk.CTk):
         )
         self._settings_button.pack()
 
+    # ------------------------------------------------------------------ #
+    def _on_window_resize(self, event) -> None:
+        """窗口尺寸一变就冻结页面布局，停手之后再解冻。"""
+        if event.widget is not self:
+            return
+        size = (event.width, event.height)
+        if size == self._last_window_size and self._frozen:
+            return
+        self._last_window_size = size
+        if not self._frozen:
+            # 还没冻结：正常跟随，页面照常重排
+            if not self._freeze_layout():
+                return
+        if self._thaw_job is not None:
+            with contextlib.suppress(Exception):
+                self.after_cancel(self._thaw_job)
+        self._thaw_job = self.after(_THAW_MS, self._thaw_layout)
+
+    def _place_shell(self) -> None:
+        """按当前窗口尺寸把页面外壳摆到侧边栏右边。
+
+        ``place`` 的 x / y / width / height 都是屏幕像素（不像 ``wm geometry``
+        那样会被 DPI 缩放），所以这里统一用 ``winfo_*`` 拿到的物理尺寸算。
+        """
+        bar_px = self._sidebar.winfo_width()
+        win_w, win_h = self.winfo_width(), self.winfo_height()
+        if bar_px <= 1 or win_w <= 1:
+            return
+        margin_x = int(MARGIN_X * self._get_window_scaling())
+        margin_top = int(MARGIN_TOP * self._get_window_scaling())
+        margin_bottom = int(MARGIN_BOTTOM * self._get_window_scaling())
+        inner_w = max(1, win_w - bar_px - margin_x * 2)
+        inner_h = max(1, win_h - margin_top - margin_bottom)
+        self._shell.place(
+            x=bar_px + margin_x,
+            y=margin_top,
+            width=inner_w,
+            height=inner_h,
+        )
+
+    def _freeze_layout(self) -> bool:
+        """把页面外壳钉在当前尺寸上：拖窗口时它不跟着重排，也就不重绘。"""
+        if self._frozen:
+            return True
+        if self.winfo_width() <= 1 or self.winfo_height() <= 1:
+            return False
+        # 先占位，避免 place 引发的 Configure 重入
+        self._frozen = True
+        self._frozen_size = (self.winfo_width(), self.winfo_height())
+        return True
+
+    def _thaw_layout(self) -> None:
+        """松手后按新尺寸重新摆一次，页面在这时候才重排。"""
+        self._thaw_job = None
+        if not self._frozen:
+            return
+        self._frozen = False
+        self._place_shell()
+        with contextlib.suppress(Exception):
+            self.update_idletasks()
+
     def _create_page(self, name: str) -> ctk.CTkFrame:
         """按页面名建一页；外观切换后单独重建某一页时也走这里。"""
         area = self._area
@@ -169,7 +244,6 @@ class ShowcaseApp(ctk.CTk):
         self.pages.show(name)  # 配色过期的页面会在这里被重建
         self._current = name
         self._paint_nav(name)
-
     def _paint_nav(self, active_name: str) -> None:
         """侧边栏导航的高亮：选中的用主色实底 + 白字，深色下也一眼能认出来。"""
         for key, button in self._buttons.items():
@@ -224,6 +298,7 @@ class ShowcaseApp(ctk.CTk):
         # 中间态——代价是这 100~200 ms 窗口不响应，但不会有花屏或半新半旧。
         self.pages.switch(mode, window=self)
         self._refresh_sidebar(target)
+        self._refresh_shell()
         try:
             self.update_idletasks()
         except Exception:  # noqa: BLE001 - 窗口正在销毁
@@ -245,6 +320,15 @@ class ShowcaseApp(ctk.CTk):
         recolor_tree(self._bottom, T.COLOR_SIDE, mode_string, deep=False)
         recolor_tree(self._sidebar, T.COLOR_SIDE, mode_string, deep=False)
         self.update_idletasks()
+
+    def _refresh_shell(self) -> None:
+        """切外观后刷页面外壳。
+
+        ``self._shell`` 是原生 ``tk.Frame``：颜色是构造时写死的单值，不像 CTk 控件
+        那样会自己跟着外观走，不刷就会在浅色下留一块深色底。
+        """
+        with contextlib.suppress(Exception):
+            self._shell.configure(bg=color_of(T.COLOR_BG))
 
     def toggle_appearance(self) -> None:
         self.set_appearance_mode(

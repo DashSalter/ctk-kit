@@ -17,6 +17,7 @@ import contextlib
 import inspect
 import sys
 import tkinter as tk
+import weakref
 from typing import Callable, Optional
 
 import customtkinter as ctk
@@ -28,6 +29,9 @@ Command = Optional[Callable[[], None]]
 
 _ITEM_HEIGHT = 30  # 每一项的高度（逻辑像素）
 _PAD = 4  # 面板内边距
+
+# 整个应用同时只允许一个菜单：右键另一个控件时，先把上一个收掉
+_OPEN_MENUS: "weakref.WeakSet[ContextMenu]" = weakref.WeakSet()
 
 
 class ContextMenu:
@@ -92,6 +96,11 @@ class ContextMenu:
         self._source = source
         if not self._items:
             return
+        # 别的控件上还开着菜单就先收掉：一个窗口里同时只留一个
+        for other in list(_OPEN_MENUS):
+            if other is not self:
+                other.close()
+        _OPEN_MENUS.add(self)
 
         root = self._master.winfo_toplevel()
         try:
@@ -165,6 +174,7 @@ class ContextMenu:
 
     def close(self) -> None:
         """收起菜单；重复调用安全。"""
+        _OPEN_MENUS.discard(self)
         root = self._master.winfo_toplevel()
         if self._root_bind is not None:
             with contextlib.suppress(Exception):
@@ -202,16 +212,29 @@ class ContextMenu:
             command()
 
     def _fit_on_screen(self, x: int, y: int, width: int, height: int, scaling: float):
-        """把菜单位置收进屏幕范围，别让它在边缘被切掉。"""
+        """把菜单位置收进屏幕：右边放不下就翻到鼠标左边，下面放不下就翻到上边。
+
+        屏幕边界取 ``winfo_vrootwidth / vrootheight``：这两个是**物理**像素，
+        和 ``winfo_pointerxy``、``event.x_root`` 同一套坐标。``winfo_screenwidth``
+        是逻辑值（本机 1707，物理是 2560），拿它比会把菜单一路夹到左边去。
+        """
         try:
-            screen_w = self._master.winfo_screenwidth()
-            screen_h = self._master.winfo_screenheight()
+            screen_w = self._master.winfo_vrootwidth() or self._master.winfo_screenwidth()
+            screen_h = (
+                self._master.winfo_vrootheight() or self._master.winfo_screenheight()
+            )
         except Exception:  # noqa: BLE001
             return int(x), int(y)
         w = int(width * scaling)
         h = int(height * scaling)
-        x = max(0, min(int(x), screen_w - w - 4))
-        y = max(0, min(int(y), screen_h - h - 4))
+        x = int(x)
+        y = int(y)
+        if x + w > screen_w - 4:
+            x = x - w  # 翻到鼠标左侧，右边缘贴着鼠标
+        if y + h > screen_h - 4:
+            y = y - h  # 翻到鼠标上方
+        x = max(4, min(x, max(4, screen_w - w - 4)))
+        y = max(4, min(y, max(4, screen_h - h - 4)))
         return x, y
 
     def _follow_root(self, event: tk.Event) -> None:
@@ -317,12 +340,40 @@ def _accepts_one_arg(func: Callable) -> bool:
     return False
 
 
+def _inner_widgets(widget: tk.Misc) -> list:
+    """CTk 控件真正露脸的是内部 canvas / frame，只绑外层点不到。"""
+    inner = []
+    for name in ("_canvas", "_parent_frame", "_entry", "_textbox", "_text_label"):
+        child = getattr(widget, name, None)
+        if child is not None and hasattr(child, "bind"):
+            inner.append(child)
+    return inner
+
+
+def _bind_targets(widget: tk.Misc, deep: bool) -> list:
+    """收集要绑右键的控件：自身 + 内部可见部分（+ 可选的所有子控件）。"""
+    targets: list = []
+    seen: set = set()
+    stack = [widget]
+    while stack:
+        current = stack.pop()
+        for target in [current, *_inner_widgets(current)]:
+            if id(target) in seen:
+                continue
+            seen.add(id(target))
+            targets.append(target)
+        if deep:
+            stack.extend(current.winfo_children())
+    return targets
+
+
 def attach_menu(
     widget: tk.Misc,
     items=None,
     *,
     width: int = 132,
     event: str = "<Button-3>",
+    deep: bool = False,
 ) -> ContextMenu:
     """给任意控件挂一个右键菜单，返回菜单对象，方便之后追加或改动。
 
@@ -341,6 +392,8 @@ def attach_menu(
         items: 菜单项，每项 ``(文字, 函数)``；函数可以是无参的。
         width: 菜单面板宽度（逻辑像素）。
         event: 触发菜单的鼠标事件，默认右键。
+        deep: 是否连容器里的子控件一起挂上。给卡片、面板这类容器传 ``True``，
+            右键落在里面的文字或子控件上也能弹出。
 
     返回:
         这次新建的 :class:`ContextMenu`。
@@ -350,12 +403,21 @@ def attach_menu(
         menu.add_command(label, command)
 
     def _open(mouse_event: tk.Event) -> str:
-        menu.show(mouse_event.x_root, mouse_event.y_root, source=widget)
+        # 用指针的屏幕坐标而不是 event.x_root：事件从内部 canvas 冒上来时，
+        # 某些 tk 版本给的 x_root 会偏，菜单就跑得离鼠标很远
+        try:
+            pointer_x, pointer_y = widget.winfo_pointerxy()
+        except Exception:  # noqa: BLE001
+            pointer_x, pointer_y = mouse_event.x_root, mouse_event.y_root
+        menu.show(pointer_x, pointer_y, source=widget)
         return "break"
 
-    widget.bind(event, _open)
+    targets = _bind_targets(widget, deep)
+    for target in targets:
+        target.bind(event, _open)
     if sys.platform == "darwin" and event == "<Button-3>":
         # macOS 的右键是 Button-2，也有人用 Ctrl+单击
-        widget.bind("<Button-2>", _open)
-        widget.bind("<Control-Button-1>", _open)
+        for target in targets:
+            target.bind("<Button-2>", _open)
+            target.bind("<Control-Button-1>", _open)
     return menu

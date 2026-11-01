@@ -153,20 +153,19 @@ def build(master) -> ctk.CTkFrame:
         padx=16, pady=14
     )
 
-    manual = ContextMenu(zone)
-    manual.add_command("复制提示文字", lambda: feedback("复制了提示文字"))
-    manual.add_separator()
-    manual.add_command("关闭菜单", lambda: feedback("菜单项执行完了"))
-
-    def open_manual(event: tk.Event) -> str:
-        manual.show(event.x_root, event.y_root, source=zone)
-        return "break"
-
-    zone.bind("<Button-3>", open_manual)
+    # deep=True：连容器里的文字一起挂，右键落在文字上也能弹
+    attach_menu(
+        zone,
+        [
+            ("复制提示文字", lambda: feedback("复制了提示文字")),
+            ("", None),
+            ("关闭菜单", lambda: feedback("菜单项执行完了")),
+        ],
+        deep=True,
+    )
     hint_label(
         body,
-        "ContextMenu(控件).add_command(文字, 函数).show(x, y)：菜单项、分隔线、"
-        "弹出位置都自己说了算。",
+        "attach_menu(控件, [...], deep=True)：菜单项、分隔线、弹出位置都自己说了算。",
     ).pack(fill="x")
 
     # ---------------------------------------------------------------- 示例代码

@@ -116,6 +116,10 @@ app.mainloop()
 - `DropField(master, *, values_provider, command=None, placeholder="", height=36)`
   - `values_provider()` 每次展开时调用，返回候选文字列表
   - `command` 收选中的文字
+  - 面板贴输入框展开；下方放不下会自动翻到上方，候选超过 8 项时面板内部滚动
+  - 移动窗口时面板立刻跟随；缩放窗口时左边不动、右边界推过来就把面板裁窄，停手后归位
+  - 页面滚动会改变控件位置但不产生顶层事件，由 60 ms 一次的位置比对补上；控件滚出可视区就自动收起
+  - 窗口变窄时面板跟着收窄，窄到放不下就直接收起，不会伸出窗口
 
 ### 布局（`layout`）
 
@@ -170,13 +174,16 @@ listing.render(items)
 
 ### 右键菜单（`context_menu`）
 
-- `attach_menu(widget, items=None, *, width=132, event="<Button-3>")` → `ContextMenu`
+- `attach_menu(widget, items=None, *, width=132, event="<Button-3>", deep=False)` → `ContextMenu`
   - `items` 每项是 `(文字, 函数)`
   - 函数接一个参数时，拿到的就是被右键的那个控件；额外传参用 `lambda btn: fn(btn, ...)`
   - `text` 为空的项渲染成分隔线
+  - `deep=True` 时连容器里的子控件一起挂上：给卡片、面板这类容器用，右键落在里面的
+    文字上也会弹出（默认只绑容器自身和它露在外面的那层 canvas）
 - `ContextMenu(master, *, width=132, font=FONT_SMALL)`
   - `.add_command(文字, 回调)`（返回自身）、`.add_separator()`、`.clear()`
   - `.show(x, y, source=None)` / `.close()` / `.visible`
+  - 同一个应用里同时只会有一个菜单：右键另一个控件时，上一个会自动收起来
   - `source` 是回调第一个参数拿到的控件
 
 菜单开着时：拖动或缩放主窗口它会跟着走；点到外面、按 Esc、窗口失焦都会收起。

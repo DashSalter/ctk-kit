@@ -39,7 +39,7 @@ CONFIRM_CODE = '''from ctk_kit import confirm
 if confirm(app, "删除这份备份？", level="warn", danger=True, ok="删除"):
     ...
 # 返回 True / False
-# 点取消、按 Esc、点右上角关闭都是 False
+# 点取消、按 Esc（或 Alt+F4）都是 False
 # danger=True 让「删除」这种确认按钮变成危险色'''
 
 PROMPT_CODE = '''from ctk_kit import prompt
@@ -101,7 +101,7 @@ class DialogPageUI(PageBase):
 
         HintLabel(
             box,
-            "只有一个「知道了」，点它、按 Esc、点右上角都能关；图标颜色跟着级别走。",
+            "只有一个「知道了」，点它、按 Esc 或 Alt+F4 都能关；图标颜色跟着级别走。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, ALERT_CODE, "alert 不返回值，关掉就结束。")

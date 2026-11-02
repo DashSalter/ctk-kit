@@ -1,10 +1,11 @@
 """对话框：信息 / 成功 / 警告 / 错误 / 确认 / 输入。
 
 和提示浮层（:mod:`ctk_kit.notify`）不同，这里是**模态窗口**：弹出期间
-主窗口点不了，必须点按钮、按 Esc 或关掉窗口才能继续。实现方式是普通
-``Toplevel`` + ``transient`` + ``grab_set`` + ``wait_window``——和
-ttkbootstrap 的对话框一个路子。刻意没用无边框窗口：``overrideredirect``
-在 Windows 上 ``grab_set`` 不一定拦得住主窗口的输入，模态会失效。
+主窗口客户区点不了、滚轮也滚不动，必须点按钮、按 Esc 或 Alt+F4 才能
+继续；但主窗口仍然可以拖动，对话框会跟着走。实现方式是 ``CTkToplevel``
++ ``overrideredirect``（无边框圆角卡片）+ ``grab_set`` + ``wait_window``，
+再在父窗口上临时拦 ``<MouseWheel>``——CTk 的滚动走 ``bind_all``，
+光靠 grab 拦不住。
 
 常用的三种直接调函数：:
 

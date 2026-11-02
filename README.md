@@ -131,6 +131,7 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 | `layout` | `Card` `PageHeader` `SectionTitle` `divider` `vertical_divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | `Card.body` 拿内容容器 |
 | `misc` | `Progress` `RingProgress` | 进度条 / 圆环：连续、分格、条纹、不确定态、刻度 |
 | `notify` | `Notifier` `notify` | |
+| `dialog` | `Dialog` `alert` `confirm` `prompt` | 模态，无边框圆角卡片 |
 | `scroll_list` | `LazyList` | |
 | `context_menu` | `ContextMenu` `attach_menu` `attach_edit_menu` | 输入框默认带菜单 |
 | `collapse` | `Collapsible` | 可折叠面板 |
@@ -309,9 +310,13 @@ app.notifier.show("云备份失败", title="网络错误", level="error", style=
 
 ### 对话框（`dialog`）
 
-模态面板：没有系统标题栏，弹出就是一块圆角卡片。弹出期间主窗口**可以拖**，
-对话框会跟着走；但客户区点不了、滚轮也滚不动（`grab_set` + 在父窗口上拦
-`<MouseWheel>`）。位置会夹在屏幕内——父窗口拖到屏幕外时，对话框仍然可见、能点。
+模态面板，和上面非阻塞的提示浮层（`notify`）分工不同：`alert` / `confirm` /
+`prompt` 会停在那里等用户操作，直到点按钮或按 Esc 才返回。
+
+没有系统标题栏，弹出就是一块圆角卡片。弹出期间主窗口**可以拖**，对话框跟着走；
+但客户区点不了、滚轮也滚不动（`grab_set` + 在父窗口上拦 `<MouseWheel>`——
+CTk 的滚动走 `bind_all`，光靠 grab 拦不住）。位置会夹在屏幕内——父窗口拖到
+屏幕外时，对话框仍然可见、能点。
 
 ```python
 from ctk_kit import alert, confirm, prompt
@@ -322,18 +327,30 @@ if confirm(app, "删除这份备份？", title="删除备份", level="warn", dan
     ...
 
 name = prompt(app, "给备份起个名字", title="重命名", value="backup-01")
+if name is None:
+    ...  # 用户按了取消
 ```
 
-- `alert(master, message, *, title="", level="info", ok="知道了", detail="")`：只有一个按钮
+- `alert(master, message, *, title="", level="info", ok="知道了", detail="")`：只有一个按钮，返回 `None`
 - `confirm(master, message, *, title="", level="warn", ok="确定", cancel="取消", detail="", danger=False)`
-  - 返回 `True` / `False`；点取消、按 Esc、关窗都是 `False`
+  - 返回 `True` / `False`；点取消、按 Esc、直接关窗都是 `False`
   - `danger=True` 让确认按钮变危险色
 - `prompt(master, message, *, title="", value="", ok="确定", cancel="取消", detail="")`
   - 返回输入的字符串；取消或 Esc 返回 `None`；输入框里按回车等同确定
+  - 初始值放在 `value` 里
 - `Dialog(master, *, title="", message="", detail="", level="info", buttons=None, prompt=None, danger=False, width=392)`
-  - `buttons=[(文字, 返回值), ...]`，最后一个按钮是主按钮；`.show()` 返回被点的那个值
-  - Esc / 关窗返回 `None`
+  - 需要自己排版时用：`buttons=[(文字, 返回值), ...]`，最后一个按钮是主按钮（排最右）
+  - `.show()` 阻塞到用户操作，返回被点按钮的 `value`；Esc / 关窗返回 `None`
+  - `prompt` 传字符串就多显示一个输入框，确认时返回输入的文字（注意与
+    `prompt()` 函数同名，这里只是初始值）
   - `level` 只影响左上角图标的颜色：`"info"` / `"success"` / `"warn"` / `"error"`
+  - `detail` 在正文下面补一行灰色小字；`width` 固定宽度，高度跟着内容走
+  - 对话框是一次性的：`show()` 结束就销毁，别拿同一个实例再调一次
+- 对话框本身没有标题栏、不能拖；位置由父窗口决定。无边框窗口也没有右上角的
+  关闭按钮，退出靠按钮、Esc 或 Alt+F4。
+
+示例窗的「弹窗」页（`examples/basics/dialog_page.py`）把四种级别的信息框、
+普通 / 危险确认、输入框和自定义三按钮都摆了一遍。
 
 ### 懒加载列表（`scroll_list`）
 

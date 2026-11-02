@@ -71,7 +71,18 @@
   - 无边框圆角卡片，没有系统标题栏
   - 模态：`grab_set` 挡住客户区输入，父窗口上临时绑 `<MouseWheel>` 拦住滚轮
     （CTk 的滚动走 `bind_all`，光靠 grab 拦不住）
-  - 主窗口仍然可以拖，对话框跟着走；位置夹在屏幕内，窗口拖到屏幕外也点得到
+  - 主窗口仍然可以拖，对话框跟着走：父窗口的 `<Configure>` 里直接重排、不隔帧——
+    Windows 上 Tk 处理 `WM_MOVE` 时是同步分发 `<Configure>` 的，隔帧会退回主循环，
+    拖动过程中就完全不跟手
+    - 先按 `event.widget` 过滤掉子控件冒泡上来的事件：滚动页面时每帧几十个
+      `<Configure>`，不过滤会跟着重排几十次
+  - 打开期间临时 `-topmost`：无边框窗口不参与 WM 的层级管理，拖动主窗口时
+    会被压到下面，看起来像「消失了」；关窗后恢复
+  - 修拖动时对话框尺寸自增长：原来每帧读 `winfo_height()` 再 `geometry()`，
+    高度会被自己的 geometry 反复放大（实测从 261 一路涨到 998）。首次定位时把
+    尺寸存进 `_frame_size`，之后 `_reposition` 只用这个固定值，也不再碰
+    `update_idletasks`
+  - 位置夹在屏幕内，窗口拖到屏幕外也点得到
   - `level` 决定图标颜色（info / success / warn / error），`detail` 在正文下面补小字
   - `confirm` 返回布尔；`prompt` 返回字符串或 None；`Dialog` 按 `buttons=[(文字, 返回值)]` 返回被点的值
   - `danger=True` 让确认按钮变危险色

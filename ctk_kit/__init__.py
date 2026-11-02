@@ -5,7 +5,7 @@
 - ``tokens``  设计令牌：颜色（深浅两套）、字体、圆角、间距
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
 - ``pages``   多页面窗口的页面管理：按需重建，切外观不卡
-- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page``
+- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``dialog`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page``
 - 原生接口    CustomTkinter 的 ``CTk`` / ``CTkImage`` 等原样转出，
               ``App`` 是 ``CTk`` 的便捷子类（标题、尺寸、外观都能直接传参）；
               ``CTkEntry`` / ``CTkButton`` 默认套用库的样式，``Frame`` 默认透明底
@@ -164,6 +164,7 @@ __all__ = [
     "Collapsible",
     "ContextMenu",
     "DangerButton",
+    "Dialog",
     "DropField",
     "TagSelectField",
     "TreeSelectField",
@@ -200,12 +201,14 @@ __all__ = [
     "TextArea",
     "ToolbarEntry",
     "__version__",
+    "alert",
     "apply_appearance",
     "apply_appearance_fast",
     "attach_edit_menu",
     "attach_menu",
     "bind_focus_border",
     "color_of",
+    "confirm",
     "divider",
     "vertical_divider",
     "empty_hint",
@@ -215,6 +218,7 @@ __all__ = [
     "load_logo",
     "notify",
     "pick_path",
+    "prompt",
     "radio_group",
     "Radio",
     "recolor_tree",

@@ -1113,3 +1113,264 @@ class TreeSelectField(ctk.CTkFrame):
         super().destroy()
 
 
+class Stepper(ctk.CTkFrame):
+    """紧凑步进器：``[ − ] 当前值 ▾ [ + ]``。
+
+    左边减一步、右边加一步，中间点开是一组候选。数值范围（``from_`` /
+    ``to`` / ``increment``）和备选列表（``values``）二选一；面板行为复用
+    ``_PopupPanel``，和三个下拉一致。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        values: Optional[Sequence] = None,
+        from_: float = 0,
+        to: float = 100,
+        increment: float = 1,
+        value=None,
+        command: Optional[Callable[[object], None]] = None,
+        width: int = 170,
+        height: int = 36,
+        suffix: str = "%",
+        decimals: int = 0,
+    ) -> None:
+        """创建步进器。
+
+        参数:
+            master: 父容器。
+            values: 备选列表；传了就只在列表里前后移动。
+            from_ / to / increment: 数值模式的起止与步长。
+            value: 初始值；不传时数值模式取 ``from_``、列表模式取第一项。
+            command: 值变化后的回调，参数是当前值。
+            width: 整块宽度（逻辑像素），默认 170。
+            height: 高度（逻辑像素），默认 36。
+            suffix: 显示时拼在数值后面的单位，默认 ``"%"``。
+            decimals: 数值显示几位小数，默认 0（取整）。
+        """
+        super().__init__(
+            master,
+            fg_color=T.COLOR_INPUT,
+            border_width=1,
+            border_color=T.COLOR_BORDER_INPUT,
+            corner_radius=T.RADIUS_SMALL,
+            height=height,
+            width=width,
+        )
+        self.pack_propagate(False)
+        # 和下拉框同一个坑：CTk 默认把绘制高度取整到偶数，奇数物理像素时底边描边会缺
+        self._draw_engine.set_round_to_even_numbers(False, False)
+        self._draw()
+
+        self._values = list(values) if values is not None else None
+        self._from = from_
+        self._to = to
+        self._increment = increment
+        self._command = command
+        self._suffix = suffix
+        self._decimals = max(0, int(decimals))
+        self._height = height
+        self._bg = color_of(T.COLOR_INPUT)
+        self._value = self._normalize(value) if value is not None else self._default()
+
+        self._minus = tk.Canvas(
+            self,
+            width=34,
+            height=height - 2,
+            bg=self._bg,
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self._minus.pack(side="left", fill="y", padx=(1, 0), pady=1)
+        self._plus = tk.Canvas(
+            self,
+            width=34,
+            height=height - 2,
+            bg=self._bg,
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self._plus.pack(side="right", fill="y", padx=(0, 1), pady=1)
+        self._mid = tk.Canvas(
+            self,
+            height=height - 2,
+            bg=self._bg,
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self._mid.pack(side="left", fill="x", expand=True, pady=1)
+
+        self._minus.bind("<Button-1>", lambda _e: self._step(-1))
+        self._plus.bind("<Button-1>", lambda _e: self._step(1))
+        self._mid.bind("<Button-1>", lambda _e: self._open())
+        for canvas in (self._minus, self._plus, self._mid):
+            canvas.bind("<Configure>", lambda _e: self._draw_all())
+
+        self._panel = _PopupPanel(self, build=self._build_rows)
+        self.bind("<Destroy>", self._on_destroy)
+        self._draw_all()
+
+    # ------------------------------------------------------------ 读写
+    def get(self):
+        """当前值：列表模式返回列表里的那一项，数值模式返回 int/float。"""
+        return self._value
+
+    def set(self, value) -> None:
+        """直接写入（不触发回调）。"""
+        self._value = self._normalize(value)
+        self._draw_mid()
+
+    def _normalize(self, value):
+        """数值模式统一成 int/float，列表模式原样保留。"""
+        if self._values is not None:
+            return value
+        number = round(float(value), self._decimals)
+        return int(number) if self._decimals == 0 else number
+
+    def _default(self):
+        """没给初始值时：列表取第一项，数值取起点。"""
+        if self._values:
+            return self._values[0]
+        return self._normalize(self._from)
+
+    def _label_of(self, value) -> str:
+        """显示用的文字：数值拼单位，列表值原样。"""
+        if self._values is not None:
+            return str(value)
+        return f"{value}{self._suffix}"
+
+    def _candidates(self) -> list:
+        """面板里的候选。"""
+        if self._values is not None:
+            return list(self._values)
+        count = int((self._to - self._from) / self._increment) + 1
+        count = max(1, min(count, 200))
+        return [self._normalize(self._from + index * self._increment) for index in range(count)]
+
+    # ------------------------------------------------------------ 交互
+    def _step(self, direction: int) -> None:
+        """左右箭头：列表里前后挪一项，数值上加减一个步长。"""
+        if self._values is not None:
+            try:
+                index = self._values.index(self._value)
+            except ValueError:
+                index = 0
+            index = max(0, min(len(self._values) - 1, index + direction))
+            self._apply(self._values[index])
+        else:
+            stepped = float(self._value) + direction * self._increment
+            stepped = max(self._from, min(self._to, stepped))
+            self._apply(self._normalize(stepped))
+
+    def _apply(self, value) -> None:
+        """写入新值、重画、回调。"""
+        self._value = self._normalize(value)
+        self._draw_mid()
+        if self._command is not None:
+            self._command(self._value)
+
+    def _open(self) -> None:
+        """点中间：弹出候选面板。"""
+        self._panel.open()
+
+    def _build_rows(self, parent: tk.Misc) -> int:
+        """铺候选按钮；返回行数。"""
+        options = self._candidates()
+        for option in options:
+            chosen = option == self._value
+            button = ctk.CTkButton(
+                parent,
+                text=self._label_of(option),
+                anchor="w",
+                height=32,
+                corner_radius=T.RADIUS_SMALL,
+                fg_color=_SELECTED_ROW_BG if chosen else "transparent",
+                hover_color=_SELECTED_ROW_HOVER if chosen else T.COLOR_SOFT_HOVER,
+                text_color=T.COLOR_ACTIVE if chosen else T.COLOR_TEXT,
+                font=T.FONT_SMALL,
+                command=lambda v=option: self._pick(v),
+            )
+            button.pack(fill="x", pady=1)
+            if self._panel._listing is not None:
+                self._panel._listing.bind_wheel(button)
+        return len(options)
+
+    def _pick(self, value) -> None:
+        """面板里选中一项：写入、收起、回调。"""
+        self._panel.close()
+        self._apply(value)
+
+    # ------------------------------------------------------------ 绘制
+    def _draw_all(self) -> None:
+        """重画减号、加号和中间那一段。"""
+        self._draw_sign(self._minus, plus=False)
+        self._draw_sign(self._plus, plus=True)
+        self._draw_mid()
+
+    def _draw_sign(self, canvas: tk.Canvas, *, plus: bool) -> None:
+        """减号是一横，加号再加一竖；纯像素线，没有字体渲染的毛边。"""
+        canvas.delete("all")
+        width = canvas.winfo_width()
+        height = canvas.winfo_height()
+        if width <= 1 or height <= 1:
+            return
+        color = color_of(T.COLOR_MUTED)
+        middle = height // 2
+        left = max(8, width // 2 - 7)
+        right = width // 2 + 7
+        canvas.create_line(left, middle, right, middle, fill=color, width=2)
+        if plus:
+            center = width // 2
+            canvas.create_line(center, middle - 7, center, middle + 7, fill=color, width=2)
+
+    def _draw_mid(self) -> None:
+        """中间的值和右箭头：两者当作一个整体居中。"""
+        canvas = self._mid
+        canvas.delete("all")
+        width = canvas.winfo_width()
+        height = canvas.winfo_height()
+        if width <= 1 or height <= 1:
+            return
+        middle = height // 2
+        text_item = canvas.create_text(
+            0,
+            middle,
+            text=self._label_of(self._value),
+            anchor="w",
+            fill=color_of(T.COLOR_TEXT),
+            font=(T.FONT_NAME, 12),
+        )
+        bbox = canvas.bbox(text_item)
+        text_width = (bbox[2] - bbox[0]) if bbox else 0
+        gap = 6
+        arrow = 9
+        start = (width - (text_width + gap + arrow)) / 2
+        canvas.move(text_item, start, 0)
+        # 右侧一个小三角，表示可以点开
+        tip_x = start + text_width + gap + arrow // 2
+        canvas.create_polygon(
+            tip_x - 4,
+            middle - 2,
+            tip_x + 4,
+            middle - 2,
+            tip_x,
+            middle + 3,
+            fill=color_of(T.COLOR_MUTED),
+            outline="",
+        )
+
+    def _on_destroy(self, event: tk.Event) -> None:
+        """销毁时收面板，避免浮窗残留。"""
+        if event.widget is self:
+            self._panel.close()
+
+    def destroy(self) -> None:
+        """销毁前先收起面板。"""
+        self._panel.close()
+        super().destroy()
+
+

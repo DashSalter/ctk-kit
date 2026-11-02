@@ -115,7 +115,7 @@ from .notify import Notifier, notify
 from .page import PageBase
 from .pages import PageRebuilder
 from .scroll_list import LazyList
-from .select import TagSelectField, TreeSelectField
+from .select import Stepper, TagSelectField, TreeSelectField
 from .sidebar import SidebarNav
 from .table import Table
 from .text import TextArea
@@ -165,6 +165,7 @@ __all__ = [
     "DropField",
     "TagSelectField",
     "TreeSelectField",
+    "Stepper",
     "DropZone",
     "FieldLabel",
     "FlatButton",

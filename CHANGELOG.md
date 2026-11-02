@@ -90,6 +90,11 @@
   - 没装 Pillow 时退回 canvas 画圆/方框
 - `Spinner` 箭头改用 Pillow 图片（和 ttkbootstrap 的 Spinbox 一样用固定尺寸的
   caret 图）：canvas 画多边形时中点取整会让上下两个三角差 1px，图片没有这个问题
+- 新增 `Stepper`：紧凑步进器 `[ − ] 当前值 ▾ [ + ]`
+  - 左右两个按钮加减一步；点中间展开候选（复用 `_PopupPanel`）
+  - `values` 给一组备选，或 `from_` / `to` / `increment` 走数值范围
+  - `suffix` / `decimals` 控制显示；`get()` / `set()` / `command` 与 `Spinner` 一致
+  - 示例「输入」页的步进卡片加了一行「紧凑」
 - Pillow 改为必需依赖：`pyproject.toml` 的 `dependencies` 里加上 `pillow>=9`，
   原来的 `ctk-kit[image]` 可选组去掉（`pip install ctk-kit` 会直接装上）
 - `divider` 加了 `text`（线中间带一行字）、`dashed`（虚线）、`color`（线色）三个参数；

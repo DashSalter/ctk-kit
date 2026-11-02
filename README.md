@@ -228,6 +228,13 @@ CTkButton(bar, text="保存").pack()
   - `get_disabled() -> list` / `set_disabled(values)` / `clear_disabled()`
   - 也可以构造时传 `disabled=[...]`；面板开着时改会立刻刷新
   - 禁用的项在列表里置灰、点了不响应；多选里如果它已经在标签中，`disable()` 会顺手移除
+- `Stepper(master, *, values=None, from_=0, to=100, increment=1, value=None,
+  command=None, width=170, height=36, suffix="%", decimals=0)`
+  紧凑步进器：`[ − ] 当前值 ▾ [ + ]`
+  - 左右两个按钮加减一步，点中间展开候选
+  - `values` 给一组备选，或 `from_` / `to` / `increment` 走数值范围
+  - `suffix` 拼在数值后面，`decimals` 控制显示几位小数
+  - `get()` / `set(value)`；`command` 每次变化后收到当前值
 
 ### 布局（`layout`）
 

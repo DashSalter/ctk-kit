@@ -28,6 +28,7 @@ from ctk_kit import (
     PathField,
     Scrollable,
     Spinner,
+    Stepper,
     TextArea,
     attach_edit_menu,
     has_dnd,
@@ -182,7 +183,12 @@ Spinner(frame, from_=0.0, to=2.0, increment=0.5, as_int=False)
 Spinner(frame, values=["小", "中", "大"], value="中")
 
 # 数字到边界停住，备选停在首尾；直接改数字后回车会夹回区间里
-# command 收到当前值，数字模式是 int / float，备选模式是文字'''
+# command 收到当前值，数字模式是 int / float，备选模式是文字
+
+# 紧凑步进器：[−] 当前值 ▾ [+]，点中间能展开候选
+from ctk_kit import Stepper
+Stepper(frame, values=["50%", "70%", "100%"], value="70%")
+Stepper(frame, from_=0, to=100, increment=10, value=70, suffix="%")'''
 
 
 class InputsPageUI(PageBase):
@@ -240,7 +246,7 @@ class InputsPageUI(PageBase):
         )
 
     def _build_spinner(self, area: tk.Misc) -> None:
-        """步进输入：数字范围、小数步长、一组文字。"""
+        """步进输入：数字范围、小数步长、一组文字、紧凑步进器。"""
         box = Card(area, title="步进输入")
         box.pack(fill="x", pady=(12, 0))
 
@@ -279,10 +285,22 @@ class InputsPageUI(PageBase):
         )
         self.size_spinner.pack(side="left")
 
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "紧凑", width=72).pack(side="left")
+        self.stepper = Stepper(
+            row,
+            values=["50%", "70%", "100%"],
+            value="70%",
+            command=self._on_spinner,
+        )
+        self.stepper.pack(side="left")
+
         HintLabel(
             box,
             "点右侧上 / 下三角加减一步，也可以直接改数字后回车；"
-            "数字模式到边界停住，备选模式停在首尾。",
+            "数字模式到边界停住，备选模式停在首尾。"
+            "「紧凑」那种点中间能展开候选。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(

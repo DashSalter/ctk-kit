@@ -408,7 +408,7 @@ class RingProgress(ctk.CTkFrame):
                 self._size / 2,
                 text=f"{round(self._value * 100)}%",
                 fill=color_of(T.COLOR_TEXT),
-                font=(T.FONT_NAME, max(11, self._size // 5)),
+                font=(T.FONT_NAME, max(8, self._size // 10)),
             )
 
     def _paint(self):

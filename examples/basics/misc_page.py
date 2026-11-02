@@ -24,7 +24,6 @@ from ctk_kit import (
     Progress,
     RingProgress,
     Scrollable,
-    Slider,
     divider,
     tokens as T,
     vertical_divider,
@@ -130,9 +129,10 @@ class MiscPageUI(PageBase):
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "拖动", width=72).pack(side="left")
-        self.driver = Slider(row, width=260)
+        self.driver = Progress(
+            row, value=0.35, height=6, handle=True, width=260, on_change=self._on_slide
+        )
         self.driver.pack(side="left")
-        self.driver.set(35)
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
@@ -241,12 +241,12 @@ class MiscPage(MiscPageUI):
         self.bind_events()
 
     def bind_events(self) -> None:
-        """滑块与按钮的 command 都在这里挂。"""
-        self.driver.configure(command=self._on_slide)
+        """进度条的拖动回调在构造时已经挂好，这里只留一个占位。"""
+        # driver / handle_bar 的 on_change 都在构造时传了，无需再绑
 
     def _on_slide(self, value: float) -> None:
-        """拖动主滑块：所有进度条和圆环一起走。"""
-        ratio = value / 100.0
+        """拖动主进度条：所有进度条和圆环一起走。"""
+        ratio = value
         self.plain.set(ratio)
         self.stepped.set(ratio)
         self.labeled.set(ratio)

@@ -6,12 +6,15 @@
     from ctk_kit import CodePanel
 
     CodePanel(card, CODE, "这段代码的说明")
+
+代码块不是构造时就建：面板收起时只保留标题行，第一次展开才创建
+``TextArea`` 并填入代码。一页好几个卡片时，能省掉大半的控件创建。
 """
 
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Any
+from typing import Any, Optional
 
 from . import tokens as T
 from .collapse import Collapsible
@@ -36,7 +39,8 @@ class CodePanel(Collapsible):
         **kwargs: 其余参数交给 ``Collapsible``。
 
     面板构造时自动 ``pack(fill="x", pady=(6, 4), padx=(3, 3))``，调用方
-    不用再摆位；代码块是只读 ``TextArea``，字体与行距在内部统一。
+    不用再摆位；代码块是只读 ``TextArea``，字体与行距在内部统一。代码块
+    在第一次展开时才创建，收起状态下 ``view`` 为 ``None``。
     """
 
     def __init__(
@@ -53,22 +57,39 @@ class CodePanel(Collapsible):
             master,
             collapsed_text=collapsed_text,
             expanded_text=expanded_text,
+            on_toggle=self._on_toggle,
             **kwargs,
         )
         self.pack(fill="x", pady=(6, 4), padx=(3, 3))
 
-        lines = code.splitlines() or [""]
-        self.view = TextArea(
+        self._code = code
+        self._note = note
+        self.view: Optional[TextArea] = None
+        # 构造时就是展开态（expanded=True）的话，直接建出来
+        if self.expanded:
+            self._build_view()
+
+    def _on_toggle(self, expanded: bool) -> None:
+        if expanded:
+            self._build_view()
+
+    def _build_view(self) -> None:
+        """第一次展开时创建代码块；重复调用无副作用。"""
+        if self.view is not None:
+            return
+        lines = self._code.splitlines() or [""]
+        view = TextArea(
             self.body,
             height=min(30 + len(lines) * 24, 640),
             readonly=True,
             show_counter=False,
             bg_color=T.COLOR_INPUT,
         )
-        self.view.textbox.configure(font=CODE_FONT)
+        view.textbox.configure(font=CODE_FONT)
         # CTkTextbox 没暴露行距，直接给里面的 tk.Text 加一点呼吸空间
-        self.view.textbox._textbox.configure(spacing1=4, spacing2=4, spacing3=4)
-        self.view.set(code)
-        self.view.pack(fill="x", padx=12, pady=(12, 6 if note else 12))
-        if note:
-            HintLabel(self.body, note).pack(fill="x", padx=12, pady=(0, 12))
+        view.textbox._textbox.configure(spacing1=4, spacing2=4, spacing3=4)
+        view.set(self._code)
+        view.pack(fill="x", padx=12, pady=(12, 6 if self._note else 12))
+        if self._note:
+            HintLabel(self.body, self._note).pack(fill="x", padx=12, pady=(0, 12))
+        self.view = view

@@ -26,6 +26,7 @@ from typing import Any, Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 from .layout import style_scrollbar
 
 # 内容变化回调：收到最新的全文（空文本时是空字符串）。
@@ -88,7 +89,7 @@ class TextArea(ctk.CTkFrame):
             border_color=T.COLOR_BORDER_INPUT,
             fg_color=fill,
             text_color=self._text_color,
-            font=T.FONT_BODY,
+            font=get_font(T.FONT_BODY),
             wrap="word",
             # 滚动条和其它滚动容器用同一套令牌，免得文本区这里灰一截、列表那里又不一样
             scrollbar_button_color=T.COLOR_SCROLLBAR,
@@ -113,7 +114,7 @@ class TextArea(ctk.CTkFrame):
             self,
             text="0 字",
             anchor="e",
-            font=T.FONT_TINY,
+            font=get_font(T.FONT_TINY),
             text_color=T.COLOR_FAINT,
         )
         if show_counter:

@@ -41,6 +41,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .buttons import SecondaryButton
+from .fonts import get_font
 from .pages import PageRebuilder
 from .theme import apply_appearance_fast, color_of
 
@@ -145,7 +146,7 @@ class SidebarNav(ctk.CTkFrame):
         self.title_label = ctk.CTkLabel(
             self.sidebar,
             text=title,
-            font=(T.FONT_NAME, 16, "bold"),
+            font=get_font((T.FONT_NAME, 16, "bold")),
             text_color=T.COLOR_TEXT,
             bg_color=T.COLOR_SIDE,
             anchor="w",
@@ -155,7 +156,7 @@ class SidebarNav(ctk.CTkFrame):
         self.subtitle_label = ctk.CTkLabel(
             self.sidebar,
             text=subtitle,
-            font=T.FONT_TINY,
+            font=get_font(T.FONT_TINY),
             text_color=T.COLOR_MUTED,
             bg_color=T.COLOR_SIDE,
             anchor="w",
@@ -169,7 +170,7 @@ class SidebarNav(ctk.CTkFrame):
                 height=38,
                 corner_radius=T.RADIUS_SMALL,
                 anchor="w",
-                font=T.FONT_BODY,
+                font=get_font(T.FONT_BODY),
                 fg_color="transparent",
                 bg_color=T.COLOR_SIDE,
                 hover_color=T.COLOR_SOFT,
@@ -179,6 +180,14 @@ class SidebarNav(ctk.CTkFrame):
             )
             button.pack(fill="x", padx=10, pady=3)
             self._buttons[name] = button
+            # 按下就切页：不等松开，把建页的耗时提前到按下瞬间。
+            # CTkButton.bind 会同时绑到内部画布和文字标签，add="+" 保留自带的按下动画。
+            # command 仍保留，键盘激活（空格/回车）还能正常切页。
+            button.bind(
+                "<ButtonPress-1>",
+                lambda _event, key=name: self.show(key),
+                add="+",
+            )
 
         # 底部按钮：不在导航列表里的页面（如「设置」），放在侧边栏最下面。
         if self._bottom_pages:
@@ -208,7 +217,8 @@ class SidebarNav(ctk.CTkFrame):
         self.rebuilder = PageRebuilder(
             self.body, self._create_page, self._names, on_hide=on_hide
         )
-        self.rebuilder.build_all()
+        # 启动时不把所有页面一起建出来：先只建当前页，其余页交给
+        # _prewarm_pages 在空闲时间逐帧补，窗口能更快显示出来。
         self.show(initial if initial is not None else self._names[0])
 
         # 侧边栏宽度：先钉一次，窗口尺寸变化时再按比例重算。
@@ -221,39 +231,6 @@ class SidebarNav(ctk.CTkFrame):
         self._place_body()
         # 构造时窗口可能还没 mapped，content 尺寸要等首帧；再补一次。
         self.after(1, self._place_body)
-        # 首次切到某一页要整页排一次版（20~140ms）；启动后空闲时逐页
-        # 提前排掉，之后切页就只剩 lift 的成本。
-        self.after(80, self._prewarm_pages)
-
-    def _prewarm_pages(self) -> None:
-        """空闲时逐页做一次 ``update_idletasks``，把首次切页的布局提前摊掉。
-
-        每页之间留一帧（``after(1)``），窗口在这期间仍能响应操作；已经排过
-        的页面再切过去就只有 ``lift`` 的开销。页面多时整个预热约 1 秒，
-        分摊在启动后的空闲时间里。
-        """
-        queue = list(self._names)
-
-        def step() -> None:
-            if not queue:
-                return
-            name = queue.pop(0)
-            page = self.rebuilder.frames.get(name)
-            if page is not None:
-                try:
-                    # 被 lower 的页面在窗口 mapped 后不会自己重排，这里按
-                    # 切页时同样的几何摆一次，排完再压回底层。
-                    if name != self.rebuilder.current:
-                        page.place(relx=0, rely=0, relwidth=1, relheight=1)
-                    page.update_idletasks()
-                    if name != self.rebuilder.current:
-                        page.lower()
-                except Exception:  # noqa: BLE001 - 控件可能在回调里被销毁
-                    pass
-            if queue:
-                self.after(1, step)
-
-        step()
 
     # ------------------------------------------------------------------ 尺寸
 

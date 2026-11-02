@@ -48,6 +48,7 @@ from typing import Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 
 #: 允许的提示级别。
 LEVELS = ("info", "success", "warn", "error")
@@ -270,7 +271,7 @@ class Notifier:
             ctk.CTkLabel(
                 card,
                 text=message,
-                font=T.FONT_SMALL,
+                font=get_font(T.FONT_SMALL),
                 text_color=color,
                 anchor="w",
                 justify="left",
@@ -287,7 +288,7 @@ class Notifier:
             corner_radius=11,
             fg_color=color,
             text_color="#ffffff",
-            font=(T.FONT_NAME, 11, "bold"),
+            font=get_font((T.FONT_NAME, 11, "bold")),
         ).pack(side="left", anchor="n", pady=(1, 0))
         text = ctk.CTkFrame(body, fg_color="transparent")
         text.pack(side="left", fill="x", expand=True, padx=(10, 6))
@@ -295,7 +296,7 @@ class Notifier:
             ctk.CTkLabel(
                 text,
                 text=title,
-                font=(T.FONT_NAME, 13, "bold"),
+                font=get_font((T.FONT_NAME, 13, "bold")),
                 text_color=T.COLOR_TEXT,
                 anchor="w",
                 justify="left",
@@ -303,7 +304,7 @@ class Notifier:
         ctk.CTkLabel(
             text,
             text=message,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
             text_color=T.COLOR_MUTED,
             anchor="w",
             justify="left",
@@ -319,7 +320,7 @@ class Notifier:
             fg_color="transparent",
             hover_color=T.COLOR_SOFT,
             text_color=T.COLOR_FAINT,
-            font=(T.FONT_NAME, 10),
+            font=get_font((T.FONT_NAME, 10)),
             command=lambda v=card: self.dismiss(v),
         ).pack(side="right", anchor="n", padx=(6, 0))
         # 内容建完先量一次尺寸；窗口这时还藏着，等 _relayout 定位后再显出来。

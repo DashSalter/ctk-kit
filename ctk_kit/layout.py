@@ -16,6 +16,7 @@ from typing import Any
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 
 
 class PageHeader(ctk.CTkFrame):
@@ -29,11 +30,11 @@ class PageHeader(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent")
         self.pack(fill="x")
         self.title_label = ctk.CTkLabel(
-            self, text=title, font=T.FONT_TITLE, text_color=T.COLOR_TEXT
+            self, text=title, font=get_font(T.FONT_TITLE), text_color=T.COLOR_TEXT
         )
         self.title_label.pack(side="left")
         self.info = ctk.CTkLabel(
-            self, text="", font=T.FONT_TINY, text_color=T.COLOR_MUTED, anchor="e"
+            self, text="", font=get_font(T.FONT_TINY), text_color=T.COLOR_MUTED, anchor="e"
         )
         self.info.pack(side="right", pady=(9, 0))
 
@@ -49,7 +50,7 @@ class SectionTitle(ctk.CTkLabel):
         super().__init__(
             master,
             text=text,
-            font=T.FONT_SECTION,
+            font=get_font(T.FONT_SECTION),
             text_color=T.COLOR_TEXT,
             anchor="w",
         )
@@ -93,7 +94,7 @@ class Card(ctk.CTkFrame):
             self.title_label = ctk.CTkLabel(
                 master,
                 text=title,
-                font=T.FONT_SECTION,
+                font=get_font(T.FONT_SECTION),
                 text_color=T.COLOR_TEXT,
                 anchor="w",
             )
@@ -238,12 +239,12 @@ def empty_hint(master: tk.Misc, title: str, detail: str = "") -> ctk.CTkFrame:
         透明容器，已经装好 1~2 行灰色文字；摆放由调用方决定。
     """
     box = ctk.CTkFrame(master, fg_color="transparent")
-    ctk.CTkLabel(box, text=title, font=T.FONT_BODY, text_color=T.COLOR_MUTED).pack()
+    ctk.CTkLabel(box, text=title, font=get_font(T.FONT_BODY), text_color=T.COLOR_MUTED).pack()
     if detail:
         ctk.CTkLabel(
             box,
             text=detail,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
             text_color=T.COLOR_MUTED,
             justify="center",
         ).pack(pady=(6, 0))
@@ -257,7 +258,7 @@ class FieldLabel(ctk.CTkLabel):
         super().__init__(
             master,
             text=text,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
             text_color=T.COLOR_MUTED,
             width=width,
             anchor="w",
@@ -271,7 +272,7 @@ class HintLabel(ctk.CTkLabel):
         super().__init__(
             master,
             text=text,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
             text_color=T.COLOR_MUTED,
             anchor="w",
             justify="left",

@@ -18,6 +18,7 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 from .theme import color_of
 
 _ARROW_CLOSED = "▼"
@@ -125,7 +126,7 @@ class DropField(ctk.CTkFrame):
             border_width=0,
             corner_radius=0,
             height=height - 2,
-            font=T.FONT_BODY,
+            font=get_font(T.FONT_BODY),
             text_color=T.COLOR_TEXT,
             placeholder_text=placeholder,
             placeholder_text_color=T.COLOR_FAINT,
@@ -138,7 +139,7 @@ class DropField(ctk.CTkFrame):
             text=_ARROW_CLOSED,
             width=34,
             height=26,
-            font=(T.FONT_NAME, 11),
+            font=get_font((T.FONT_NAME, 11)),
             text_color=T.COLOR_MUTED,
             fg_color="transparent",
             corner_radius=5,
@@ -206,7 +207,7 @@ class DropField(ctk.CTkFrame):
                 fg_color="transparent",
                 hover_color=T.COLOR_SOFT_HOVER,
                 text_color=T.COLOR_TEXT,
-                font=T.FONT_SMALL,
+                font=get_font(T.FONT_SMALL),
                 command=lambda v=value: self._pick(v),
             )
             button.pack(fill="x", pady=1)

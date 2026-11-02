@@ -17,6 +17,7 @@ from typing import Any, Callable, Dict, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 from .theme import ColorToken, color_of
 
 # 无参回调；CTk 的 command 就是这么调的，不会传入事件对象。
@@ -63,7 +64,7 @@ class CTkButton(ctk.CTkButton):
     """
 
     def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
-        kwargs.setdefault("font", T.FONT_BODY)
+        kwargs.setdefault("font", get_font(T.FONT_BODY))
         kwargs.setdefault("height", 38)
         kwargs.setdefault("corner_radius", T.RADIUS_SMALL + 1)
         kwargs.setdefault("fg_color", T.COLOR_SOFT)
@@ -225,7 +226,12 @@ class FlatButton(ctk.CTkButton):
             pady: 文字上下各留的空白（像素），默认 3。
             radius: 圆角半径，默认 :data:`tokens.RADIUS_SMALL`。
         """
-        measure = _measurer(font)
+        if isinstance(font, ctk.CTkFont):
+            measure = font
+            button_font = font
+        else:
+            measure = _measurer(font)
+            button_font = get_font(font)
         super().__init__(
             master,
             text=text,
@@ -233,7 +239,7 @@ class FlatButton(ctk.CTkButton):
             width=measure.measure(text) + padx * 2,
             height=measure.metrics("linespace") + pady * 2,
             corner_radius=radius,
-            font=font,
+            font=button_font,
             fg_color=bg if bg is not None else color_of(T.COLOR_SOFT),
             hover_color=hover if hover is not None else color_of(T.COLOR_SOFT_HOVER),
             text_color=fg if fg is not None else color_of(T.COLOR_TEXT),

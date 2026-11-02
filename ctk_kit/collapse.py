@@ -21,6 +21,7 @@ from typing import Any, Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 
 ToggleCommand = Optional[Callable[[bool], None]]
 
@@ -69,7 +70,7 @@ class Collapsible(ctk.CTkFrame):
             text="",
             height=button_height,
             corner_radius=T.RADIUS_SMALL,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
             fg_color="transparent",
             hover_color=T.COLOR_HOVER_FAINT,
             text_color=T.COLOR_ACCENT,

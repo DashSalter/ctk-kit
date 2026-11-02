@@ -8,6 +8,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from functools import lru_cache
 
 from ctk_kit import (
     Card,
@@ -67,6 +68,7 @@ viewer.set_image(None)             # 清空；on_zoom 会收到 1.0
 DEMO_SIZE = (1200, 800)
 
 
+@lru_cache(maxsize=4)
 def _demo_image(variant: int = 1):
     """现场画一张细节够多的示意图，放大后能看出清晰度的变化。
 

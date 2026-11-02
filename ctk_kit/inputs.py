@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 
 # 分段选择的选中回调：收到被选中的那一段文字。
 SegmentCommand = Optional[Callable[[str], None]]
@@ -53,7 +54,7 @@ class CTkEntry(ctk.CTkEntry):
         kwargs.setdefault("border_width", 1)
         kwargs.setdefault("border_color", T.COLOR_BORDER_INPUT)
         kwargs.setdefault("corner_radius", T.RADIUS_SMALL)
-        kwargs.setdefault("font", T.FONT_BODY)
+        kwargs.setdefault("font", get_font(T.FONT_BODY))
         kwargs.setdefault("text_color", T.COLOR_TEXT)
         kwargs.setdefault("placeholder_text_color", T.COLOR_FAINT)
         super().__init__(master, **kwargs)
@@ -135,7 +136,7 @@ def ToolbarEntry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.
         placeholder_text_color=T.COLOR_FAINT,
         height=height,
         corner_radius=T.RADIUS_LARGE,
-        font=T.FONT_BODY,
+        font=get_font(T.FONT_BODY),
         fg_color=T.COLOR_INPUT,
         border_width=1,
         border_color=T.COLOR_BORDER_INPUT,
@@ -220,7 +221,7 @@ def Segmented(
         unselected_hover_color=T.COLOR_SOFT_HOVER,
         selected_hover_color=T.COLOR_ACTIVE_HOVER,
         text_color=T.COLOR_TEXT,
-        font=font,
+        font=get_font(font) if not isinstance(font, ctk.CTkFont) else font,
         dynamic_resizing=False,
     )
 
@@ -296,7 +297,7 @@ def Switch(
         master,
         text=text,
         width=width,
-        font=T.FONT_SMALL,
+        font=get_font(T.FONT_SMALL),
         text_color=T.COLOR_TEXT,
         fg_color=T.COLOR_BORDER_STRONG,
         progress_color=T.COLOR_ACTIVE,
@@ -340,7 +341,7 @@ def Checkbox(
         hover_color=T.COLOR_ACTIVE_HOVER,
         checkmark_color=T.COLOR_ACCENT_TEXT,
         text_color=T.COLOR_TEXT,
-        font=T.FONT_SMALL,
+        font=get_font(T.FONT_SMALL),
         command=command,
     )
 
@@ -394,7 +395,7 @@ def radio_group(
             fg_color=T.COLOR_ACTIVE,
             hover_color=T.COLOR_ACTIVE_HOVER,
             text_color=T.COLOR_TEXT,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
         )
         button.pack(anchor="w", pady=(0, gap) if index < len(values) - 1 else 0)
 

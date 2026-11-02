@@ -32,6 +32,8 @@ except ImportError as exc:  # pragma: no cover - 只在没装 Pillow 时走到
     ) from exc
 
 from . import tokens as T
+from .fonts import get_font
+from .images import open_image
 from .theme import color_of
 
 Source = Union[str, Path, "Image.Image"]
@@ -115,13 +117,8 @@ class ImageViewer(ctk.CTkFrame):
         elif isinstance(source, Image.Image):
             self._original = source.copy()
         else:
-            with Image.open(source) as opened:
-                # 调色板 / 灰度 / CMYK 统一转成 RGBA，透明背景交给 canvas 底色
-                self._original = (
-                    opened.copy()
-                    if opened.mode in ("RGB", "RGBA")
-                    else opened.convert("RGBA")
-                )
+            # 路径走缓存：同一文件重复预览不用再读盘、解码
+            self._original = open_image(source)
         self._auto_fit = True
         self._zoom = 1.0
         self._render()
@@ -221,7 +218,7 @@ class ImageViewer(ctk.CTkFrame):
                 canvas_w / 2,
                 canvas_h / 2,
                 text=self._empty_text,
-                font=T.FONT_SMALL,
+                font=get_font(T.FONT_SMALL),
                 fill=color_of(T.COLOR_FAINT),
             )
             if self._on_zoom is not None:

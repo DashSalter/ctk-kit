@@ -15,6 +15,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .buttons import SecondaryButton
+from .fonts import get_font
 from .inputs import FormEntry
 
 try:  # pragma: no cover - 取决于有没有装可选依赖
@@ -209,14 +210,14 @@ class DropZone(ctk.CTkFrame):
         self.label = ctk.CTkLabel(
             self,
             text=text,
-            font=T.FONT_SMALL,
+            font=get_font(T.FONT_SMALL),
             text_color=T.COLOR_MUTED,
         )
         self.label.pack(expand=True, side="top", pady=(14, 0))
         self.hint = ctk.CTkLabel(
             self,
             text=hint,
-            font=T.FONT_TINY,
+            font=get_font(T.FONT_TINY),
             text_color=T.COLOR_FAINT,
         )
         self.hint.pack(side="top", pady=(2, 14))

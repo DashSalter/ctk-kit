@@ -30,6 +30,7 @@ from typing import Any, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .fonts import get_font
 from .layout import style_scrollbar
 from .theme import color_of
 
@@ -231,17 +232,17 @@ class Table(ctk.CTkFrame):
             if anchor == "w":
                 self._header_canvas.create_text(
                     x + pad, header_h / 2, text=title, anchor="w",
-                    font=T.FONT_SMALL, fill=color_of(T.COLOR_MUTED),
+                    font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_MUTED),
                 )
             elif anchor == "e":
                 self._header_canvas.create_text(
                     x + width - pad, header_h / 2, text=title, anchor="e",
-                    font=T.FONT_SMALL, fill=color_of(T.COLOR_MUTED),
+                    font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_MUTED),
                 )
             else:
                 self._header_canvas.create_text(
                     x + width / 2, header_h / 2, text=title, anchor="center",
-                    font=T.FONT_SMALL, fill=color_of(T.COLOR_MUTED),
+                    font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_MUTED),
                 )
             x += width + pad * 2
         self._header_canvas.create_line(
@@ -256,7 +257,7 @@ class Table(ctk.CTkFrame):
                 row_h,
                 text=self._empty_text,
                 anchor="center",
-                font=T.FONT_SMALL,
+                font=get_font(T.FONT_SMALL),
                 fill=color_of(T.COLOR_FAINT),
             )
             self._canvas.configure(scrollregion=(0, 0, full, row_h * 2))
@@ -277,17 +278,17 @@ class Table(ctk.CTkFrame):
                 if anchor == "w":
                     self._canvas.create_text(
                         x + pad, top + row_h / 2, text=cell, anchor="w",
-                        font=T.FONT_SMALL, fill=color_of(T.COLOR_TEXT),
+                        font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_TEXT),
                     )
                 elif anchor == "e":
                     self._canvas.create_text(
                         x + width - pad, top + row_h / 2, text=cell, anchor="e",
-                        font=T.FONT_SMALL, fill=color_of(T.COLOR_TEXT),
+                        font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_TEXT),
                     )
                 else:
                     self._canvas.create_text(
                         x + width / 2, top + row_h / 2, text=cell, anchor="center",
-                        font=T.FONT_SMALL, fill=color_of(T.COLOR_TEXT),
+                        font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_TEXT),
                     )
                 x += width + pad * 2
             self._canvas.create_line(

@@ -548,26 +548,28 @@ class TagSelectField(ctk.CTkFrame):
         hover = color_of(T.COLOR_SOFT_HOVER)
         accent = color_of(T.COLOR_ACTIVE)
         text_color = color_of(T.COLOR_TEXT)
+        # 必须用 CTkFont：裸 tuple 不跟 widget 缩放走，高分屏上会显得明显偏大
+        row_font = get_font(T.FONT_SMALL)
         for value in values:
             selected = value in self._values
-            # 行用纯 tk 控件：圆点和竖条都是直角图形，不会出现字体那种像素马赛克，
+            # 行用纯 tk 控件：标记是 canvas 画的几何图形，不会出现字体那种像素马赛克，
             # 悬停改底色也不用担心 CTk 的 transparent 解析成旧颜色
             row = tk.Frame(parent, bg=card, height=_ROW_HEIGHT)
             row.pack(fill="x", pady=1)
             row.pack_propagate(False)
-            # 选中标记是小圆点：canvas 的 oval 是纯像素，不像字体符号那样有马赛克
-            dot = tk.Canvas(
+            # 选中标记：实心小三角形，纯像素绘制
+            mark = tk.Canvas(
                 row, width=12, height=12, bg=card, highlightthickness=0, bd=0
             )
             if selected:
-                dot.create_oval(2, 2, 10, 10, fill=accent, outline="")
-            dot.pack(side="left", padx=(6, 2))
+                mark.create_polygon(3, 2, 3, 10, 10, 6, fill=accent, outline=accent)
+            mark.pack(side="left", padx=(6, 2))
             label = tk.Label(
                 row,
                 text=value,
                 bg=card,
                 fg=text_color,
-                font=T.FONT_SMALL,
+                font=row_font,
                 anchor="w",
             )
             label.pack(side="left", fill="x", expand=True, padx=(0, 8))
@@ -575,7 +577,7 @@ class TagSelectField(ctk.CTkFrame):
             def enter(
                 _event: tk.Event,
                 r: tk.Frame = row,
-                m: tk.Canvas = dot,
+                m: tk.Canvas = mark,
                 lab: tk.Label = label,
             ) -> None:
                 """悬停：整行和文字一起提亮。"""
@@ -586,7 +588,7 @@ class TagSelectField(ctk.CTkFrame):
             def leave(
                 _event: tk.Event,
                 r: tk.Frame = row,
-                m: tk.Canvas = dot,
+                m: tk.Canvas = mark,
                 lab: tk.Label = label,
             ) -> None:
                 """移出：整行还原。"""
@@ -594,7 +596,7 @@ class TagSelectField(ctk.CTkFrame):
                 lab.configure(bg=card)
                 m.configure(bg=card)
 
-            for widget in (row, label, dot):
+            for widget in (row, label, mark):
                 widget.bind("<Button-1>", lambda _e, v=value: self._toggle(v))
                 widget.bind("<Enter>", enter)
                 widget.bind("<Leave>", leave)

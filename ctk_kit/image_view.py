@@ -32,6 +32,7 @@ except ImportError as exc:  # pragma: no cover - 只在没装 Pillow 时走到
     ) from exc
 
 from . import tokens as T
+from .branding import empty_state
 from .fonts import get_font
 from .images import open_image
 from .theme import color_of
@@ -63,6 +64,7 @@ class ImageViewer(ctk.CTkFrame):
         min_zoom: float = 1.0,
         max_zoom: float = 8.0,
         empty_text: str = "还没有图片",
+        empty_image: bool = True,
         on_zoom: Optional[Callable[[float], None]] = None,
     ) -> None:
         """建图片查看器；内部再建 canvas，图片等 ``set_image`` 时再放。"""
@@ -77,6 +79,7 @@ class ImageViewer(ctk.CTkFrame):
         self._min_zoom = min_zoom
         self._max_zoom = max_zoom
         self._empty_text = empty_text
+        self._empty_image = bool(empty_image)
         self._on_zoom = on_zoom
 
         self._canvas = tk.Canvas(
@@ -221,13 +224,16 @@ class ImageViewer(ctk.CTkFrame):
         self._photo = None
 
         if self._original is None:
-            self._canvas.create_text(
-                canvas_w / 2,
-                canvas_h / 2,
-                text=self._empty_text,
-                font=get_font(T.FONT_SMALL),
-                fill=color_of(T.COLOR_FAINT),
-            )
+            if self._empty_image:
+                empty_state(self, self._canvas, canvas_w, canvas_h, self._empty_text)
+            else:
+                self._canvas.create_text(
+                    canvas_w / 2,
+                    canvas_h / 2,
+                    text=self._empty_text,
+                    font=get_font(T.FONT_SMALL),
+                    fill=color_of(T.COLOR_FAINT),
+                )
             if self._on_zoom is not None:
                 self._on_zoom(1.0)
             return

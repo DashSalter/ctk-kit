@@ -1345,7 +1345,7 @@ class Stepper(ctk.CTkFrame):
             text=self._label_of(self._value),
             anchor="w",
             fill=color_of(T.COLOR_TEXT),
-            font=(T.FONT_NAME, 11),
+            font=(T.FONT_NAME, 9),
         )
         bbox = canvas.bbox(text_item)
         text_width = (bbox[2] - bbox[0]) if bbox else 0

@@ -66,9 +66,33 @@ CTkButton(bar, text="保存").pack()
 - `theme="blue" | "dark-blue" | "green" | 主题文件路径`：建窗前设置配色主题
 - `center=True`：窗口建好后居中
 - `notifier=True`：自动建好提示层 `self.notifier`，可以直接 `app.notify(...)`
+- `icon=True`：窗口图标（标题栏左上角 + 任务栏），默认用内置 logo；
+  传 `False` 不设，传字符串则用自定义的 `.ico` / `.png`
 
 窗口标题栏颜色也会自动跟随外观（Windows 11 22H2+ 真正上色），不需要再手动调
 `set_titlebar_dark`。
+
+### 内置 logo
+
+仓库里带一张 logo，放在 `ctk_kit/logo/`，`App` 默认就挂上：
+
+| 文件 | 用途 |
+| --- | --- |
+| `logo.png` | 1024 主图，透明背景 |
+| `logo-16.png` … `logo-256.png` | 预渲染的小图，运行时不用再缩放 |
+| `logo.ico` | 多尺寸 Windows 图标 |
+| `logo-source.jpg` | 原始手绘图，留档用 |
+
+```python
+from ctk_kit import ICON_PATH, LOGO_PATH, load_logo, set_window_icon
+
+set_window_icon(some_toplevel)        # 给别的窗口也挂上
+photo = load_logo(96)                 # 拿一张 PhotoImage 放到 canvas / label
+print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
+```
+
+`ImageViewer` 的空状态默认画这张 logo：没设置图片时中间显示图标，下面一行
+「还没有图片」。不想要图标就 `ImageViewer(frame, empty_image=False)`，回到纯文字。
 
 `CTk` 本身仍然原样导出，需要完全原生的入口时直接用它。
 

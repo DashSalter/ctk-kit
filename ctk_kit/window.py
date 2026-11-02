@@ -25,6 +25,7 @@ from customtkinter import (
     set_default_color_theme,
 )
 
+from .branding import set_window_icon
 from .notify import Notifier
 from .theme import apply_appearance, set_titlebar_dark
 
@@ -46,6 +47,8 @@ class App(CTk):
         center: ``True`` 时窗口建好后按当前屏幕居中。
         notifier: 默认 ``True``，自动建好提示层 ``self.notifier``，可以直接
             ``app.notify(...)``；``False`` 时不建（也不需要提示的窗口可以关掉）。
+        icon: 窗口图标。默认 ``True`` 用内置 logo；传 ``False`` 不设；
+            传字符串则当成自定义 ``.ico`` / ``.png`` 路径。
         **kwargs: 其余参数原样交给 ``CTk``，例如 ``fg_color`` / ``bg_color``。
 
     注意:
@@ -70,6 +73,7 @@ class App(CTk):
         theme: Optional[str] = None,
         center: bool = False,
         notifier: bool = True,
+        icon: Any = True,
         **kwargs: Any,
     ) -> None:
         """建根窗口：先应用外观/主题，再交给 ``CTk`` 完成其余初始化。"""
@@ -88,6 +92,12 @@ class App(CTk):
             self.minsize(int(min_size[0]), int(min_size[1]))
         if center:
             self.after_idle(self._center_on_screen)
+
+        if icon is not False:
+            if isinstance(icon, str):
+                set_window_icon(self, path=icon)
+            else:
+                set_window_icon(self)
 
         # 窗口 mapped 之后 DWM 才真正接管标题栏；在这里内置标题栏颜色，
         # 调用方不用再写 ``after(10, lambda: set_titlebar_dark(...))``。

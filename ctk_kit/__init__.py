@@ -69,6 +69,7 @@ from customtkinter import (
 )
 
 from . import tokens, theme
+from .branding import ICON_PATH, LOGO_PATH, load_logo, set_window_icon
 from .buttons import (
     CTkButton,
     DangerButton,
@@ -172,7 +173,9 @@ __all__ = [
     "FormEntry",
     "Frame",
     "HintLabel",
+    "ICON_PATH",
     "ImageViewer",
+    "LOGO_PATH",
     "LazyList",
     "Notifier",
     "PageBase",
@@ -208,6 +211,7 @@ __all__ = [
     "get_appearance_mode",
     "has_dnd",
     "is_dark",
+    "load_logo",
     "notify",
     "pick_path",
     "radio_group",
@@ -217,6 +221,7 @@ __all__ = [
     "set_appearance_mode",
     "set_default_color_theme",
     "set_titlebar_dark",
+    "set_window_icon",
     "style_scrollable",
     "style_scrollbar",
     "theme",

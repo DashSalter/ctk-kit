@@ -67,8 +67,16 @@
   - 列表模式传 `values=[...]`，上下箭头在备选文字里前后移动
   - 直接改数字后回车会夹回区间；箭头是 canvas 画的小三角，不依赖字体符号
   - 箭头先 pack，输入框后 pack，否则 `expand` 的输入框会把箭头挤成 5px
-- 新增 `ctk_kit/misc.py` 里的 `Progress`：进度条的完整版
-  - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 斜条纹（`striped`）/
+- 程序图标：`App` 默认挂上内置 logo，标题栏左上角和任务栏都是它
+  - `icon=True`（默认）用内置图；`icon=False` 不设；`icon="路径"` 用自定义 `.ico` / `.png`
+  - 新模块 `ctk_kit/branding.py`：`set_window_icon(window)` 给任意窗口挂图标，
+    `load_logo(size)` 拿一张缓存好的 `PhotoImage`（给 canvas / label 用），
+    以及 `LOGO_PATH` / `ICON_PATH` / `logo_path(size)`
+  - 资源在 `ctk_kit/logo/`：`logo.png`（1024 透明主图）、`logo-16…256.png`（预渲染小图）、
+    `logo.ico`（多尺寸 Windows 图标）、`logo-source.jpg`（原始手绘图留档）
+- `ImageViewer` 空状态默认画 logo：没图时中间显示图标，下面一行提示文字；
+  `empty_image=False` 回到原来的纯文字
+- 新增 `ctk_kit/misc.py` 里的 `Progress`：进度条的完整版  - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 斜条纹（`striped`）/
     不确定态（`start_indeterminate()`）
   - `radius` 控制端点圆角，传 0 换成直角；`height=2~4` 就是细线样式
   - `handle=True` 在进度端画一个圆点把手，拖着就能改值

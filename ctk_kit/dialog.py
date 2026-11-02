@@ -270,6 +270,12 @@ class Dialog(ctk.CTkToplevel):
         self.bind("<Escape>", lambda _e: self._finish(None))
         self.protocol("WM_DELETE_WINDOW", lambda: self._finish(None))
 
+        self._wheel_bind = None
+        self._wheel_bind_linux = None
+        self._wheel_bind_linux5 = None
+        self._move_bind = None
+        self._follow_job = None
+
         self.update_idletasks()
         self._place_over(master)
 
@@ -279,6 +285,9 @@ class Dialog(ctk.CTkToplevel):
 
         宽度固定成 ``width``，只让高度跟着内容走——几种对话框放在一起宽度一致，
         看起来才像同一个组件；文字换行由 ``wraplength`` 负责。
+
+        最后把坐标夹进屏幕：父窗口被拖到屏幕外时，对话框仍然停在看得见的地方，
+        不会跟着一起消失。
         """
         self.update_idletasks()
         width = self._width
@@ -290,8 +299,11 @@ class Dialog(ctk.CTkToplevel):
         except tk.TclError:
             left = (self.winfo_screenwidth() - width) // 2
             top = (self.winfo_screenheight() - height) // 2
-        left = max(0, left)
-        top = max(0, top)
+        # 夹进屏幕：窗口被拖到屏幕外时，对话框至少还能看见、能点
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        left = min(max(0, left), max(0, screen_w - width))
+        top = min(max(0, top), max(0, screen_h - height))
         self.geometry(f"{width}x{height}+{left}+{top}")
 
     # ------------------------------------------------------------ 结果
@@ -316,18 +328,28 @@ class Dialog(ctk.CTkToplevel):
 
         关掉窗口或按 Esc 返回 ``None``；有输入框时返回输入的文字。
 
-        弹出期间会把父窗口置为 ``disabled``：主窗口不能拖、不能点，滚轮
-        也滚不动。只靠 ``grab_set`` 不够——无边框窗口在 Windows 上拦不住
-        标题栏拖动和 ``bind_all`` 的滚轮。
+        模态靠三件事，而不是把父窗口整个禁用：
+
+        - ``grab_set``：客户区的点击、键盘都进不来
+        - 父窗口上临时绑 ``<MouseWheel>`` 并 ``return "break"``：滚轮被截住。
+          单靠 grab 不行，CTk 的滚动区走的是 ``bind_all``，那条链不受 grab 管
+        - 父窗口移动时重新居中：标题栏可以拖，对话框跟着走
+
+        位置会被夹在屏幕内，父窗口拖到屏幕外时对话框仍然可见。
         """
         parent = self._parent_window
         self.deiconify()
         self.wait_visibility()
         _round_corners(self)
-        # 无边框窗口不走窗口管理器，得自己把父窗口压住
-        with contextlib.suppress(tk.TclError):
-            parent.attributes("-disabled", True)
         self.grab_set()
+
+        # 滚轮：拦在 toplevel 这一层，比 bind_all 早一步
+        self._wheel_bind = parent.bind("<MouseWheel>", self._block_wheel, add="+")
+        self._wheel_bind_linux = parent.bind("<Button-4>", self._block_wheel, add="+")
+        self._wheel_bind_linux5 = parent.bind("<Button-5>", self._block_wheel, add="+")
+        # 拖动 / 缩放窗口时跟着走
+        self._move_bind = parent.bind("<Configure>", self._on_parent_configure, add="+")
+
         if self._entry is not None:
             self._entry.focus_set()
             self._entry._entry.icursor("end")
@@ -336,9 +358,34 @@ class Dialog(ctk.CTkToplevel):
         try:
             self.wait_window(self)
         finally:
+            for event, bind_id in (
+                ("<MouseWheel>", self._wheel_bind),
+                ("<Button-4>", self._wheel_bind_linux),
+                ("<Button-5>", self._wheel_bind_linux5),
+                ("<Configure>", self._move_bind),
+            ):
+                with contextlib.suppress(tk.TclError):
+                    parent.unbind(event, bind_id)
             with contextlib.suppress(tk.TclError):
-                parent.attributes("-disabled", False)
+                self.grab_release()
         return self._result
+
+    def _block_wheel(self, _event: tk.Event) -> str:
+        """截住滚轮：对话框打开时背景不该跟着滚。"""
+        return "break"
+
+    def _on_parent_configure(self, _event: Optional[tk.Event] = None) -> None:
+        """父窗口动了：隔一帧再重新居中，拖动时不至于一帧一个位置。"""
+        if self._follow_job is not None:
+            return
+        self._follow_job = self.after(16, self._reposition)
+
+    def _reposition(self) -> None:
+        """重新摆位；``_place_over`` 本身会把坐标夹进屏幕。"""
+        self._follow_job = None
+        if not self.winfo_exists():
+            return
+        self._place_over(self._parent_window)
 
 
 def alert(

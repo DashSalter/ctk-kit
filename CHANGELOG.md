@@ -69,8 +69,9 @@
   - 箭头先 pack，输入框后 pack，否则 `expand` 的输入框会把箭头挤成 5px
 - 新增对话框：`alert` / `confirm` / `prompt` / `Dialog`（`ctk_kit/dialog.py`）
   - 无边框圆角卡片，没有系统标题栏
-  - 真模态：`show()` 期间把父窗口置为 `-disabled`，主窗口拖不动、点不了、滚轮也滚不动。
-    只靠 `grab_set` 不够——无边框窗口拦不住标题栏拖动和 `bind_all` 的滚轮
+  - 模态：`grab_set` 挡住客户区输入，父窗口上临时绑 `<MouseWheel>` 拦住滚轮
+    （CTk 的滚动走 `bind_all`，光靠 grab 拦不住）
+  - 主窗口仍然可以拖，对话框跟着走；位置夹在屏幕内，窗口拖到屏幕外也点得到
   - `level` 决定图标颜色（info / success / warn / error），`detail` 在正文下面补小字
   - `confirm` 返回布尔；`prompt` 返回字符串或 None；`Dialog` 按 `buttons=[(文字, 返回值)]` 返回被点的值
   - `danger=True` 让确认按钮变危险色

@@ -309,9 +309,9 @@ app.notifier.show("云备份失败", title="网络错误", level="error", style=
 
 ### 对话框（`dialog`）
 
-模态面板：没有系统标题栏，弹出就是一块圆角卡片；弹出期间主窗口拖不动、
-点不了、滚轮也滚不动（`show()` 里把父窗口置为 `disabled`，不是只靠
-`grab_set` 那种拦不住标题栏和滚轮的假模态）。
+模态面板：没有系统标题栏，弹出就是一块圆角卡片。弹出期间主窗口**可以拖**，
+对话框会跟着走；但客户区点不了、滚轮也滚不动（`grab_set` + 在父窗口上拦
+`<MouseWheel>`）。位置会夹在屏幕内——父窗口拖到屏幕外时，对话框仍然可见、能点。
 
 ```python
 from ctk_kit import alert, confirm, prompt

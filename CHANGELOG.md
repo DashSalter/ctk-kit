@@ -3,6 +3,35 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.9.2 — 2026-11-02
+
+- 输入框默认带右键菜单：`CTkEntry` / `ToolbarEntry` / `FormEntry` / `TextArea` / `DropField`
+  不用写任何代码就有「复制 / 粘贴 / 剪切 / 清空」，右键落在内层 canvas、文字上也照常弹出
+  - 菜单项跟着控件状态走：没选中文字时「剪切 / 复制」灰掉，剪贴板里没有文本时「粘贴」
+    灰掉，输入框为空时「清空」灰掉；只读文本区只剩可用的「复制」
+  - `menu=True`（默认）挂默认项，`menu=False` 关掉，`menu=[(文字, 函数), ...]` 只用自己的项
+  - 默认项顺序是「复制 / 粘贴 / 剪切 / 清空」
+- 修右键菜单的「粘贴」位置：右键本身不会移动插入点，原来粘贴总落在上一次的光标处
+  （常常是末尾），看着像「粘错地方」。现在弹菜单前先把插入点挪到点击处
+  - 粘之前还会撤掉占位符、聚焦输入框：空框不会再出现「粘贴后混进 placeholder 文字」
+  - 发 `<<Copy>>` / `<<Cut>>` / `<<Paste>>` 前把焦点还给输入框，点完菜单也能接着打字
+- 新增 `attach_edit_menu(widget, items=None, *, preset=True, width=132, reset=False)`：默认菜单的底层函数
+  - 返回 `ContextMenu`，挂上之后仍可 `add_command` 继续追加
+  - 重复调用返回同一个菜单对象，这次传的 `items` 追加到已有菜单末尾；`preset` / `width`
+    只在首次挂载时生效（之前重复调用会把 `items` 静默丢掉）
+  - `reset=True` 丢掉现在这套重新挂一遍，用来把改乱的菜单恢复成默认四项
+  - 单行、多行都行：内部自己找承载文字的 `tk.Entry` / `tk.Text`，`TextArea` 多包的一层也能认出来
+- `attach_menu` / `attach_edit_menu` 改用 `add="+"` 绑定右键，不再覆盖控件上已有的绑定；
+  同一个控件后挂的菜单替换先挂的，不会叠出两套
+- `ContextMenu.add_command(..., enabled=...)`：传布尔或「收控件、返回布尔」的函数，
+  弹出时按控件状态决定是否置灰；置灰项文字用 `COLOR_FAINT`，点了不执行，也不再回传 source
+- `ContextMenu` 支持运行时增删改菜单项：`has_command(label)` 判断在不在，
+  `remove_command(label)` 删掉第一项（顺手清掉因此孤立的分隔线），
+  `rename_command(label, new_label)` 换文字但保留回调
+- 示例窗「输入」页新增「输入框右键菜单」卡片（默认 / 自定义 / 关闭三种写法），
+  「菜单」页补一张「输入框默认就带菜单」卡片：单行与多行输入框，外加
+  「+ 插入时间戳」「改名」「删除」「恢复默认」四个按钮，演示增删改的实际效果
+
 ## 0.9.1 — 2026-11-02
 
 - 修 `DropField` 的候选面板在页面滚动时乱跑：原来靠顶层窗口的 `<Configure>` 跟随，

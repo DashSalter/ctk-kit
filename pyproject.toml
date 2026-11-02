@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctk-kit"
-version = "0.9.1"
+version = "0.9.2"
 description = "面向 CustomTkinter 的轻量界面基件：深浅色令牌、常用控件与懒加载列表"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -42,9 +42,6 @@ dependencies = ["customtkinter>=5.2"]
 image = ["pillow>=9"]
 # 只有 PathField / DropZone 的拖入需要 tkinterdnd2，按钮选择路径不依赖它
 dnd = ["tkinterdnd2>=0.3"]
-
-[project.scripts]
-ctk-kit-showcase = "ctk_kit.showcase:main"
 
 [project.urls]
 Homepage = "https://gitee.com/kuangjianke/ctk-kit"

@@ -27,6 +27,7 @@ class PageHeader(ctk.CTkFrame):
     """
 
     def __init__(self, master: tk.Misc, title: str) -> None:
+        """建页头：左边标题、右边信息标签，整行铺满。"""
         super().__init__(master, fg_color="transparent")
         self.pack(fill="x")
         self.title_label = ctk.CTkLabel(
@@ -38,7 +39,8 @@ class PageHeader(ctk.CTkFrame):
         )
         self.info.pack(side="right", pady=(9, 0))
 
-    def __iter__(self):
+    def __iter__(self) -> Any:
+        """兼容旧写法 ``head, info = PageHeader(...)`` 的解包。"""
         # 兼容 `head, info = PageHeader(...)` 的旧写法
         return iter((self, self.info))
 
@@ -47,6 +49,7 @@ class SectionTitle(ctk.CTkLabel):
     """分区标题（设置页的「外观」「备份」这一层），构造时即 ``pack``。"""
 
     def __init__(self, master: tk.Misc, text: str) -> None:
+        """建分区标题；构造时自动 ``pack`` 成一行。"""
         super().__init__(
             master,
             text=text,
@@ -84,6 +87,7 @@ class Card(ctk.CTkFrame):
     def __init__(
         self, master: tk.Misc, *, title: str = "", **kwargs: Any
     ) -> None:
+        """建卡片；传 ``title`` 时在卡片上方再放一行标题。"""
         kwargs.setdefault("fg_color", T.COLOR_CARD)
         kwargs.setdefault("border_width", 1)
         kwargs.setdefault("border_color", T.COLOR_BORDER)
@@ -99,6 +103,18 @@ class Card(ctk.CTkFrame):
                 anchor="w",
             )
             self.title_label.pack(fill="x", pady=(0, T.SPACE_SM))
+
+    @property
+    def body(self) -> "Card":
+        """卡片的内容容器。
+
+        目前就是卡片自身；加这个属性是为了让调用方不用关心「Card 既是
+        边框又是内容容器」这个细节，以后内部结构变了也不用改调用代码::
+
+            box = Card(page, title="详情")
+            Frame(box.body).pack(fill="x", padx=16, pady=12)
+        """
+        return self
 
     def pack(self, cnf: Any = None, **kwargs: Any) -> None:
         """``pack`` 卡片时把 ``padx`` / 顶部 ``pady`` 同步给标题。
@@ -222,6 +238,7 @@ class Scrollable(ctk.CTkScrollableFrame):
     """
 
     def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        """建透明滚动容器，并套用库的滚动条样式。"""
         kwargs.setdefault("fg_color", "transparent")
         super().__init__(master, **kwargs)
         style_scrollable(self)
@@ -255,6 +272,7 @@ class FieldLabel(ctk.CTkLabel):
     """卡片内左对齐的字段名，宽度固定让右边控件能对齐成一列。"""
 
     def __init__(self, master: tk.Misc, text: str, *, width: int = 112) -> None:
+        """建固定宽度的字段名标签，让右边控件能对齐成一列。"""
         super().__init__(
             master,
             text=text,
@@ -269,6 +287,7 @@ class HintLabel(ctk.CTkLabel):
     """字段下方的说明文字（左对齐、多行左对齐），构造时尚未摆位。"""
 
     def __init__(self, master: tk.Misc, text: str) -> None:
+        """建字段说明标签（左对齐、多行左对齐），构造时尚未摆位。"""
         super().__init__(
             master,
             text=text,

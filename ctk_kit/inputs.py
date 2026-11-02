@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .context_menu import attach_edit_menu
 from .fonts import get_font
 
 # 分段选择的选中回调：收到被选中的那一段文字。
@@ -42,14 +43,29 @@ class CTkEntry(ctk.CTkEntry):
 
     参数与 customtkinter 的 ``CTkEntry`` 完全一致，只是把底色、描边、圆角、
     字体和 placeholder 颜色换成 ``tokens`` 里的值，深浅色自动跟随；显式传
-    同名参数可以覆盖任意一项。
+    同名参数可以覆盖任意一项。输入框默认带「复制 / 粘贴 / 剪切 / 清空」
+    右键菜单，用 ``menu`` 控制。
 
     示例::
 
         entry = CTkEntry(frame, placeholder_text="输入名字", width=320)
+
+        CTkEntry(frame, menu=False)              # 不要右键菜单
+        CTkEntry(frame, menu=[("插入时间戳", stamp)])   # 只用自己的菜单项
     """
 
-    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+    def __init__(
+        self, master: tk.Misc, *, menu: Any = True, **kwargs: Any
+    ) -> None:
+        """建带默认样式的输入框；显式参数可覆盖类说明里的默认值。
+
+        参数:
+            master: 父容器。
+            menu: 右键菜单。``True`` 挂默认的复制/粘贴/剪切/清空，``False``
+                或 ``None`` 不挂，传 ``(文字, 函数)`` 的序列则**只**用这些
+                自定义项（默认项不再附带）。
+            **kwargs: 透传给 customtkinter ``CTkEntry`` 的参数。
+        """
         kwargs.setdefault("fg_color", T.COLOR_INPUT)
         kwargs.setdefault("border_width", 1)
         kwargs.setdefault("border_color", T.COLOR_BORDER_INPUT)
@@ -58,6 +74,26 @@ class CTkEntry(ctk.CTkEntry):
         kwargs.setdefault("text_color", T.COLOR_TEXT)
         kwargs.setdefault("placeholder_text_color", T.COLOR_FAINT)
         super().__init__(master, **kwargs)
+        if menu:
+            if menu is True:
+                attach_edit_menu(self)
+            else:
+                attach_edit_menu(self, menu, preset=False)
+
+    def set(self, text: str) -> None:
+        """整体替换内容（清空后再写入），等价于 ``delete(0, "end")`` + ``insert``。"""
+        self.delete(0, "end")
+        if text:
+            self.insert(0, text)
+
+    def append(self, text: str) -> None:
+        """把文字追加到当前内容末尾。"""
+        if text:
+            self.insert("end", text)
+
+    def clear(self) -> None:
+        """清空输入框。"""
+        self.delete(0, "end")
 
 
 def bind_focus_border(
@@ -99,6 +135,7 @@ def bind_focus_border(
     target = widget if source is None else source
 
     def apply(color: Any) -> None:
+        """把描边颜色换成 ``color``；槽位宽度保持不变，避免布局位移。"""
         try:
             widget.configure(border_width=width, border_color=color)
         except Exception:  # noqa: BLE001 - 控件可能已经销毁
@@ -107,9 +144,11 @@ def bind_focus_border(
             on_width(width)
 
     def focus_in(_event: Any = None) -> None:
+        """聚焦：把描边换成主色，线亮出来。"""
         apply(T.COLOR_ACCENT)
 
     def focus_out(_event: Any = None) -> None:
+        """失焦：把描边换回底色，线“消失”。"""
         apply(resting)
 
     for sequence, handler in (("<FocusIn>", focus_in), ("<FocusOut>", focus_out)):
@@ -119,18 +158,21 @@ def bind_focus_border(
             target.bind(sequence, handler)
 
 
-def ToolbarEntry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.CTkEntry:
+def ToolbarEntry(
+    master: tk.Misc, placeholder: str, *, height: int = 40, menu: Any = True
+) -> CTkEntry:
     """页面顶部搜索框：填充底 + 1px 描边。
 
     参数:
         master: 父容器。
         placeholder: 未输入时显示的灰色占位文字。
         height: 高度（像素），默认 40。
+        menu: 右键菜单，含义同 :class:`CTkEntry`；``False`` 关掉。
 
     返回:
-        尚未摆位的 ``CTkEntry``。
+        尚未摆位的 ``CTkEntry``（带本库默认样式，支持 ``set`` / ``append`` / ``clear``）。
     """
-    entry = ctk.CTkEntry(
+    return CTkEntry(
         master,
         placeholder_text=placeholder,
         placeholder_text_color=T.COLOR_FAINT,
@@ -141,8 +183,8 @@ def ToolbarEntry(master: tk.Misc, placeholder: str, *, height: int = 40) -> ctk.
         border_width=1,
         border_color=T.COLOR_BORDER_INPUT,
         text_color=T.COLOR_TEXT,
+        menu=menu,
     )
-    return entry
 
 
 def FormEntry(
@@ -152,6 +194,7 @@ def FormEntry(
     placeholder: str = "",
     height: int = 38,
     password: bool = False,
+    menu: Any = True,
 ) -> CTkEntry:
     """表单里的单行输入。
 
@@ -165,6 +208,7 @@ def FormEntry(
         placeholder: 未输入时的灰色占位文字。
         height: 高度（像素），默认 38。
         password: 为 ``True`` 时用圆点 ``"•"`` 打码，优先级高于 ``show``。
+        menu: 右键菜单，含义同 :class:`CTkEntry`；``False`` 关掉。
 
     返回:
         尚未摆位的 ``CTkEntry``。
@@ -174,6 +218,7 @@ def FormEntry(
         show=("•" if password else show) or "",
         placeholder_text=placeholder,
         height=height,
+        menu=menu,
     )
 
 
@@ -228,12 +273,14 @@ def Segmented(
     segments = getattr(button, "_buttons_dict", {})
 
     def alive(widget: Any) -> bool:
+        """控件是否还活着；已经销毁时返回 ``False``。"""
         try:
             return bool(widget.winfo_exists())
         except Exception:  # noqa: BLE001 - 控件可能已经销毁
             return False
 
     def paint(value: str) -> None:
+        """给选中的段上亮色文字，其余段用普通文字色。"""
         for name, segment in segments.items():
             if not alive(segment):
                 continue
@@ -247,6 +294,7 @@ def Segmented(
     original_set = button.set
 
     def select(value: str, **kwargs) -> None:
+        """先上色再 ``set``：避免调用方 command 重建页面后按钮已销毁。"""
         # CTkSegmentedButton 内部点按钮时会调 set(value, from_button_callback=True)，
         # 所以这里必须把多余的关键字参数原样转回去，不能只声明一个 value。
         #
@@ -257,6 +305,7 @@ def Segmented(
         original_set(value, **kwargs)
 
     def on_click(value: str) -> None:
+        """点击段按钮：先上色，再回调调用方的 ``command``。"""
         paint(value)
         if command is not None:
             command(value)
@@ -373,6 +422,7 @@ def radio_group(
     var = variable if variable is not None else tk.StringVar(master=master)
 
     def on_select() -> None:
+        """某个单选框被选中：把变量里的值交给调用方的 ``command``。"""
         if command is not None:
             command(var.get())
 

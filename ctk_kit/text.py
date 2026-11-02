@@ -26,8 +26,10 @@ from typing import Any, Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .layout import style_scrollbar
+from .scrolling import find_scrollable, wheel_step
 
 # 内容变化回调：收到最新的全文（空文本时是空字符串）。
 ChangeHandler = Optional[Callable[[str], None]]
@@ -47,6 +49,7 @@ class TextArea(ctk.CTkFrame):
         on_change: ChangeHandler = None,
         bg_color: Any = None,
         text_color: Any = None,
+        menu: Any = True,
         **kwargs: Any,
     ) -> None:
         """创建文本区。
@@ -62,6 +65,8 @@ class TextArea(ctk.CTkFrame):
                 ``COLOR_INPUT``。放在卡片里当日志显示时，传 ``COLOR_CARD`` 或
                 ``"transparent"`` 就不会比周围亮一截。
             text_color: 正文颜色，默认 ``COLOR_TEXT``。
+            menu: 右键菜单。``True`` 挂默认的复制/粘贴/剪切/清空，``False``
+                或 ``None`` 不挂，传 ``(文字, 函数)`` 的序列则只用这些自定义项。
             **kwargs: 透传给外层 ``CTkFrame`` 的参数。
         """
         kwargs.setdefault("fg_color", "transparent")
@@ -124,6 +129,11 @@ class TextArea(ctk.CTkFrame):
             self._show_placeholder()
         self._apply_readonly_state()
         self._refresh(notify=False)
+        if menu:
+            if menu is True:
+                attach_edit_menu(self)
+            else:
+                attach_edit_menu(self, menu, preset=False)
 
     # ------------------------------------------------------------ 读写
     def get(self) -> str:
@@ -151,6 +161,25 @@ class TextArea(ctk.CTkFrame):
     def clear(self) -> None:
         """清空内容，等价于 ``set("")``。"""
         self.set("")
+
+    def append(self, text: str) -> None:
+        """追加到末尾；自动刷新字数统计并触发 ``on_change``。"""
+        self.insert(text)
+
+    def insert(self, text: str, at: str = "end") -> None:
+        """在 ``at`` 位置插入文本；``at`` 接受 Tk 索引（如 ``"1.0"``、``"end"``）。
+
+        占位符显示中时会先清掉占位符；只读控件临时放开、写入后再锁回去。
+        """
+        if not text:
+            return
+        self.textbox.configure(state="normal")
+        if self._placeholder_active:
+            self._clear_placeholder()
+            at = "1.0"
+        self.textbox.insert(at, text)
+        self._apply_readonly_state()
+        self._refresh()
 
     # ------------------------------------------------------------ 只读
     @property
@@ -185,31 +214,16 @@ class TextArea(ctk.CTkFrame):
 
     def _wheel_step(self, units: int) -> str:
         """先滚文本区；文本区已经到顶/到底时把滚轮转给外层 Scrollable。"""
-        text = self.textbox._textbox
-        try:
-            top, bottom = text.yview()
-        except Exception:  # noqa: BLE001 - 控件正在销毁
-            return "break"
-        can_scroll = (units > 0 and bottom < 1.0) or (units < 0 and top > 0.0)
-        if can_scroll:
-            # 文本区一次滚 3 行，和常见文本编辑器的滚轮步长一致
-            text.yview_scroll(units * 3, "units")
-            return "break"
-        parent = self._find_scrollable()
-        if parent is not None:
-            # canvas 的 "units" 是像素，给个和页面滚动接近的步长，
-            # 否则一格只挪 1px，看起来像卡住
-            parent._parent_canvas.yview_scroll(units * 20, "units")
-        return "break"
+        return wheel_step(
+            self.textbox._textbox,
+            units,
+            self_units=3,
+            master=self,
+        )
 
     def _find_scrollable(self) -> Optional[ctk.CTkScrollableFrame]:
         """向上找最近的 CTkScrollableFrame（Scrollable 是它的子类）。"""
-        node: Any = getattr(self, "master", None)
-        while node is not None:
-            if isinstance(node, ctk.CTkScrollableFrame):
-                return node
-            node = getattr(node, "master", None)
-        return None
+        return find_scrollable(self)
 
     def _solid_bg(self) -> Any:
         """文本区实际用的底色。
@@ -234,9 +248,11 @@ class TextArea(ctk.CTkFrame):
         return T.COLOR_CARD
 
     def _apply_readonly_state(self) -> None:
+        """按 ``readonly`` 切换内部 Text 的可编辑状态。"""
         self.textbox.configure(state="disabled" if self._readonly else "normal")
 
     def _show_placeholder(self) -> None:
+        """显示占位文字：临时放开只读，写完再锁回去。"""
         self.textbox.configure(state="normal")
         self.textbox.delete("1.0", "end")
         self.textbox.insert("1.0", self._placeholder)
@@ -245,16 +261,19 @@ class TextArea(ctk.CTkFrame):
         self._apply_readonly_state()
 
     def _clear_placeholder(self) -> None:
+        """清掉占位文字并恢复正文颜色。"""
         self.textbox.delete("1.0", "end")
         self.textbox.configure(text_color=self._text_color)
         self._placeholder_active = False
 
     def _handle_focus_in(self, _event: Any) -> None:
+        """聚焦：非只读时把占位文字撤掉（只读时保留占位符）。"""
         # 只读时保留占位符：它不是可编辑内容，不该因为聚焦就消失
         if self._placeholder_active and not self._readonly:
             self._clear_placeholder()
 
     def _handle_focus_out(self, _event: Any) -> None:
+        """失焦且内容为空时重新显示占位文字。"""
         if self._placeholder_active:
             return
         if not self.textbox.get("1.0", "end-1c") and self._placeholder:
@@ -262,6 +281,7 @@ class TextArea(ctk.CTkFrame):
             self._refresh()
 
     def _refresh(self, notify: bool = True) -> None:
+        """更新字数统计；``notify`` 为真时把全文交给 ``on_change``。"""
         text = self.get()
         if text:
             lines = text.count("\n") + 1

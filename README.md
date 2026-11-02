@@ -43,9 +43,7 @@ PrimaryButton(box, "新建", lambda: app.notify("已保存")).pack(padx=16, pady
 app.mainloop()
 ```
 
-想看全部控件的实际效果，装好后直接运行 `ctk-kit-showcase`。
-
-逐个起步的最小示例在 `examples/basics/`：
+想看全部控件的实际效果，运行仓库里的示例窗口：
 
 ```
 python examples/basics/window.py
@@ -89,7 +87,7 @@ CTkButton(bar, text="保存").pack()
 除 `App`、`CTkEntry`、`CTkButton` 和 `Frame` 外，这些就是 customtkinter 自己的类，
 参数、行为、回调完全一致，类型标注和 IDE 跳转照常。`App` 是加标题、尺寸等构造参数的
 便捷子类；`CTkEntry` 是默认套用库输入框样式的子类——填充底、1px 描边、圆角、placeholder
-灰字都从 `tokens` 取；`CTkButton` 是默认套用库按钮样式的子类——正文微软雅黑、
+灰字都从 `tokens` 取，并默认带「复制 / 粘贴 / 剪切 / 清空」右键菜单（`menu=False` 关掉）；`CTkButton` 是默认套用库按钮样式的子类——正文微软雅黑、
 38 高、9 圆角、浅灰底深色字；`Frame` 是默认 `fg_color="transparent"` 的布局容器。
 它们的参数都与原生同名类相同，显式传同名参数即可覆盖。
 `CTkImage` 和 customtkinter 里一样需要 Pillow，但只在真正创建图片对象时才会用到。
@@ -108,19 +106,19 @@ CTkButton(bar, text="保存").pack()
 | `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `bind_focus_border` | |
 | `text` | `TextArea` | |
 | `dropdown` | `DropField` | |
-| `layout` | `Card` `PageHeader` `SectionTitle` `divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | |
+| `layout` | `Card` `PageHeader` `SectionTitle` `divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | `Card.body` 拿内容容器 |
 | `notify` | `Notifier` `notify` | |
 | `scroll_list` | `LazyList` | |
-| `context_menu` | `ContextMenu` `attach_menu` | |
+| `context_menu` | `ContextMenu` `attach_menu` `attach_edit_menu` | 输入框默认带菜单 |
 | `collapse` | `Collapsible` | 可折叠面板 |
-| `code_panel` | `CodePanel` | 卡片底部的「查看实现」折叠代码块 |
+| `code_panel` | `CodePanel` | 卡片底部的「查看实现」折叠代码块；`set_code` 换代码 |
 | `files` | `PathField` `DropZone` `pick_path` `has_dnd` | 拖放需要 `tkinterdnd2` |
 | `frames` | `Frame` | 默认透明底的布局容器 |
-| `table` | `Table` | |
+| `table` | `Table` | `set_rows` / `add_row` / `remove_row` |
 | `image_view` | `ImageViewer` | 需要 Pillow |
-| `pages` | `PageRebuilder` | 多页面窗口 |
-| `page` | `PageBase` | 页面基类：注入 `app`，子类建议实现 `bind_events` |
-| `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，见下 |
+| `pages` | `PageRebuilder` | 多页面窗口；`add_page` / `remove_page`，页面可写 `on_show` / `on_hide` |
+| `page` | `PageBase` | 页面基类：注入 `app`，子类建议实现 `bind_events`，可选 `on_show` / `on_hide` |
+| `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，`add_page` / `remove_page`，见下 |
 | `theme` / `tokens` | `apply_appearance` `color_of` 等 | 外观与设计令牌 |
 | `customtkinter` | `CTk` `App` `CTkButton` `CTkFrame` `CTkImage` `CTkFont` `set_appearance_mode` 等 | 原生类原样转出；`App` / `CTkEntry` / `CTkButton` / `Frame` 是带库默认样式或默认参数的子类，见上 |
 
@@ -141,10 +139,15 @@ CTkButton(bar, text="保存").pack()
 
 ### 输入（`inputs`）
 
-- `ToolbarEntry(master, placeholder, *, height=40)`
+- `ToolbarEntry(master, placeholder, *, height=40, menu=True)`
   工具条里的搜索框，填充底 + 1px 描边
-- `FormEntry(master, *, show="", placeholder="", height=38, password=False)`
+- `FormEntry(master, *, show="", placeholder="", height=38, password=False, menu=True)`
   表单里的输入框；`show="•"` 或 `password=True` 走密文
+- 上面两个输入框、以及 `ctk_kit.CTkEntry` 本身都支持
+  `set(text)` / `append(text)` / `clear()`（覆盖、追加、清空）
+- 输入框默认带「复制 / 粘贴 / 剪切 / 清空」右键菜单，`menu=False` 关掉，
+  `menu=[(文字, 函数), ...]` 换成自己的项；想基于默认项扩展用 `attach_edit_menu`，
+  见「右键菜单」一节
 - `Segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
   分段选择；`command` 收选中的文字
 - `Switch(master, command=None, *, text="", width=44)`
@@ -164,14 +167,16 @@ CTkButton(bar, text="保存").pack()
 
 ### 多行文本（`text`）
 
-- `TextArea(master, *, placeholder="", height=200, readonly=False, show_counter=True, on_change=None, bg_color=None, text_color=None)`
+- `TextArea(master, *, placeholder="", height=200, readonly=False, show_counter=True, on_change=None, bg_color=None, text_color=None, menu=True)`
   - `placeholder` 失焦时显示
   - `show_counter=True` 在底部右侧显示字数
   - `readonly=True` 只读
   - `on_change(text)` 每次内容变化回调
   - `bg_color` 默认 `COLOR_INPUT`；当日志面板用，传 `COLOR_CARD` 或 `"transparent"`
   - `text_color` 单独覆盖文字色
-  - 方法：`get()` / `set(text)` / `clear()`
+  - `menu` 含义同输入框：默认带右键菜单，`False` 关掉
+  - 方法：`get()` / `set(text)` / `clear()` / `append(text)` / `insert(text, at="end")`；
+    插入和追加会自动刷新字数并触发 `on_change`，只读时也能写入（写完仍保持只读）
 
 ### 下拉（`dropdown`）
 
@@ -182,6 +187,7 @@ CTkButton(bar, text="保存").pack()
   - 移动窗口时面板立刻跟随；缩放窗口时左边不动、右边界推过来就把面板裁窄，停手后归位
   - 页面滚动会改变控件位置但不产生顶层事件，由 60 ms 一次的位置比对补上；控件滚出可视区就自动收起
   - 窗口变窄时面板跟着收窄，窄到放不下就直接收起，不会伸出窗口
+  - 方法：`get()` / `set(value)` / `clear()`（`set` 不触发 `command`）
 
 ### 布局（`layout`）
 
@@ -252,10 +258,20 @@ listing.render(items)
   - `deep=True` 时连容器里的子控件一起挂上：给卡片、面板这类容器用，右键落在里面的
     文字上也会弹出（默认只绑容器自身和它露在外面的那层 canvas）
 - `ContextMenu(master, *, width=132, font=FONT_SMALL)`
-  - `.add_command(文字, 回调)`（返回自身）、`.add_separator()`、`.clear()`
+  - `.add_command(文字, 回调, *, enabled=None)`（返回自身）、`.add_separator()`、`.clear()`
+  - `.has_command(文字)` 判断在不在；`.remove_command(文字)` 删掉第一项（顺手清掉孤立的分隔线）；
+    `.rename_command(文字, 新文字)` 换显示文字、保留回调——三个都返回自身，可以链式写
+  - `enabled` 传布尔或「收控件、返回布尔」的函数，弹出时按控件状态决定是否置灰
   - `.show(x, y, source=None)` / `.close()` / `.visible`
   - 同一个应用里同时只会有一个菜单：右键另一个控件时，上一个会自动收起来
   - `source` 是回调第一个参数拿到的控件
+- `attach_edit_menu(widget, items=None, *, preset=True, width=132, reset=False)` → `ContextMenu`
+  - 输入框的「复制 / 粘贴 / 剪切 / 清空」预设，`CTkEntry` / `FormEntry` / `ToolbarEntry` /
+    `TextArea` / `DropField` 默认已经挂好，一般不用自己调
+  - 项跟着状态走：没选中时「剪切 / 复制」灰、剪贴板空时「粘贴」灰、框空时「清空」灰
+  - 返回菜单对象，可以继续 `add_separator()` / `add_command(...)`；重复调用拿到的是同一个
+    菜单，这次传的 `items` 追加到末尾
+  - `reset=True` 丢掉现有菜单重新挂一遍，改乱了可以用它恢复成默认四项
 
 菜单开着时：拖动或缩放主窗口它会跟着走；点到外面、按 Esc、窗口失焦都会收起。
 
@@ -269,16 +285,37 @@ attach_menu(save, [
 ])
 ```
 
+输入框的菜单不用手挂，默认就有；增删改都围绕同一个菜单对象：
+
+```python
+from ctk_kit import FormEntry, attach_edit_menu
+
+entry = FormEntry(frame)          # 右键已有复制 / 粘贴 / 剪切 / 清空
+menu = attach_edit_menu(entry)    # 拿到的是同一个菜单对象
+
+menu.add_separator()                                  # 增
+menu.add_command("插入时间戳", lambda w: w.insert("insert", "12:00:00 "))
+
+menu.rename_command("插入时间戳", "插入当前时间")       # 改：文字变化，回调不变
+menu.remove_command("剪切")                            # 删：按文字删第一项
+
+attach_edit_menu(entry, reset=True)                   # 恢复默认四项
+
+FormEntry(frame, menu=False)      # 不要右键菜单
+FormEntry(frame, menu=[("只保留这一项", fn)])   # 完全自定义
+```
+
 ### 表格（`table`）
 
-- `Table(master, columns, *, row_height=36, header_height=38, max_visible_rows=8, striped=True, empty_text="暂无数据")`
+- `Table(master, columns, *, row_height=40, header_height=40, max_visible_rows=8, striped=True, empty_text="暂无数据")`
   - `columns` 每项 `(标题, 宽度, 对齐)`：宽度是逻辑像素，`None` 表示吃掉剩余宽度；
     对齐取 `"w"` / `"center"` / `"e"`
   - `row_height` 行高；`header_height` 表头高
   - `max_visible_rows` 超过这个行数才出现滚动条，否则高度按行数自适应
   - `striped` 隔行底色
   - `empty_text` 没有数据时居中显示的文字
-  - 方法：`set_rows(rows)` 整批替换、`rows()` 取当前数据（单元格按 `str()` 转文本）
+  - 方法：`set_rows(rows)` 整批替换、`add_row(row)` 追加一行、`remove_row(index)` 删除一行、
+    `rows()` 取当前数据（单元格按 `str()` 转文本）
 
 ```python
 from ctk_kit import Table
@@ -330,7 +367,7 @@ TextArea(panel.body, readonly=True).pack(fill="x", padx=10, pady=10)
 - `PathField(master, *, mode="file", placeholder="", height=38, button_text="浏览", title=None, on_change=None, accept_drop=True)`
   - `mode="file"` 选文件、`"folder"` 选文件夹；选中后路径**覆盖**输入框内容
   - `accept_drop=True` 时文件/文件夹可以直接拖到输入框上
-  - 方法：`get()` / `set(path)` / `browse()`（弹对话框并返回选中路径）
+  - 方法：`get()` / `set(path)` / `clear()` / `browse()`（弹对话框并返回选中路径）
 - `DropZone(master, on_path, *, mode="any", height=96, text="把文件或文件夹拖到这里", hint="")`
   - `on_path(path)` 松手后回调；`mode` 取 `"any"` / `"file"` / `"folder"` 过滤类型
   - `text` 主提示，`hint` 是下面那行小字
@@ -372,12 +409,13 @@ app.mainloop()
 - 拖动窗口边缘时页面区会先保持旧尺寸，松手约 320ms 后再按新尺寸重排，
   避免大页面在拖动过程中逐帧重画
 - 方法：`show(name)` 切页、`page(name)` 取/建某一页的容器、
+  `add_page(name, builder, bottom=False)` / `remove_page(name)` 动态增删页面、
   `set_appearance_mode(mode)` / `toggle_appearance()` 切外观（只重建当前页）
 - 属性：`current`、`frames`、`names`、`rebuilder`（底层的 `PageRebuilder`）
 - `App` 也内置了同名转发：`app.set_appearance_mode("light")` /
-  `app.toggle_appearance()`。窗口上挂了 `nav`（即 `app.nav` 是 `SidebarNav`）时
-  自动转给它、只重建当前页；没有导航时直接切外观并重绘已有控件。中文
-  `"浅色"` / `"深色"` 也可以直接传。
+  `app.toggle_appearance()`、`app.show_page(name)` / `app.current_page`。窗口上挂了
+  `nav`（即 `app.nav` 是 `SidebarNav`）时自动转给它、只重建当前页；没有导航时
+  直接切外观并重绘已有控件。中文 `"浅色"` / `"深色"` 也可以直接传。
 
 底层 `PageRebuilder` 也可以单独用：
 
@@ -385,8 +423,11 @@ app.mainloop()
   - `factory(name)` 返回该页的控件
   - `pages` 是页面名序列
   - `on_hide(name)` 页面切走时回调
+  - `add_page(name)` / `remove_page(name)` 动态增删页面
   - 方法：`build_all()` 把所有页面都建出来（启动时用）、`show(name)` 切页、
     `rebuild(name)` 重建某一页
+  - 页面切到前台时调用它的 `on_show()`；切走或重建销毁前调用 `on_hide()`
+    （`PageBase` 已提供空实现，按需覆写）
 
 ## 设计令牌与外观
 

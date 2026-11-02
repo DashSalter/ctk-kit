@@ -64,6 +64,7 @@ class CTkButton(ctk.CTkButton):
     """
 
     def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        """建一个带默认样式的按钮；显式参数会覆盖类说明里的默认值。"""
         kwargs.setdefault("font", get_font(T.FONT_BODY))
         kwargs.setdefault("height", 38)
         kwargs.setdefault("corner_radius", T.RADIUS_SMALL + 1)

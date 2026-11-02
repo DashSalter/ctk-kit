@@ -36,7 +36,7 @@ class DemoApp(App):
         self.nav = SidebarNav(
             self,
             title="ctk-kit",
-            subtitle="v0.9.1 · 示例",
+            subtitle="v0.9.2 · 示例",
             pages={
                 "总览": OverviewPage,
                 "按钮": ButtonPage,

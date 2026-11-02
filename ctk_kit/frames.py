@@ -28,5 +28,6 @@ class Frame(ctk.CTkFrame):
     """
 
     def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        """建透明底布局容器；显式 ``fg_color`` 可覆盖默认值。"""
         kwargs.setdefault("fg_color", "transparent")
         super().__init__(master, **kwargs)

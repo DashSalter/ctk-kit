@@ -53,6 +53,7 @@ class CodePanel(Collapsible):
         expanded_text: str = "收起实现",
         **kwargs: Any,
     ) -> None:
+        """建折叠面板；代码块留到第一次展开时再创建。"""
         super().__init__(
             master,
             collapsed_text=collapsed_text,
@@ -64,12 +65,26 @@ class CodePanel(Collapsible):
 
         self._code = code
         self._note = note
+        self._note_label: Optional[HintLabel] = None
         self.view: Optional[TextArea] = None
         # 构造时就是展开态（expanded=True）的话，直接建出来
         if self.expanded:
             self._build_view()
 
+    def set_code(self, code: str) -> None:
+        """换掉面板里的代码；已经展开时立刻刷新显示。"""
+        self._code = code
+        if self.view is not None:
+            self.view.set(code)
+
+    def set_note(self, note: str) -> None:
+        """换掉代码下面那句说明；空字符串表示不要说明。"""
+        self._note = note
+        if self._note_label is not None:
+            self._note_label.configure(text=note)
+
     def _on_toggle(self, expanded: bool) -> None:
+        """展开时补建代码块；收起时保留已有控件，下次展开直接复用。"""
         if expanded:
             self._build_view()
 
@@ -91,5 +106,6 @@ class CodePanel(Collapsible):
         view.set(self._code)
         view.pack(fill="x", padx=12, pady=(12, 6 if self._note else 12))
         if self._note:
-            HintLabel(self.body, self._note).pack(fill="x", padx=12, pady=(0, 12))
+            self._note_label = HintLabel(self.body, self._note)
+            self._note_label.pack(fill="x", padx=12, pady=(0, 12))
         self.view = view

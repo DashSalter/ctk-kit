@@ -1,6 +1,6 @@
 """选择页：分段、开关、勾选、单选、滑块与进度条。
 
-从 showcase 的「选择」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
+从旧示例的「选择」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
 ``ChoicesPageUI`` 只建控件，``ChoicesPage`` 在构造时自动 ``bind_events()``。
 
 ``Switch`` / ``Checkbox`` / ``Slider`` 的 command 可以后配，全部放在

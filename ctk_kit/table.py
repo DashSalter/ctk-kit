@@ -32,6 +32,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .fonts import get_font
 from .layout import style_scrollbar
+from .scrolling import find_scrollable, wheel_step
 from .theme import color_of
 
 #: 一列的定义：``(标题, 宽度, 对齐)``。宽度为 ``None`` 时自动吃掉剩余空间。
@@ -83,6 +84,7 @@ class Table(ctk.CTkFrame):
         striped: bool = True,
         empty_text: str = "暂无数据",
     ) -> None:
+        """建表头与内容区；列宽、行高、最多可见行数在这里定下来。"""
         super().__init__(
             master,
             fg_color=T.COLOR_CARD,
@@ -139,8 +141,10 @@ class Table(ctk.CTkFrame):
 
         self._canvas.bind("<Configure>", lambda _e: self._redraw())
         self._header_canvas.bind("<Configure>", lambda _e: self._redraw())
-        self._canvas.bind("<MouseWheel>", self._on_wheel)
-        self._header_canvas.bind("<MouseWheel>", self._on_wheel)
+        for canvas in (self._canvas, self._header_canvas):
+            canvas.bind("<MouseWheel>", self._on_wheel)
+            canvas.bind("<Button-4>", self._on_wheel_linux)
+            canvas.bind("<Button-5>", self._on_wheel_linux)
 
         self._sync_height()
         self._redraw()
@@ -160,6 +164,27 @@ class Table(ctk.CTkFrame):
         """当前数据的浅拷贝。"""
         return [list(row) for row in self._rows]
 
+    def add_row(self, row: Sequence[Any]) -> None:
+        """在末尾追加一行。
+
+        参数:
+            row: 按列顺序排列的单元格；会被 ``str()`` 转成文本。
+        """
+        self.set_rows([*self._rows, list(row)])
+
+    def remove_row(self, index: int) -> None:
+        """删除指定下标的行。
+
+        参数:
+            index: 行下标，从 0 开始。
+
+        异常:
+            IndexError: 下标越界。
+        """
+        rows = [list(row) for row in self._rows]
+        rows.pop(index)
+        self.set_rows(rows)
+
     # ------------------------------------------------------------------ #
     def _px(self, value: float) -> int:
         """逻辑像素转物理像素（canvas 不参与 CTk 的缩放）。"""
@@ -170,6 +195,7 @@ class Table(ctk.CTkFrame):
         return get_font(spec).create_scaled_tuple(self._apply_widget_scaling(1.0))
 
     def _sync_height(self) -> None:
+        """按行数调整内容区高度，并同步滚动条显隐。"""
         rows = len(self._rows)
         # 没数据时留两行高，空态提示才不会挤在边框上
         visible = min(rows, self._max_visible_rows) if rows else 2
@@ -177,20 +203,38 @@ class Table(ctk.CTkFrame):
         self._sync_scrollbar()
 
     def _sync_scrollbar(self) -> None:
+        """行数超过可见上限才显示滚动条。"""
         if len(self._rows) <= self._max_visible_rows:
             self._scrollbar.grid_remove()
         else:
             self._scrollbar.grid()
 
     def _on_scroll(self, first: str, last: str) -> None:
+        """canvas 滚动时同步滚动条滑块的位置。"""
         self._scrollbar.set(first, last)
 
     def _on_wheel(self, event: tk.Event) -> str:
-        if len(self._rows) <= self._max_visible_rows:
+        """Windows / macOS：delta 为正表示向上滚。"""
+        if not event.delta:
             return "break"
-        step = -1 if event.delta > 0 else 1
-        self._canvas.yview_scroll(step * 2, "units")
-        return "break"
+        return self._wheel_step(-1 if event.delta > 0 else 1)
+
+    def _on_wheel_linux(self, event: tk.Event) -> str:
+        """Linux：Button-4 向上，Button-5 向下。"""
+        return self._wheel_step(-1 if event.num == 4 else 1)
+
+    def _wheel_step(self, units: int) -> str:
+        """先滚表格；表格没有滚动空间时把滚轮转给外层 Scrollable。"""
+        return wheel_step(
+            self._canvas,
+            units,
+            self_units=2,
+            master=self,
+        )
+
+    def _find_scrollable(self) -> Optional[ctk.CTkScrollableFrame]:
+        """向上找最近的 CTkScrollableFrame（Scrollable 是它的子类）。"""
+        return find_scrollable(self)
 
     # ------------------------------------------------------------------ #
     def _resolve_widths(self, total: float) -> list[float]:
@@ -218,6 +262,7 @@ class Table(ctk.CTkFrame):
         return widths
 
     def _redraw(self) -> None:
+        """整体重画表头与内容区（列宽、单元格、斑马纹）。"""
         for canvas in (self._header_canvas, self._canvas):
             canvas.delete("all")
 

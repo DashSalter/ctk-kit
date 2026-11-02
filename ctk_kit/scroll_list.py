@@ -73,6 +73,7 @@ class LazyList(tk.Frame):
         padx: tuple[int, int] = (0, 8),
         item_height: Optional[int] = None,
     ) -> None:
+        """建滚动列表；卡片由 ``render_card`` 按需生成。"""
         super().__init__(master, bg=color_of(T.COLOR_BG), highlightthickness=0)
         self.render_card: RenderCard = render_card
         self.key_of: KeyOf = key_of or repr

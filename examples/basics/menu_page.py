@@ -9,12 +9,15 @@
 from __future__ import annotations
 
 import tkinter as tk
+from datetime import datetime
 
 from ctk_kit import (
     Card,
+    CodePanel,
     ContextMenu,
     DangerButton,
     FieldLabel,
+    FormEntry,
     Frame,
     HintLabel,
     PageBase,
@@ -23,9 +26,9 @@ from ctk_kit import (
     Scrollable,
     SecondaryButton,
     TextArea,
+    attach_edit_menu,
     attach_menu,
     tokens as T,
-    CodePanel,
 )
 
 #: 代码块字体：等宽，比正文大一点，展开后不用凑近看。
@@ -81,6 +84,35 @@ menu.show(event.x_root, event.y_root, source=event.widget)
 # 容器加上 deep=True：右键落在里面的子控件上也能弹
 attach_menu(zone, [("复制提示文字", on_copy)], deep=True)'''
 
+INPUT_CODE = '''from ctk_kit import FormEntry, TextArea, attach_edit_menu
+
+# 不用做任何事：复制 / 粘贴 / 剪切 / 清空 已经在
+entry = FormEntry(row, placeholder="右键试试")
+
+# 增：拿到菜单对象接着加
+menu = attach_edit_menu(entry)
+menu.add_separator()
+menu.add_command("插入时间戳", stamp)
+
+# 改：按原来的文字找到那一项，换成新文字
+menu.rename_command("插入时间戳", "插入当前时间")
+
+# 删：按文字删掉（重名只删第一个）
+menu.remove_command("剪切")
+
+# 恢复默认：丢掉现在这套，重新挂一遍
+attach_edit_menu(entry, reset=True)
+
+# TextArea（多行）同样默认带；menu=False 可以关掉
+note = TextArea(frame, height=120)'''
+
+#: 输入框卡片里的示例文字。
+INPUT_SAMPLE = "选中几个字再右键，看看哪些项是灰的"
+
+#: 演示增删改时用的菜单项名：原名与改名后的文字。
+CUSTOM_LABEL = "插入时间戳"
+RENAMED_LABEL = "插入当前时间"
+
 
 class MenuPageUI(PageBase):
     """菜单页 UI：只建控件，菜单和回调留给 MenuPage。"""
@@ -101,6 +133,7 @@ class MenuPageUI(PageBase):
         self._build_attach(area)
         self._build_params(area)
         self._build_manual(area)
+        self._build_inputs(area)
 
     def _build_attach(self, area: tk.Misc) -> None:
         """一行 attach_menu 挂上菜单。"""
@@ -184,6 +217,45 @@ class MenuPageUI(PageBase):
             "deep=True 会把容器里的子控件一起挂上，右键落在文字上也能弹出。",
         )
 
+    def _build_inputs(self, area: tk.Misc) -> None:
+        """输入框默认菜单：不用手挂，增删改也在同一张卡片里演示。"""
+        box = Card(area, title="输入框默认就带菜单")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "单行", width=72).pack(side="left")
+        self.menu_entry = FormEntry(row)
+        self.menu_entry.pack(side="left", fill="x", expand=True)
+        self.menu_entry.insert(0, INPUT_SAMPLE)
+
+        self.menu_note = TextArea(box, height=96)
+        self.menu_note.pack(fill="x", padx=16, pady=(0, 8))
+        self.menu_note.set("多行文本区也默认带同一套菜单；只读时复制可用、清空会灰掉。")
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        self.menu_add_btn = SecondaryButton(row, "+ 插入时间戳", None, width=140)
+        self.menu_add_btn.pack(side="left")
+        self.menu_rename_btn = SecondaryButton(row, "改名", None, width=84)
+        self.menu_rename_btn.pack(side="left", padx=(8, 0))
+        self.menu_remove_btn = SecondaryButton(row, "删除", None, width=84)
+        self.menu_remove_btn.pack(side="left", padx=(8, 0))
+        self.menu_reset_btn = SecondaryButton(row, "恢复默认", None, width=110)
+        self.menu_reset_btn.pack(side="left", padx=(8, 0))
+
+        HintLabel(
+            box,
+            "每行输入框都自带复制 / 粘贴 / 剪切 / 清空，不用 attach_menu。"
+            "四个按钮改的是同一个菜单对象：点完右键输入框，就能看到增删改的结果。",
+        ).pack(fill="x", padx=16, pady=(0, 14))
+
+        CodePanel(
+            box,
+            INPUT_CODE,
+            "想换内容就传列表，想关就 menu=False；更多写法见「输入」页。",
+        )
+
 
 class MenuPage(MenuPageUI):
     """事件类：构造时自动调用 bind_events()。"""
@@ -242,6 +314,12 @@ class MenuPage(MenuPageUI):
 
         self.manual_button.configure(command=self._open_manual)
 
+        # 输入框菜单的增 / 改 / 删 / 恢复
+        self.menu_add_btn.configure(command=self._add_menu_item)
+        self.menu_rename_btn.configure(command=self._rename_menu_item)
+        self.menu_remove_btn.configure(command=self._remove_menu_item)
+        self.menu_reset_btn.configure(command=self._reset_menu)
+
     def _copy_name(self, button: tk.Misc) -> None:
         """复制被右键按钮的文字到剪贴板。"""
         name = str(button.cget("text"))
@@ -283,6 +361,53 @@ class MenuPage(MenuPageUI):
         """手动弹菜单：位置取指针，source 交给按钮。"""
         x, y = self.manual_button.winfo_pointerxy()
         self.manual_menu.show(x, y, source=self.manual_button)
+
+    # --- 输入框菜单的增 / 改 / 删 ---
+    def _edit_menu(self) -> ContextMenu:
+        """输入框上那个默认菜单对象（拿到的始终是同一个）。"""
+        return attach_edit_menu(self.menu_entry)
+
+    def _add_menu_item(self) -> None:
+        """增：往默认四项后面加一项自己的。"""
+        menu = self._edit_menu()
+        if menu.has_command(CUSTOM_LABEL) or menu.has_command(RENAMED_LABEL):
+            self._echo("菜单里已经有这一项了，右键输入框看看")
+            return
+        menu.add_separator()
+        menu.add_command(CUSTOM_LABEL, self._insert_stamp)
+        self._echo(f"已添加「{CUSTOM_LABEL}」；右键输入框，点它会插入当前时间")
+
+    def _rename_menu_item(self) -> None:
+        """改：换掉这一项的文字，回调保持不变。"""
+        menu = self._edit_menu()
+        if menu.has_command(CUSTOM_LABEL):
+            menu.rename_command(CUSTOM_LABEL, RENAMED_LABEL)
+            self._echo(f"「{CUSTOM_LABEL}」已改名为「{RENAMED_LABEL}」")
+        elif menu.has_command(RENAMED_LABEL):
+            menu.rename_command(RENAMED_LABEL, CUSTOM_LABEL)
+            self._echo(f"「{RENAMED_LABEL}」已改回「{CUSTOM_LABEL}」")
+        else:
+            self._echo("菜单里还没有这一项，先点「+ 插入时间戳」")
+
+    def _remove_menu_item(self) -> None:
+        """删：按文字把这一项从菜单里去掉。"""
+        menu = self._edit_menu()
+        for label in (CUSTOM_LABEL, RENAMED_LABEL):
+            if menu.has_command(label):
+                menu.remove_command(label)
+                self._echo(f"已删除「{label}」，右键输入框确认一下")
+                return
+        self._echo("现在没有可删的自定义项，先点「+ 插入时间戳」")
+
+    def _reset_menu(self) -> None:
+        """恢复默认四项：丢掉现在这套重新挂一遍。"""
+        attach_edit_menu(self.menu_entry, reset=True)
+        self._echo("菜单已恢复成默认的复制 / 粘贴 / 剪切 / 清空")
+
+    def _insert_stamp(self, entry: tk.Misc) -> None:
+        """在光标处插入当前时间。"""
+        entry.insert("insert", datetime.now().strftime("%H:%M:%S "))
+        self._echo(f"已插入时间戳：{entry.get() or '（空）'}")
 
     def _echo(self, text: str) -> None:
         """把交互结果写回底部回显条。"""

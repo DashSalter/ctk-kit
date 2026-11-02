@@ -57,6 +57,7 @@ class Collapsible(ctk.CTkFrame):
         on_toggle: ToggleCommand = None,
         **kwargs: Any,
     ) -> None:
+        """建折叠面板：标题按钮在上，内容容器 ``body`` 在下。"""
         kwargs.setdefault("fg_color", "transparent")
         super().__init__(master, **kwargs)
 
@@ -129,6 +130,7 @@ class Collapsible(ctk.CTkFrame):
 
     # --- 内部 ---
     def _sync_text(self) -> None:
+        """按当前展开状态重画箭头和标题文字。"""
         arrow = _EXPANDED_ARROW if self._expanded else _COLLAPSED_ARROW
         label = self._expanded_text if self._expanded else self._collapsed_text
         self.button.configure(text=f"{arrow}    {label}")

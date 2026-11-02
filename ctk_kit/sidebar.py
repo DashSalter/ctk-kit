@@ -16,7 +16,7 @@
     nav = SidebarNav(
         app,
         title="ctk-kit",
-        subtitle="v0.9.1 · 完整演示",
+        subtitle="v0.9.2 · 完整演示",
         pages={"基础": build_basic, "复杂": build_complex},
     )
     nav.pack(fill="both", expand=True)
@@ -102,6 +102,7 @@ class SidebarNav(ctk.CTkFrame):
         on_hide: Optional[Callable[[tk.Misc], None]] = None,
         **kwargs: Any,
     ) -> None:
+        """建侧边栏与页面容器；只创建当前页，其余页等切过去再建。"""
         if not pages and not bottom_pages:
             raise ValueError("pages 不能为空")
 
@@ -111,8 +112,8 @@ class SidebarNav(ctk.CTkFrame):
 
         bottom_pages = dict(bottom_pages or {})
         self._builders: Dict[str, PageBuilder] = {**dict(pages), **bottom_pages}
-        self._names: Tuple[str, ...] = tuple(pages) + tuple(bottom_pages)
-        self._nav_names: Tuple[str, ...] = tuple(pages)
+        self._names: list[str] = list(pages) + list(bottom_pages)
+        self._nav_names: list[str] = list(pages)
         self._bottom_pages = bottom_pages
         self._bottom_width = bottom_width
         self._on_change = on_change
@@ -164,46 +165,13 @@ class SidebarNav(ctk.CTkFrame):
         self.subtitle_label.pack(fill="x", padx=18, pady=(0, 20))
 
         for name in self._nav_names:
-            button = ctk.CTkButton(
-                self.sidebar,
-                text=name,
-                height=38,
-                corner_radius=T.RADIUS_SMALL,
-                anchor="w",
-                font=get_font(T.FONT_BODY),
-                fg_color="transparent",
-                bg_color=T.COLOR_SIDE,
-                hover_color=T.COLOR_SOFT,
-                text_color=T.COLOR_MUTED,
-                border_spacing=10,
-                command=lambda key=name: self.show(key),
-            )
-            button.pack(fill="x", padx=10, pady=3)
-            self._buttons[name] = button
-            # 按下就切页：不等松开，把建页的耗时提前到按下瞬间。
-            # CTkButton.bind 会同时绑到内部画布和文字标签，add="+" 保留自带的按下动画。
-            # command 仍保留，键盘激活（空格/回车）还能正常切页。
-            button.bind(
-                "<ButtonPress-1>",
-                lambda _event, key=name: self.show(key),
-                add="+",
-            )
+            self._add_nav_button(name)
 
         # 底部按钮：不在导航列表里的页面（如「设置」），放在侧边栏最下面。
         if self._bottom_pages:
-            self.bottom = ctk.CTkFrame(
-                self.sidebar, fg_color="transparent", bg_color=T.COLOR_SIDE
-            )
-            self.bottom.pack(side="bottom", fill="x", padx=12, pady=(0, 16))
+            self._ensure_bottom()
             for name in self._bottom_pages:
-                button = SecondaryButton(
-                    self.bottom,
-                    name,
-                    command=lambda key=name: self.show(key),
-                    width=self._bottom_width,
-                )
-                button.pack()
-                self._bottom_buttons[name] = button
+                self._add_bottom_button(name)
 
         # ---------------------------------------------------------- 页面区
         self.content = ctk.CTkFrame(self, fg_color=T.COLOR_BG, corner_radius=0)
@@ -231,6 +199,59 @@ class SidebarNav(ctk.CTkFrame):
         self._place_body()
         # 构造时窗口可能还没 mapped，content 尺寸要等首帧；再补一次。
         self.after(1, self._place_body)
+
+    # ------------------------------------------------------------------ 按钮
+
+    def _ensure_bottom(self) -> ctk.CTkFrame:
+        """确保底部分区存在（构造时没有底部页、后来动态加页才需要建）。"""
+        bottom = getattr(self, "bottom", None)
+        if bottom is None:
+            bottom = ctk.CTkFrame(
+                self.sidebar, fg_color="transparent", bg_color=T.COLOR_SIDE
+            )
+            bottom.pack(side="bottom", fill="x", padx=12, pady=(0, 16))
+            self.bottom = bottom
+        return bottom
+
+    def _add_nav_button(self, name: str) -> ctk.CTkButton:
+        """建一个导航按钮并挂到侧边栏（构造与动态加页共用）。"""
+        button = ctk.CTkButton(
+            self.sidebar,
+            text=name,
+            height=38,
+            corner_radius=T.RADIUS_SMALL,
+            anchor="w",
+            font=get_font(T.FONT_BODY),
+            fg_color="transparent",
+            bg_color=T.COLOR_SIDE,
+            hover_color=T.COLOR_SOFT,
+            text_color=T.COLOR_MUTED,
+            border_spacing=10,
+            command=lambda key=name: self.show(key),
+        )
+        button.pack(fill="x", padx=10, pady=3)
+        self._buttons[name] = button
+        # 按下就切页：不等松开，把建页的耗时提前到按下瞬间。
+        # CTkButton.bind 会同时绑到内部画布和文字标签，add="+" 保留自带的按下动画。
+        # command 仍保留，键盘激活（空格/回车）还能正常切页。
+        button.bind(
+            "<ButtonPress-1>",
+            lambda _event, key=name: self.show(key),
+            add="+",
+        )
+        return button
+
+    def _add_bottom_button(self, name: str) -> ctk.CTkButton:
+        """建一个底部按钮并挂到底部分区（构造与动态加页共用）。"""
+        button = SecondaryButton(
+            self._ensure_bottom(),
+            name,
+            command=lambda key=name: self.show(key),
+            width=self._bottom_width,
+        )
+        button.pack()
+        self._bottom_buttons[name] = button
+        return button
 
     # ------------------------------------------------------------------ 尺寸
 
@@ -273,6 +294,7 @@ class SidebarNav(ctk.CTkFrame):
         self.grid_columnconfigure(0, minsize=max(1, px))
 
     def _on_configure(self, event: tk.Event) -> None:
+        """窗口尺寸变化：重算侧边栏宽度，并冻结/解冻页面区。"""
         if event.widget is not self:
             return
         self._sync_sidebar_width(event.width)
@@ -353,6 +375,7 @@ class SidebarNav(ctk.CTkFrame):
     # ------------------------------------------------------------------ 页面
 
     def _create_page(self, name: str) -> tk.Misc:
+        """按页面名调用建页函数；名字不存在时列出可选项。"""
         try:
             builder = self._builders[name]
         except KeyError:
@@ -370,6 +393,65 @@ class SidebarNav(ctk.CTkFrame):
         """取某一页的容器；还没建出来就先建出来（但不显示）。"""
         return self.rebuilder.frame(name)
 
+    def add_page(
+        self, name: str, builder: PageBuilder, *, bottom: bool = False
+    ) -> None:
+        """动态加一页：建导航按钮（或底部按钮），页面等切过去时再建。
+
+        参数:
+            name: 页面名，不能与已有页面重名。
+            builder: 建页函数，接收页面容器、返回页面。
+            bottom: ``True`` 加到侧边栏底部，样式和 ``bottom_pages`` 一致。
+        """
+        if name in self._builders:
+            raise ValueError(f"页面已存在：{name!r}；可选 {list(self._names)}")
+        self._builders[name] = builder
+        self._names.append(name)
+        self.rebuilder.add_page(name)
+        if bottom:
+            self._bottom_pages[name] = builder
+            self._add_bottom_button(name)
+        else:
+            self._nav_names.append(name)
+            self._add_nav_button(name)
+        self._paint_nav(self.rebuilder.current or "", force=True)
+
+    def remove_page(self, name: str) -> None:
+        """动态删一页：销毁导航按钮与页面容器。
+
+        不能删正在显示的页面；需要的话先 :meth:`show` 到别的页再删。
+
+        参数:
+            name: 页面名。
+
+        异常:
+            ValueError: 页面不存在，或者它是当前唯一页面。
+        """
+        if name not in self._builders:
+            raise ValueError(f"未知页面：{name!r}；可选 {list(self._names)}")
+        if name == self.rebuilder.current:
+            others = [key for key in self._names if key != name]
+            if not others:
+                raise ValueError("不能删除唯一的页面")
+            self.show(others[0])
+        self._builders.pop(name, None)
+        if name in self._names:
+            self._names.remove(name)
+        if name in self._nav_names:
+            self._nav_names.remove(name)
+        self._bottom_pages.pop(name, None)
+        button = self._buttons.pop(name, None)
+        if button is None:
+            button = self._bottom_buttons.pop(name, None)
+        if button is not None:
+            try:
+                button.destroy()
+            except Exception:  # noqa: BLE001 - 控件可能已经销毁
+                pass
+        if self._painted_name == name:
+            self._painted_name = None
+        self.rebuilder.remove_page(name)
+
     @property
     def current(self) -> Optional[str]:
         """当前显示的页面名。"""
@@ -382,8 +464,8 @@ class SidebarNav(ctk.CTkFrame):
 
     @property
     def names(self) -> Tuple[str, ...]:
-        """全部页面名，按构造时的顺序。"""
-        return self._names
+        """全部页面名，按当前顺序（动态加页/删页后会变）。"""
+        return tuple(self._names)
 
     # ------------------------------------------------------------------ 外观
 

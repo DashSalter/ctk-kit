@@ -72,6 +72,7 @@ class App(CTk):
         notifier: bool = True,
         **kwargs: Any,
     ) -> None:
+        """建根窗口：先应用外观/主题，再交给 ``CTk`` 完成其余初始化。"""
         if appearance is not None:
             set_appearance_mode(appearance)
         if theme is not None:
@@ -97,7 +98,7 @@ class App(CTk):
         if notifier:
             self.notifier = Notifier(self)
 
-    def notify(self, message: str, **kwargs: Any):
+    def notify(self, message: str, **kwargs: Any) -> Any:
         """弹出一条提示，等价于 ``self.notifier.show(message, **kwargs)``。
 
         参数与 :meth:`Notifier.show` 相同，例如 ``level="error"``、
@@ -140,6 +141,30 @@ class App(CTk):
         """在深浅两套外观之间切换。"""
         mode = "light" if get_appearance_mode() == "Dark" else "dark"
         self.set_appearance_mode(mode)
+
+    @property
+    def current_page(self) -> Optional[str]:
+        """当前显示的页面名；窗口没挂 ``SidebarNav`` 时是 ``None``。"""
+        nav = getattr(self, "nav", None)
+        return getattr(nav, "current", None)
+
+    def show_page(self, name: str) -> None:
+        """切到某一页，等价于 ``self.nav.show(name)``。
+
+        参数:
+            name: 页面名，必须是 ``SidebarNav`` 里注册过的页面。
+
+        异常:
+            AttributeError: 窗口没有挂 ``SidebarNav``（``self.nav``）。
+        """
+        nav = getattr(self, "nav", None)
+        show = getattr(nav, "show", None)
+        if not callable(show):
+            raise AttributeError(
+                "这个窗口没有挂 SidebarNav（self.nav），无法切页；"
+                "先建一个 SidebarNav 并赋给 self.nav。"
+            )
+        show(name)
 
     def _refresh_titlebar(self) -> None:
         """把标题栏刷成和当前外观一致（仅 Windows 11 22H2+ 真正上色）。"""

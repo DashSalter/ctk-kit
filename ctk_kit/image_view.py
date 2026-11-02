@@ -65,6 +65,7 @@ class ImageViewer(ctk.CTkFrame):
         empty_text: str = "还没有图片",
         on_zoom: Optional[Callable[[float], None]] = None,
     ) -> None:
+        """建图片查看器；内部再建 canvas，图片等 ``set_image`` 时再放。"""
         super().__init__(
             master,
             fg_color=T.COLOR_SOFT,
@@ -156,9 +157,11 @@ class ImageViewer(ctk.CTkFrame):
 
     # ------------------------------------------------------------------ #
     def _on_configure(self, _event: tk.Event) -> None:
+        """控件尺寸变化：按新尺寸重画，保留当前视口。"""
         self._render(keep_view=True)
 
     def _on_wheel(self, event: tk.Event) -> str:
+        """滚轮缩放：以光标下的图片点为锚，缩完重画。"""
         if self._original is None:
             return "break"
         step = 1.12 if event.delta > 0 else 1 / 1.12
@@ -177,12 +180,14 @@ class ImageViewer(ctk.CTkFrame):
         return "break"
 
     def _on_press(self, event: tk.Event) -> str:
+        """按下开始拖拽：记下起点和当时的偏移。"""
         if self._item is None:
             return "break"
         self._drag = (event.x, event.y, self._offset[0], self._offset[1])
         return "break"
 
     def _on_drag(self, event: tk.Event) -> str:
+        """拖拽中：只平移位图，超出预渲染范围才重新采样。"""
         if self._drag is None or self._item is None:
             return "break"
         start_x, start_y, offset_x, offset_y = self._drag
@@ -200,6 +205,7 @@ class ImageViewer(ctk.CTkFrame):
         return "break"
 
     def _on_release(self, _event: tk.Event) -> str:
+        """松开：结束拖拽，把偏移夹回边界并重画。"""
         self._drag = None
         self._clamp_offset()
         self._render(keep_view=True)
@@ -207,6 +213,7 @@ class ImageViewer(ctk.CTkFrame):
 
     # ------------------------------------------------------------------ #
     def _render(self, *, keep_view: bool = False) -> None:
+        """按当前缩放和偏移重画一张位图；``keep_view`` 时保留已有视图状态。"""
         canvas_w = max(1, self._canvas.winfo_width())
         canvas_h = max(1, self._canvas.winfo_height())
         self._canvas.delete("all")

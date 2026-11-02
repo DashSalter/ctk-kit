@@ -57,9 +57,10 @@ class PageRebuilder:
         *,
         on_hide: Optional[PageHook] = None,
     ) -> None:
+        """保存建页函数和页面名；页面容器在第一次显示时才建。"""
         self._host = host
         self._factory = factory
-        self._pages = tuple(pages)
+        self._pages: list[str] = list(pages)
         self._on_hide = on_hide
         self._frames: Dict[str, ctk.CTkFrame] = {}
         self._stale: Set[str] = set()
@@ -69,8 +70,8 @@ class PageRebuilder:
 
     @property
     def pages(self) -> tuple:
-        """页面名，按构造时给的顺序。"""
-        return self._pages
+        """页面名，按当前顺序（动态加页后会变）。"""
+        return tuple(self._pages)
 
     @property
     def current(self) -> Optional[str]:
@@ -101,6 +102,7 @@ class PageRebuilder:
         page.lower()
 
     def _build(self, name: str) -> ctk.CTkFrame:
+        """建一页并压到最底层，同时清掉它的过期标记。"""
         page = self._factory(name)
         self._frames[name] = page
         self._stack(page)
@@ -112,6 +114,38 @@ class PageRebuilder:
         for name in self._pages:
             if name not in self._frames:
                 self._build(name)
+
+    def add_page(self, name: str) -> None:
+        """追加一个页面名；页面本身等第一次 :meth:`show` / :meth:`frame` 时再建。
+
+        参数:
+            name: 页面名，必须还没注册过。
+        """
+        if name in self._pages:
+            raise ValueError(f"页面已存在：{name!r}")
+        self._pages.append(name)
+
+    def remove_page(self, name: str) -> None:
+        """移除一个页面并销毁它的容器。
+
+        参数:
+            name: 页面名。不能是当前正在显示的页面——先切到别的页再删。
+
+        异常:
+            ValueError: 页面不存在，或者它当前正被显示。
+        """
+        if name not in self._pages:
+            raise ValueError(f"未知页面：{name!r}；可选 {list(self._pages)}")
+        if name == self._current:
+            raise ValueError(f"不能删除正在显示的页面：{name!r}；先切到别的页")
+        page = self._frames.pop(name, None)
+        if page is not None:
+            try:
+                page.destroy()
+            except Exception:  # noqa: BLE001 - 已经在别处销毁了
+                pass
+        self._pages.remove(name)
+        self._stale.discard(name)
 
     def rebuild(self, name: str) -> ctk.CTkFrame:
         """按当前外观重建一页：先建新页挂好，再销毁旧页。
@@ -142,6 +176,7 @@ class PageRebuilder:
         else:
             page.lower()
         if old is not None:
+            self._call_hook(old, "on_hide")
             try:
                 old.destroy()
             except Exception:  # noqa: BLE001 - 已经在别处销毁了
@@ -194,7 +229,23 @@ class PageRebuilder:
                     self._on_hide(other)
                 except Exception:  # noqa: BLE001 - 钩子不该打断切页
                     pass
+            self._call_hook(other, "on_hide")
+        # 先让旧页收尾，再通知新页「已经上场」，顺序符合直觉。
+        self._call_hook(page, "on_show")
         return page
+
+    @staticmethod
+    def _call_hook(page: tk.Misc, name: str) -> None:
+        """调用页面自己的 ``on_show`` / ``on_hide`` 钩子；没定义就跳过。
+
+        钩子抛异常不打断切页，异常只影响这个钩子本身。
+        """
+        hook = getattr(page, name, None)
+        if callable(hook):
+            try:
+                hook()
+            except Exception:  # noqa: BLE001 - 钩子不该打断切页
+                pass
 
     # -------------------------------------------------------------- 切外观
 
@@ -235,6 +286,7 @@ class PageRebuilder:
         name = self._current
 
         def finish() -> None:
+            """执行 ``after_rebuild`` 回调；延迟重建时也用它收尾。"""
             if after_rebuild is not None:
                 after_rebuild()
 
@@ -253,6 +305,7 @@ class PageRebuilder:
             return
 
         def rebuild_later() -> None:
+            """延迟到下一帧再重建当前页；期间若已重建就跳过。"""
             if name in self._stale:
                 self.rebuild(name)
             finish()

@@ -100,6 +100,7 @@ def register_drop(widget: tk.Misc, on_path: Callable[[str], None]) -> bool:
         return False
 
     def handler(event: Any) -> str:
+        """拖放回调：取第一个路径交给 ``on_path``，返回拖放动作。"""
         path = _first_path(widget, event.data)
         if path:
             on_path(path)
@@ -136,6 +137,7 @@ class PathField(ctk.CTkFrame):
         accept_drop: bool = True,
         **kwargs: Any,
     ) -> None:
+        """建路径输入框和浏览按钮；``accept_drop`` 为真时再挂拖放。"""
         kwargs.setdefault("fg_color", "transparent")
         super().__init__(master, **kwargs)
         self._mode = mode
@@ -155,13 +157,19 @@ class PathField(ctk.CTkFrame):
 
     # --- 对外 ---
     def get(self) -> str:
+        """当前输入框里的路径。"""
         return self.entry.get()
 
     def set(self, path: str) -> None:
+        """覆盖输入框内容并触发 ``on_change``。"""
         self.entry.delete(0, "end")
         if path:
             self.entry.insert(0, path)
         self._changed()
+
+    def clear(self) -> None:
+        """清空路径，等价于 ``set("")``（会触发 ``on_change``）。"""
+        self.set("")
 
     def browse(self) -> str:
         """弹对话框；选中就把路径写进输入框并返回，取消返回空串。"""
@@ -177,9 +185,11 @@ class PathField(ctk.CTkFrame):
         return picked
 
     def _dropped(self, path: str) -> None:
+        """拖放回调：直接把路径写进输入框。"""
         self.set(path)
 
     def _changed(self) -> None:
+        """输入内容变了：把最新值交给 ``on_change``。"""
         if self._on_change is not None:
             self._on_change(self.get())
 
@@ -201,6 +211,7 @@ class DropZone(ctk.CTkFrame):
         hint: str = "",
         **kwargs: Any,
     ) -> None:
+        """建拖放区；系统不支持拖放时显示安装提示。"""
         kwargs.setdefault("fg_color", T.COLOR_SOFT)
         kwargs.setdefault("corner_radius", T.RADIUS_MEDIUM)
         super().__init__(master, height=height, **kwargs)
@@ -235,11 +246,13 @@ class DropZone(ctk.CTkFrame):
             )
 
     def _setup_drop(self) -> bool:
+        """给内部目标挂拖放事件；返回是否至少挂上一个。"""
         root = self.winfo_toplevel()
         if not _ensure_dnd(root):
             return False
 
         def on_drop(event: Any) -> str:
+            """松手回调：取消高亮，路径合法就交给 ``_dropped``。"""
             self._highlight(False)
             path = _first_path(self, event.data)
             if path:
@@ -259,9 +272,11 @@ class DropZone(ctk.CTkFrame):
         return registered
 
     def _highlight(self, active: bool) -> None:
+        """拖动经过时换高亮底色，离开时恢复。"""
         self.configure(fg_color=T.COLOR_HOVER_FAINT if active else T.COLOR_SOFT)
 
     def _dropped(self, path: str) -> None:
+        """按 ``mode`` 过滤路径后交给 ``on_path``。"""
         self._highlight(False)
         try:
             is_dir = Path(path).is_dir()

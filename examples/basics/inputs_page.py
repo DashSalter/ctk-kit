@@ -1,6 +1,6 @@
 """输入页：文本框、文件与文件夹选择、拖入取路径、下拉框、大文本区。
 
-从 showcase 的「输入」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
+从旧示例的「输入」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
 ``InputsPageUI`` 只建控件，``InputsPage`` 在构造时自动 ``bind_events()``。
 
 能后配的 command 一律在 ``bind_events`` 里挂；``DropZone`` / ``DropField`` /
@@ -11,7 +11,9 @@
 from __future__ import annotations
 
 import tkinter as tk
+from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 from ctk_kit import (
     Card,
@@ -26,6 +28,7 @@ from ctk_kit import (
     PathField,
     Scrollable,
     TextArea,
+    attach_edit_menu,
     has_dnd,
     tokens as T,
     CodePanel,
@@ -127,7 +130,8 @@ TEXT_CODE = '''from ctk_kit import TextArea
 note = TextArea(frame, placeholder="写备注、贴日志…", height=120)
 note.pack(fill="x")
 # TextArea(master, *, placeholder="", height=200, readonly=False,
-#          show_counter=True, on_change=None, bg_color=None, text_color=None)
+#          show_counter=True, on_change=None, bg_color=None, text_color=None,
+#          menu=True)
 
 note.get()             # 当前全文
 note.set("多行\\n文本")
@@ -135,6 +139,29 @@ note.clear()
 
 # 只读日志：readonly=True 禁止编辑、仍可选中复制
 TextArea(frame, readonly=True, show_counter=False, bg_color="transparent")'''
+
+MENU_CODE = '''from ctk_kit import CTkEntry, FormEntry, attach_edit_menu
+
+# 默认就带：复制 / 粘贴 / 剪切 / 清空
+entry = FormEntry(row, placeholder="右键试试")
+
+# 没选中时剪切、复制自动置灰；剪贴板空时粘贴置灰；框空时清空置灰
+
+FormEntry(row, menu=False)                # 关掉右键菜单
+
+FormEntry(row, menu=[("插入时间戳", stamp)])   # 只用自己的项
+
+# 保留默认四项，再追加自己的
+menu = attach_edit_menu(entry)
+menu.add_separator()
+menu.add_command("插入时间戳", stamp)
+menu.add_command("全部选中", select_all)
+
+# menu 是 ContextMenu：clear() 后可以重新定义整套菜单
+# TextArea、DropField 内部输入框同样默认带这套菜单'''
+
+#: 输入框右键菜单卡片里的示例文字。
+MENU_SAMPLE = "选中几个字再右键，试试剪切和复制"
 
 
 class InputsPageUI(PageBase):
@@ -156,6 +183,7 @@ class InputsPageUI(PageBase):
         area.pack(fill="both", expand=True, pady=(14, 0))
 
         self._build_entries(area)
+        self._build_edit_menu(area)
         self._build_paths(area)
         self._build_drop(area)
         self._build_dropdown(area)
@@ -179,13 +207,56 @@ class InputsPageUI(PageBase):
 
         HintLabel(
             box,
-            "password=True 时内部 Entry 用 • 打码；带 placeholder 时 cget('show') 读不到状态。",
+            "password=True 时内部 Entry 用 • 打码；带 placeholder 时 cget('show') 读不到状态。"
+            " 每行输入框都默认带右键菜单，下一张卡片演示怎么扩展。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(
             box,
             FORM_CODE,
             "height / password / show 三个参数最常用；返回的就是 CTkEntry，照常 bind。",
+        )
+
+    def _build_edit_menu(self, area: tk.Misc) -> None:
+        """输入框右键菜单：默认、自定义、关闭三种形态。"""
+        box = Card(area, title="输入框右键菜单")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "默认", width=72).pack(side="left")
+        self.menu_entry = FormEntry(row)
+        self.menu_entry.pack(side="left", fill="x", expand=True)
+        self.menu_entry.insert(0, MENU_SAMPLE)
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "自定义", width=72).pack(side="left")
+        self.custom_entry = FormEntry(row)
+        self.custom_entry.pack(side="left", fill="x", expand=True)
+        self.custom_entry.insert(0, "右键：默认四项 + 插入时间戳")
+        # UI 类先挂上默认四项，再补一项自己的；菜单对象可以反复拿
+        menu = attach_edit_menu(self.custom_entry)
+        menu.add_separator()
+        menu.add_command("插入时间戳", self._insert_stamp)
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "关闭", width=72).pack(side="left")
+        self.plain_entry = FormEntry(row, menu=False)
+        self.plain_entry.pack(side="left", fill="x", expand=True)
+        self.plain_entry.insert(0, "menu=False，右键没有菜单")
+
+        HintLabel(
+            box,
+            "默认项跟着状态走：没选中时剪切 / 复制灰掉，剪贴板空时粘贴灰掉，"
+            "框空时清空灰掉。TextArea 和 DropField 里的输入框同样默认带上。",
+        ).pack(fill="x", padx=16, pady=(0, 10))
+
+        CodePanel(
+            box,
+            MENU_CODE,
+            "menu=False 关掉；传列表就只用自己的项；attach_edit_menu 返回菜单对象，可继续追加。",
         )
 
     def _build_paths(self, area: tk.Misc) -> None:
@@ -348,9 +419,12 @@ class InputsPageUI(PageBase):
             "readonly 只是禁止编辑，选中与复制照常；show_counter=False 去掉右下角字数。",
         )
 
-    # --- 只在构造时接收回调的控件：事件类覆写下面三个钩子 ---
+    # --- 只在构造时接收回调的控件：事件类覆写下面四个钩子 ---
     def _on_drop(self, path: str) -> None:
         """DropZone 拖入回调：UI 类里空实现，由事件类覆写。"""
+
+    def _insert_stamp(self, entry: object) -> None:
+        """「插入时间戳」菜单项：UI 类里空实现，由事件类覆写。"""
 
     def _on_dropdown(self, value: str) -> None:
         """DropField 选中候选回调：UI 类里空实现，由事件类覆写。"""
@@ -379,6 +453,10 @@ class InputsPage(InputsPageUI):
         self._bind_path("文件", self.file_field)
         self._bind_path("文件夹", self.dir_field)
         self.preset.entry.bind("<KeyRelease>", self._on_preset_key)
+        # 菜单挂上之后还能继续追加：这里演示「创建后再补一项」
+        attach_edit_menu(self.custom_entry).add_command(
+            "全部选中", lambda: self.custom_entry.select_range(0, "end")
+        )
 
     def _bind_path(self, name: str, field: PathField) -> None:
         """路径字段：浏览按钮与输入框改动都回显到页面底部。"""
@@ -415,6 +493,11 @@ class InputsPage(InputsPageUI):
     def _on_note(self, text: str) -> None:
         """备注文本区每改一次就报一次字数。"""
         self._show(f"备注当前 {len(text)} 字")
+
+    def _insert_stamp(self, entry: Any) -> None:
+        """在光标处插入当前时间；这是「自定义菜单项」的演示。"""
+        entry.insert("insert", datetime.now().strftime("%H:%M:%S "))
+        self._show(f"已插入时间戳：{entry.get() or '（空）'}")
 
     def _on_preset_key(self, _event: tk.Event) -> None:
         """手动改预设值输入框时，同步下面的「已选」行。"""

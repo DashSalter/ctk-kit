@@ -24,12 +24,9 @@
     PrimaryButton(box, "立即备份", command=lambda: print("go")).pack(padx=16, pady=16)
     app.mainloop()
 
-全组件展示（随包发布，装好后直接运行）::
+全组件展示（仓库示例，clone 后运行）::
 
-    ctk-kit-showcase
-    python -m ctk_kit.showcase
-
-从源码运行时等价写法：``python examples/showcase.py``。
+    python examples/basics/window.py
 
 仓库: https://gitee.com/kuangjianke/ctk-kit
 镜像: https://github.com/DashSalter/ctk-kit
@@ -37,7 +34,9 @@
 
 from __future__ import annotations
 
-__version__ = "0.9.1"
+from typing import Any
+
+__version__ = "0.9.2"
 
 # 原生 CustomTkinter 的公开接口原样转出，用户只 import ctk_kit 就够了。
 # 显式列名字而不是 ``from customtkinter import *``：这样 __all__ 与实际导出
@@ -80,7 +79,7 @@ from .buttons import (
 )
 from .collapse import Collapsible
 from .code_panel import CodePanel
-from .context_menu import ContextMenu, attach_menu
+from .context_menu import ContextMenu, attach_edit_menu, attach_menu
 from .dropdown import DropField
 from .files import DropZone, PathField, has_dnd, pick_path
 from .frames import Frame
@@ -187,6 +186,7 @@ __all__ = [
     "__version__",
     "apply_appearance",
     "apply_appearance_fast",
+    "attach_edit_menu",
     "attach_menu",
     "bind_focus_border",
     "color_of",
@@ -210,7 +210,7 @@ __all__ = [
 ]
 
 
-def __getattr__(name: str):
+def __getattr__(name: str) -> Any:
     """``ImageViewer`` 依赖 Pillow，真的用到时才导入。
 
     这样没装 ``pillow`` 的项目 ``import ctk_kit`` 依然能用其余全部控件，

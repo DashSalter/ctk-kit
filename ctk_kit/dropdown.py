@@ -19,6 +19,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .inputs import CTkEntry
 from .theme import color_of
 
 _ARROW_CLOSED = "▼"
@@ -42,6 +43,7 @@ class _PopupList(tk.Frame):
     """
 
     def __init__(self, master: tk.Misc, bg: str) -> None:
+        """建候选列表：canvas 承载内容，内容超出时自己滚动。"""
         super().__init__(master, bg=bg, highlightthickness=0, bd=0)
         self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
         self.inner = tk.Frame(self.canvas, bg=bg)
@@ -59,12 +61,15 @@ class _PopupList(tk.Frame):
         widget.bind("<MouseWheel>", self._on_wheel, add="+")
 
     def _sync_region(self, _event: tk.Event = None) -> None:
+        """内容尺寸变了，重算 canvas 的滚动区域。"""
         self.canvas.configure(scrollregion=self.canvas.bbox("all"))
 
     def _sync_width(self, event: tk.Event) -> None:
+        """把内部内容框的宽度对齐到 canvas 宽度。"""
         self.canvas.itemconfigure(self._window, width=event.width)
 
     def _on_wheel(self, event: tk.Event) -> Optional[str]:
+        """滚动候选列表；列表没有滚动空间时返回 ``None`` 让事件继续冒泡。"""
         if not self.scrollable:
             return None
         self.canvas.yview_scroll(-1 if event.delta > 0 else 1, "units")
@@ -120,7 +125,7 @@ class DropField(ctk.CTkFrame):
         self._rows: int = 0
         self._listing: Optional[_PopupList] = None
 
-        self.entry: ctk.CTkEntry = ctk.CTkEntry(
+        self.entry: CTkEntry = CTkEntry(
             self,
             fg_color="transparent",
             border_width=0,
@@ -167,6 +172,10 @@ class DropField(ctk.CTkFrame):
         """直接写入一个值（不触发 ``command``）。"""
         self.entry.delete(0, "end")
         self.entry.insert(0, value)
+
+    def clear(self) -> None:
+        """清空输入框，等价于 ``set("")``。"""
+        self.set("")
 
     # --- 下拉面板 ---
     def open_menu(self) -> None:
@@ -324,6 +333,7 @@ class DropField(ctk.CTkFrame):
         return True
 
     def _schedule_follow(self) -> None:
+        """安排下一次跟随检查；重复调用会合并成一次。"""
         self._follow_job = self.after(_FOLLOW_MS, self._follow_tick)
 
     def _on_root_configure(self, event: tk.Event) -> None:
@@ -379,6 +389,7 @@ class DropField(ctk.CTkFrame):
         return True
 
     def _flush_place(self) -> None:
+        """空闲时重摆面板；窗口还在缩放就再等一会儿。"""
         self._place_job = None
         if self._popup is None or not self._popup.winfo_exists():
             return

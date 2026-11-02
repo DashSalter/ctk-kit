@@ -92,6 +92,7 @@ class _Notice:
     )
 
     def __init__(self, window, view, position, style, duration, on_close):
+        """保存一条提示的状态字段；控件和计时器由 ``Notifier`` 管。"""
         self.window = window
         self.view = view
         self.position = position
@@ -120,6 +121,7 @@ class Notifier:
     def __init__(
         self, master, *, duration: Optional[float] = None, max_visible: int = 3
     ):
+        """保存参数；提示条本身在第一次 :meth:`show` 时才创建。"""
         self.master = master
         self.duration = duration
         self.max_visible = max(1, int(max_visible))
@@ -139,7 +141,7 @@ class Notifier:
         style: str = "pill",
         duration: Optional[float] = None,
         on_close: Optional[Callable] = None,
-    ):
+    ) -> ctk.CTkFrame:
         """弹出一条提示。
 
         参数:
@@ -209,7 +211,8 @@ class Notifier:
     # ---------------------------------------------------------------- 内部实现
 
     @staticmethod
-    def _check(level, position, style):
+    def _check(level, position, style) -> None:
+        """校验级别、位置、形态三个枚举值，非法时抛 ``ValueError``。"""
         if level not in LEVELS:
             raise ValueError(
                 "level 只能是 " + " / ".join(LEVELS) + "，收到 " + repr(level)
@@ -223,14 +226,15 @@ class Notifier:
                 "style 只能是 " + " / ".join(STYLES) + "，收到 " + repr(style)
             )
 
-    def _seconds(self, style, duration):
+    def _seconds(self, style, duration) -> float:
+        """算这条提示实际停留多少秒：调用参数 > 实例默认 > 形态默认。"""
         if duration is not None:
             return max(0.0, float(duration))
         if self.duration is not None:
             return max(0.0, float(self.duration))
         return DEFAULT_SECONDS[style]
 
-    def _build(self, message, title, level, style):
+    def _build(self, message, title, level, style) -> tuple[Any, Any]:
         """建出小窗口和里面那张卡片，返回 ``(window, card)``。"""
         color = T.STATUS_COLORS[level]
         # 两种形态都用 RADIUS_SMALL 的小圆角：圆角半径要和 Windows 的
@@ -327,7 +331,8 @@ class Notifier:
         window.update_idletasks()
         return window, card
 
-    def _mount(self, notice):
+    def _mount(self, notice) -> None:
+        """把一条新提示挂进对应位置，超上限时先关掉最旧的，再统一重排。"""
         notes = self._notes[notice.position]
         notes.append(notice)
         self._ensure_follow()
@@ -337,8 +342,8 @@ class Notifier:
             self._remove(notes[0], notify=False, relayout=False)
         self._relayout(notice.position)
 
-    def _ensure_follow(self):
-        """窗口移动、缩放或重新获得焦点时，让提示保持贴在边缘上。"""
+    def _ensure_follow(self) -> None:
+        """挂上窗口移动/缩放/获焦的跟随绑定；已经挂过就什么都不做。"""
         if self._follow_id is not None:
             return
         try:
@@ -354,13 +359,15 @@ class Notifier:
             self._follow_id = None
             self._focus_id = None
 
-    def _raise_notes(self):
+    def _raise_notes(self) -> None:
+        """主窗口重新获得焦点时，把所有提示条重新抬到最上面。"""
         for position in POSITIONS:
             for notice in self._notes[position]:
                 with contextlib.suppress(Exception):
                     notice.window.lift()
 
-    def _drop_follow(self):
+    def _drop_follow(self) -> None:
+        """解除窗口跟随绑定，清空事件句柄。"""
         with contextlib.suppress(Exception):
             if self._follow_id is not None:
                 self.master.unbind("<Configure>", self._follow_id)
@@ -369,12 +376,13 @@ class Notifier:
         self._follow_id = None
         self._focus_id = None
 
-    def _relayout_all(self):
+    def _relayout_all(self) -> None:
+        """两个位置上只要有提示，就各自重排一遍。"""
         for position in POSITIONS:
             if self._notes[position]:
                 self._relayout(position)
 
-    def _relayout(self, position):
+    def _relayout(self, position) -> None:
         """把同一位置的提示从边缘开始纵向排开，条与条之间只留空隙。
 
         每条提示是一个小窗口，尺寸按卡片需求算；窗口贴边后由系统裁圆角，
@@ -440,16 +448,18 @@ class Notifier:
         with contextlib.suppress(Exception):
             self.master.update_idletasks()
 
-    def _scaling(self):
+    def _scaling(self) -> float:
+        """当前窗口缩放比；拿不到时按 1.0 处理。"""
         try:
             return self.master.winfo_toplevel()._get_window_scaling() or 1.0
         except Exception:
             return 1.0
 
-    def _margin_physical(self):
+    def _margin_physical(self) -> int:
+        """提示离窗口边缘的间距，换算成物理像素。"""
         return int(round(_MARGIN * self._scaling()))
 
-    def _round_window_corners(self, window):
+    def _round_window_corners(self, window) -> None:
         """把窗口裁成圆角，让四角之外不绘制。
 
         跟下拉面板用同一套做法：先让 Win11 的 DWM 画系统圆角，边缘由系统
@@ -490,7 +500,14 @@ class Notifier:
             )
             ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
 
-    def _remove(self, notice, notify=True, relayout=True):
+    def _remove(self, notice, notify=True, relayout=True) -> None:
+        """从位置列表摘掉一条提示，淡出后销毁；可选触发关闭回调。
+
+        参数:
+            notice: 要移除的提示状态。
+            notify: 是否调用它的 ``on_close`` 回调。
+            relayout: 是否立刻重排同位置的其余提示（补位）。
+        """
         notes = self._notes.get(notice.position)
         if not notes or notice not in notes:
             return
@@ -515,15 +532,17 @@ class Notifier:
         self._fade(window, 1.0, 0.0, on_done=lambda: self._destroy_window(window))
 
     @staticmethod
-    def _destroy_window(window):
+    def _destroy_window(window) -> None:
+        """销毁提示窗口；已经销毁或窗口已失效时静默忽略。"""
         with contextlib.suppress(Exception):
             window.destroy()
 
-    def _fade(self, window, start, end, on_done=None):
+    def _fade(self, window, start, end, on_done=None) -> None:
         """让窗口透明度从 ``start`` 渐变到 ``end``，结束后回调。"""
         steps = _FADE_STEPS
 
-        def step(index):
+        def step(index) -> None:
+            """执行第 ``index`` 步透明度；走完调用 ``on_done``。"""
             if index > steps:
                 if on_done is not None:
                     on_done()
@@ -540,7 +559,8 @@ class Notifier:
 
         step(1)
 
-    def _arm(self, notice):
+    def _arm(self, notice) -> None:
+        """启动或重启这条提示的自动关闭计时器。"""
         if notice.timer is not None:
             with contextlib.suppress(Exception):
                 notice.window.after_cancel(notice.timer)
@@ -549,11 +569,13 @@ class Notifier:
             int(notice.remaining * 1000), lambda: self._expire(notice)
         )
 
-    def _expire(self, notice):
+    def _expire(self, notice) -> None:
+        """计时到点：关掉这条提示。"""
         notice.timer = None
         self._remove(notice)
 
-    def _pause(self, notice):
+    def _pause(self, notice) -> None:
+        """指针悬停：取消计时器，并记下已经停留了多久、还剩多少。"""
         if notice.timer is None:
             return
         with contextlib.suppress(Exception):
@@ -563,7 +585,8 @@ class Notifier:
             0.15, notice.remaining - (time.monotonic() - notice.started)
         )
 
-    def _resume(self, notice):
+    def _resume(self, notice) -> None:
+        """指针移开：按剩余时间继续计时；提示已经关掉就不管。"""
         if notice.timer is not None or notice.remaining <= 0:
             return
         if notice.position not in self._notes:
@@ -572,7 +595,7 @@ class Notifier:
             return
         self._arm(notice)
 
-    def _bind_hover(self, widget, notice):
+    def _bind_hover(self, widget, notice) -> None:
         """指针停在提示上时暂停自动消失，移开继续计时。"""
         try:
             widget.bind("<Enter>", lambda _event: self._pause(notice), add="+")
@@ -586,7 +609,7 @@ class Notifier:
 _NOTIFIERS = weakref.WeakKeyDictionary()
 
 
-def notify(master, message: str, **kwargs):
+def notify(master, message: str, **kwargs) -> ctk.CTkFrame:
     """用默认参数的 :class:`Notifier` 弹出一条提示。
 
     同一个 ``master`` 会复用同一个 ``Notifier``，所以连续调用时多条提示

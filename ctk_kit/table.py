@@ -284,17 +284,17 @@ class Table(ctk.CTkFrame):
                 if anchor == "w":
                     self._canvas.create_text(
                         x + pad, top + row_h / 2, text=cell, anchor="w",
-                        font=font, fill=color_of(T.COLOR_TEXT),
+                        font=font, fill=color_of(T.COLOR_TEXT_SOFT),
                     )
                 elif anchor == "e":
                     self._canvas.create_text(
                         x + width - pad, top + row_h / 2, text=cell, anchor="e",
-                        font=font, fill=color_of(T.COLOR_TEXT),
+                        font=font, fill=color_of(T.COLOR_TEXT_SOFT),
                     )
                 else:
                     self._canvas.create_text(
                         x + width / 2, top + row_h / 2, text=cell, anchor="center",
-                        font=font, fill=color_of(T.COLOR_TEXT),
+                        font=font, fill=color_of(T.COLOR_TEXT_SOFT),
                     )
                 x += width + pad * 2
             self._canvas.create_line(

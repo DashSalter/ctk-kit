@@ -49,6 +49,8 @@ COLOR_BORDER_STRONG: ColorPair = ("#c9cfd8", "#3b3e4a")  # 轨道、未选中描
 COLOR_BORDER_INPUT: ColorPair = ("#b0b9c6", "#343a47")
 
 COLOR_TEXT: ColorPair = ("#111827", "#f1f3f6")
+# 比 COLOR_TEXT 柔和一档：表格正文、密集列表用，深色下不会白得晃眼
+COLOR_TEXT_SOFT: ColorPair = ("#374151", "#B1B6BD")
 COLOR_MUTED: ColorPair = ("#6b7280", "#98a0ab")
 COLOR_FAINT: ColorPair = ("#9aa1ac", "#6b7280")
 

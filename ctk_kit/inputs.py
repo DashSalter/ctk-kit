@@ -328,41 +328,177 @@ def Segmented(
     return button
 
 
-def Switch(
-        master: tk.Misc,
-        command: SwitchCommand = None,
-        *,
-        text: str = "",
-        width: int = 44,
-) -> ctk.CTkSwitch:
-    """设置页的开关：只留轨道，拨到右边时轨道变激活色。
+# ---------------------------------------------------------------- 开关
+
+#: 开关轨道尺寸（逻辑像素），和 CTkSwitch 的默认值一致。
+_SWITCH_TRACK = (36, 18)
+#: 圆球与轨道上下边缘的间距（逻辑像素）。
+_SWITCH_GAP = 3
+#: 画开关时的超采样倍数。
+_SWITCH_SCALE = 4
+
+
+def _switch_image(track: str, knob: str, checked: bool):
+    """画一张开关图：胶囊轨道 + 圆球，4 倍尺寸画完再交给 ``CTkImage`` 缩。"""
+    width, height = _SWITCH_TRACK
+    scale = _SWITCH_SCALE
+    total_w = width * scale
+    total_h = height * scale
+    image = Image.new("RGBA", (total_w, total_h), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(image)
+    pen.rounded_rectangle(
+        (0, 0, total_w - 1, total_h - 1),
+        radius=total_h / 2,
+        fill=track,
+    )
+
+    gap = _SWITCH_GAP * scale
+    radius = total_h / 2 - gap
+    center_y = total_h / 2
+    center_x = total_w - gap - radius if checked else gap + radius
+    pen.ellipse(
+        (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
+        fill=knob,
+    )
+    return image
+
+
+def _switch_picture(checked: bool, hover: bool):
+    """开关的深浅两张图：CTkImage 会按当前外观挑一张。"""
+    track = T.COLOR_ACTIVE if checked else T.COLOR_BORDER_STRONG
+    knob = T.COLOR_BUTTON_KNOB_HOVER if hover else T.COLOR_BUTTON_KNOB
+    return (
+        _switch_image(track[0], knob[0], checked),
+        _switch_image(track[1], knob[1], checked),
+    )
+
+
+class Switch(ctk.CTkFrame):
+    """设置页的开关：胶囊轨道 + 圆球，Pillow 画的抗锯齿图片。
+
+    和 ``Check`` / ``Radio`` 一样不用 canvas 图元：Tk 的 canvas 不做抗锯齿，
+    直接画圆角矩形和圆，边缘会有一格一格的阶梯。这里用 Pillow 在 4 倍尺寸
+    上画好，再交给 ``CTkImage`` 缩到逻辑尺寸，HighDPI 下也跟着缩放。
 
     轨道用 ``COLOR_BORDER_STRONG`` 而不是 ``COLOR_SOFT``：后者在深色主题下
     （``#22242c``）和卡片底几乎同色，整个开关看起来就是一团黑；把手则取
-    ``COLOR_MUTED``，深色下比轨道亮、浅色下比轨道暗，两个主题都分得清。
-    拨到右边时用 ``COLOR_ACTIVE``（偏青），和勾选、单选、滑块同一个颜色。
+    ``COLOR_BUTTON_KNOB``，深色下比轨道亮、浅色下比轨道暗，两个主题都分得清。
+    拨到右边时轨道用 ``COLOR_ACTIVE``（偏青），和勾选、单选、滑块同一个颜色。
 
     参数:
         master: 父容器。
         command: 拨动回调，不接收参数；用 ``toggle()`` 或点击都会触发。
         text: 轨道右侧的文字，默认空（设置页那种「标签在左边」的排法）。
-        width: 开关宽度（像素），默认 44；卡片里的紧凑尺寸可以传 60 / 40。
+        width: 控件总宽（逻辑像素），默认 44；轨道本身固定 36 宽。
 
-    返回:
-        尚未摆位的 ``CTkSwitch``。
+    方法 ``get()`` / ``select()`` / ``deselect()`` / ``toggle()`` 与
+    ``CTkSwitch`` 一致；``configure(command=...)`` 可以后挂回调。
     """
-    return ctk.CTkSwitch(
-        master,
-        text=text,
-        width=width,
-        font=get_font(T.FONT_SMALL),
-        text_color=T.COLOR_TEXT,
-        fg_color=T.COLOR_BORDER_STRONG,
-        progress_color=T.COLOR_ACTIVE,
-        button_color=T.COLOR_BUTTON_KNOB,
-        button_hover_color=T.COLOR_BUTTON_KNOB_HOVER,
-        command=command,
-    )
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        command: SwitchCommand = None,
+        *,
+        text: str = "",
+        width: int = 44,
+    ) -> None:
+        super().__init__(master, fg_color="transparent", width=width, height=24)
+        self._command = command
+        self._checked = False
+        self._hover = False
+        self._photos: dict = {}
+        self._photo = None
+
+        self._track = ctk.CTkLabel(
+            self,
+            text="",
+            width=_SWITCH_TRACK[0],
+            height=_SWITCH_TRACK[1],
+            fg_color="transparent",
+            cursor="hand2",
+        )
+        self._track.pack(side="left")
+
+        self._label = ctk.CTkLabel(
+            self,
+            text=text,
+            font=get_font(T.FONT_SMALL),
+            text_color=T.COLOR_TEXT,
+            fg_color="transparent",
+            anchor="w",
+            cursor="hand2",
+        )
+        self._label.pack(side="left", padx=(6, 0))
+
+        for widget in (self._track, self._label):
+            widget.bind("<Button-1>", self._on_click)
+            widget.bind("<Enter>", self._on_enter)
+            widget.bind("<Leave>", self._on_leave)
+
+        self._refresh()
+
+    # ------------------------------------------------------------ 绘制
+    def _refresh(self) -> None:
+        """按当前状态换图；同一状态复用已经画好的 ``CTkImage``。"""
+        if not _HAS_PIL:
+            self._track.configure(text="开" if self._checked else "关")
+            return
+        key = (self._checked, self._hover)
+        photo = self._photos.get(key)
+        if photo is None:
+            light, dark = _switch_picture(self._checked, self._hover)
+            photo = ctk.CTkImage(
+                light_image=light, dark_image=dark, size=_SWITCH_TRACK
+            )
+            self._photos[key] = photo
+        self._photo = photo
+        self._track.configure(image=self._photo, text="")
+
+    # ------------------------------------------------------------ 交互
+    def _on_click(self, _event: Optional[tk.Event] = None) -> None:
+        self.toggle()
+
+    def _on_enter(self, _event: Optional[tk.Event] = None) -> None:
+        if not self._hover:
+            self._hover = True
+            self._refresh()
+
+    def _on_leave(self, _event: Optional[tk.Event] = None) -> None:
+        if self._hover:
+            self._hover = False
+            self._refresh()
+
+    # ------------------------------------------------------------ 状态
+    def toggle(self, _event: Optional[tk.Event] = None) -> None:
+        """拨动一次并触发 ``command``。"""
+        self._checked = not self._checked
+        self._refresh()
+        if self._command is not None:
+            self._command()
+
+    def select(self) -> None:
+        """拨到右边（不触发 ``command``）。"""
+        self._checked = True
+        self._refresh()
+
+    def deselect(self) -> None:
+        """拨回左边（不触发 ``command``）。"""
+        self._checked = False
+        self._refresh()
+
+    def get(self) -> int:
+        """0 / 1。"""
+        return 1 if self._checked else 0
+
+    def configure(self, **kwargs) -> None:
+        """支持 ``configure(command=...)``，和 CTk 控件的用法一致。"""
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        if "text" in kwargs:
+            self._label.configure(text=kwargs.pop("text"))
+        if kwargs:
+            super().configure(**kwargs)
 
 
 def Checkbox(

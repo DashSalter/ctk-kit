@@ -118,6 +118,11 @@
   - `Checkbox()` 现在返回 `Check`，`radio_group()` 内部改用 `Radio`；两者都保留
     `get()` / `select()` / `deselect()` / `configure(command=...)`，调用方不用改
   - 没装 Pillow 时退回 canvas 画圆/方框
+- 开关（`Switch`）改用 Pillow 4 倍超采样绘制轨道和圆球：不再依赖 canvas 的
+  圆角矩形/椭圆图元，胶囊两端和圆球边缘的锯齿消失
+  - `Switch` 从返回 `CTkSwitch` 改为自绘控件，`get()` / `select()` / `deselect()` /
+    `toggle()` / `configure(command=...)` 保持兼容，调用方不用改
+  - 尺寸仍是 36×18 的轨道、12 的圆球，`width` 语义不变
 - `Spinner` 箭头改用 Pillow 图片（和 ttkbootstrap 的 Spinbox 一样用固定尺寸的
   caret 图）：canvas 画多边形时中点取整会让上下两个三角差 1px，图片没有这个问题
 - 新增 `Stepper`：紧凑步进器 `[ − ] 当前值 ▾ [ + ]`

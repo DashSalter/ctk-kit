@@ -175,8 +175,9 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 - `Segmented(master, values, command=None, *, width=300, height=34, font=FONT_SMALL)`
   分段选择；`command` 收选中的文字
 - `Switch(master, command=None, *, text="", width=44)`
-  开关，`text` 留空就只显示轨道；`command` 收开关状态。圆球色是
-  `COLOR_BUTTON_KNOB`，悬停色是 `COLOR_BUTTON_KNOB_HOVER`（都在 `tokens` 里改）
+  开关，`text` 留空就只显示轨道；`command` 收开关状态。轨道和圆球是 Pillow
+  4 倍超采样画的图，边缘没有锯齿；圆球色是 `COLOR_BUTTON_KNOB`，悬停色是
+  `COLOR_BUTTON_KNOB_HOVER`（都在 `tokens` 里改）
 - `Checkbox(master, text="", command=None, *, width=20, height=20)`
   勾选框，选中后填主色打勾
 - `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`

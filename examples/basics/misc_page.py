@@ -256,6 +256,7 @@ class MiscPage(MiscPageUI):
         self.handle_bar.set(ratio)
         self.ring.set(ratio)
         self.ring_ticks.set(ratio)
+        self.ring_dial.set(ratio)
         self._show(f"进度：{ratio * 100:.0f}%")
 
     def _on_busy_toggle(self) -> None:

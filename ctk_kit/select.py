@@ -547,7 +547,7 @@ class TagSelectField(ctk.CTkFrame):
         values = list(self._values_provider() or [])
         card = color_of(T.COLOR_CARD)
         hover = color_of(T.COLOR_SOFT_HOVER)
-        accent = color_of(T.COLOR_ACCENT)
+        accent = color_of(T.COLOR_ACTIVE)
         text_color = color_of(T.COLOR_TEXT)
         for value in values:
             selected = value in self._values
@@ -620,7 +620,7 @@ class TagSelectField(ctk.CTkFrame):
         tag = ctk.CTkFrame(
             self._strip,
             fg_color=T.COLOR_SOFT_HOVER,
-            corner_radius=4,
+            corner_radius=0,
             height=22,
             width=width,
         )

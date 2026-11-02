@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .choices import Check, Radio
 from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .theme import color_of
@@ -63,7 +64,7 @@ class CTkEntry(ctk.CTkEntry):
     """
 
     def __init__(
-        self, master: tk.Misc, *, menu: Any = True, **kwargs: Any
+            self, master: tk.Misc, *, menu: Any = True, **kwargs: Any
     ) -> None:
         """建带默认样式的输入框；显式参数可覆盖类说明里的默认值。
 
@@ -105,12 +106,12 @@ class CTkEntry(ctk.CTkEntry):
 
 
 def bind_focus_border(
-    widget: tk.Misc,
-    *,
-    source: tk.Misc = None,
-    idle_color: Any = None,
-    width: int = T.BORDER_FOCUS_WIDTH,
-    on_width: InsetHook = None,
+        widget: tk.Misc,
+        *,
+        source: tk.Misc = None,
+        idle_color: Any = None,
+        width: int = T.BORDER_FOCUS_WIDTH,
+        on_width: InsetHook = None,
 ) -> None:
     """给控件绑定「聚焦才出现描边」的焦点样式（可选）。
 
@@ -167,7 +168,7 @@ def bind_focus_border(
 
 
 def ToolbarEntry(
-    master: tk.Misc, placeholder: str, *, height: int = 40, menu: Any = True
+        master: tk.Misc, placeholder: str, *, height: int = 40, menu: Any = True
 ) -> CTkEntry:
     """页面顶部搜索框：填充底 + 1px 描边。
 
@@ -196,13 +197,13 @@ def ToolbarEntry(
 
 
 def FormEntry(
-    master: tk.Misc,
-    *,
-    show: str = "",
-    placeholder: str = "",
-    height: int = 38,
-    password: bool = False,
-    menu: Any = True,
+        master: tk.Misc,
+        *,
+        show: str = "",
+        placeholder: str = "",
+        height: int = 38,
+        password: bool = False,
+        menu: Any = True,
 ) -> CTkEntry:
     """表单里的单行输入。
 
@@ -231,13 +232,13 @@ def FormEntry(
 
 
 def Segmented(
-    master: tk.Misc,
-    values: Sequence[str],
-    command: SegmentCommand = None,
-    *,
-    width: int = 300,
-    height: int = 34,
-    font: T.FontSpec = T.FONT_SMALL,
+        master: tk.Misc,
+        values: Sequence[str],
+        command: SegmentCommand = None,
+        *,
+        width: int = 300,
+        height: int = 34,
+        font: T.FontSpec = T.FONT_SMALL,
 ) -> ctk.CTkSegmentedButton:
     """统一样式的分段选择：浅一档的容器底，选中段用主色高亮。
 
@@ -328,11 +329,11 @@ def Segmented(
 
 
 def Switch(
-    master: tk.Misc,
-    command: SwitchCommand = None,
-    *,
-    text: str = "",
-    width: int = 44,
+        master: tk.Misc,
+        command: SwitchCommand = None,
+        *,
+        text: str = "",
+        width: int = 44,
 ) -> ctk.CTkSwitch:
     """设置页的开关：只留轨道，拨到右边时轨道变激活色。
 
@@ -365,14 +366,17 @@ def Switch(
 
 
 def Checkbox(
-    master: tk.Misc,
-    text: str = "",
-    command: SwitchCommand = None,
-    *,
-    width: int = 20,
-    height: int = 20,
-) -> ctk.CTkCheckBox:
+        master: tk.Misc,
+        text: str = "",
+        command: SwitchCommand = None,
+        *,
+        width: int = 20,
+        height: int = 20,
+) -> "Check":
     """勾选框：未选中是描边空心方块，选中后填主色并打勾。
+
+    指示符是 Pillow 画的抗锯齿图片（4 倍尺寸画完再缩），圆形/方块边缘比
+    canvas 直接画要平滑。
 
     参数:
         master: 父容器。
@@ -382,34 +386,25 @@ def Checkbox(
         height: 方块高度（像素），默认 20。
 
     返回:
-        尚未摆位的 ``CTkCheckBox``。
+        尚未摆位的 ``Check``；``get()`` 返回 0/1，``select()`` / ``deselect()`` 可直接改。
     """
-    return ctk.CTkCheckBox(
+    return Check(
         master,
-        text=text,
+        text,
+        command,
         width=width,
         height=height,
-        checkbox_width=width,
-        checkbox_height=height,
-        corner_radius=T.RADIUS_SMALL - 2,
-        border_width=2,
-        border_color=T.COLOR_BORDER_STRONG,
-        fg_color=T.COLOR_ACTIVE,
-        hover_color=T.COLOR_ACTIVE_HOVER,
-        checkmark_color=T.COLOR_ACCENT_TEXT,
-        text_color=T.COLOR_TEXT,
         font=get_font(T.FONT_SMALL),
-        command=command,
     )
 
 
 def radio_group(
-    master: tk.Misc,
-    values: Sequence[str],
-    command: RadioCommand = None,
-    *,
-    variable: Optional[tk.StringVar] = None,
-    gap: int = 8,
+        master: tk.Misc,
+        values: Sequence[str],
+        command: RadioCommand = None,
+        *,
+        variable: Optional[tk.StringVar] = None,
+        gap: int = 8,
 ) -> Tuple[ctk.CTkFrame, tk.StringVar]:
     """一组互斥单选框：内部自己建容器，选中状态由返回的 ``StringVar`` 持有。
 
@@ -436,23 +431,14 @@ def radio_group(
 
     frame = ctk.CTkFrame(master, fg_color="transparent")
     for index, value in enumerate(values):
-        button = ctk.CTkRadioButton(
+        button = Radio(
             frame,
-            text=value,
-            value=value,
+            value,
+            value,
             variable=var,
             command=on_select,
-            radiobutton_width=18,
-            radiobutton_height=18,
-            corner_radius=9,
-            border_width_unchecked=2,
-            # 选中时 CTk 画的是「粗环 + 中间挖空」，挖空圆的直径 = 宽度 - 2 * 这个值。
-            # 取 6 时挖空只剩 6px，150% 缩放下被取整成方块；取 4 留出 10px，才是圆的。
-            border_width_checked=4,
-            border_color=T.COLOR_BORDER_STRONG,
-            fg_color=T.COLOR_ACTIVE,
-            hover_color=T.COLOR_ACTIVE_HOVER,
-            text_color=T.COLOR_TEXT,
+            width=18,
+            height=18,
             font=get_font(T.FONT_SMALL),
         )
         button.pack(anchor="w", pady=(0, gap) if index < len(values) - 1 else 0)
@@ -463,13 +449,13 @@ def radio_group(
 
 
 def Slider(
-    master: tk.Misc,
-    command: SliderCommand = None,
-    *,
-    from_: float = 0.0,
-    to: float = 100.0,
-    steps: int = 0,
-    width: int = 220,
+        master: tk.Misc,
+        command: SliderCommand = None,
+        *,
+        from_: float = 0.0,
+        to: float = 100.0,
+        steps: int = 0,
+        width: int = 220,
 ) -> ctk.CTkSlider:
     """滑块：轨道底色淡，已滑过的部分和圆钮是主色。
 
@@ -509,11 +495,11 @@ def Slider(
 
 
 def ProgressBar(
-    master: tk.Misc,
-    *,
-    value: float = 0.0,
-    width: int = 220,
-    height: int = 6,
+        master: tk.Misc,
+        *,
+        value: float = 0.0,
+        width: int = 220,
+        height: int = 6,
 ) -> ctk.CTkProgressBar:
     """细进度条：``value`` 取 0~1，圆角跟随高度。
 
@@ -547,19 +533,19 @@ class Spinner(ctk.CTkFrame):
     """
 
     def __init__(
-        self,
-        master: tk.Misc,
-        *,
-        from_: float = 0,
-        to: float = 100,
-        increment: float = 1,
-        values: Optional[Sequence[str]] = None,
-        value: Any = None,
-        command: Optional[Callable[[Any], None]] = None,
-        placeholder: str = "",
-        height: int = 36,
-        width: int = 160,
-        as_int: bool = True,
+            self,
+            master: tk.Misc,
+            *,
+            from_: float = 0,
+            to: float = 100,
+            increment: float = 1,
+            values: Optional[Sequence[str]] = None,
+            value: Any = None,
+            command: Optional[Callable[[Any], None]] = None,
+            placeholder: str = "",
+            height: int = 36,
+            width: int = 160,
+            as_int: bool = True,
     ) -> None:
         """创建步进输入框。
 
@@ -609,7 +595,7 @@ class Spinner(ctk.CTkFrame):
             bd=0,
             cursor="hand2",
         )
-        self._arrows.pack(side="right", fill="y", padx=(0, 5), pady=1)
+        self._arrows.pack(side="right", fill="y", padx=(0, 7), pady=1)
         self._arrows.bind("<Button-1>", self._on_arrow)
         self._arrows.bind("<Configure>", lambda _e: self._draw_arrows())
 
@@ -754,4 +740,3 @@ class Spinner(ctk.CTkFrame):
         super().configure(**kwargs)
         if "fg_color" in kwargs or "border_color" in kwargs:
             self._draw()
-

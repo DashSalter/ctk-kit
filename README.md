@@ -103,7 +103,8 @@ CTkButton(bar, text="保存").pack()
 | 模块 | 提供 | 备注 |
 | --- | --- | --- |
 | `buttons` | `PrimaryButton` `SecondaryButton` `DangerButton` `FlatButton` `SoftButton` | |
-| `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `bind_focus_border` | |
+| `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `Spinner` `bind_focus_border` | |
+| `choices` | `Check` `Radio` | 勾选 / 单选的指示符，Pillow 抗锯齿绘制 |
 | `text` | `TextArea` | |
 | `dropdown` | `DropField` | 单选下拉 |
 | `select` | `TagSelectField` `TreeSelectField` | 多选标签 / 层级树，面板行为与 `DropField` 一致 |

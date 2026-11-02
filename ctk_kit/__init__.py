@@ -77,6 +77,7 @@ from .buttons import (
     SecondaryButton,
     SoftButton,
 )
+from .choices import Check, Radio
 from .collapse import Collapsible
 from .code_panel import CodePanel
 from .context_menu import ContextMenu, attach_edit_menu, attach_menu
@@ -156,6 +157,7 @@ __all__ = [
     "CTkToplevel",
     "Card",
     "Checkbox",
+    "Check",
     "CodePanel",
     "Collapsible",
     "ContextMenu",
@@ -208,6 +210,7 @@ __all__ = [
     "notify",
     "pick_path",
     "radio_group",
+    "Radio",
     "recolor_tree",
     "repaint_native",
     "set_appearance_mode",

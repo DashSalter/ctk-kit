@@ -62,8 +62,8 @@ class Table(ctk.CTkFrame):
         master: 父容器。
         columns: 列定义序列，每项是 ``(标题, 宽度, 对齐)``；宽度为 ``None``
             表示这一列吃掉剩余宽度（通常只给最后一列）。
-        row_height: 每行高度（逻辑像素），默认 36。
-        header_height: 表头高度（逻辑像素），默认 38。
+        row_height: 每行高度（逻辑像素），默认 40。
+        header_height: 表头高度（逻辑像素），默认 40。
         max_visible_rows: 最多同时显示几行，超出后内容区出现滚动条，默认 8。
         striped: 是否给隔行加一层淡底色，默认 ``True``。
         empty_text: 没有数据时内容区居中显示的提示。
@@ -77,8 +77,8 @@ class Table(ctk.CTkFrame):
         master: tk.Misc,
         columns: Sequence[Sequence[Any]],
         *,
-        row_height: int = 36,
-        header_height: int = 38,
+        row_height: int = 40,
+        header_height: int = 40,
         max_visible_rows: int = 8,
         striped: bool = True,
         empty_text: str = "暂无数据",
@@ -165,6 +165,10 @@ class Table(ctk.CTkFrame):
         """逻辑像素转物理像素（canvas 不参与 CTk 的缩放）。"""
         return max(1, int(round(self._apply_widget_scaling(value))))
 
+    def _font(self, spec: Any = T.FONT_TABLE) -> tuple[str, int, str]:
+        """表格文字字体：canvas 不走 CTk 的字体缩放，这里按 widget scaling 换算。"""
+        return get_font(spec).create_scaled_tuple(self._apply_widget_scaling(1.0))
+
     def _sync_height(self) -> None:
         rows = len(self._rows)
         # 没数据时留两行高，空态提示才不会挤在边框上
@@ -220,6 +224,8 @@ class Table(ctk.CTkFrame):
         full = self._header_canvas.winfo_width()
         if full <= 1:
             return
+        font = self._font()
+        head_font = self._font(T.FONT_TABLE_HEAD)
         self._widths = self._resolve_widths(full)
         pad = self._px(_CELL_PAD)
         row_h = self._px(self._row_height)
@@ -232,17 +238,17 @@ class Table(ctk.CTkFrame):
             if anchor == "w":
                 self._header_canvas.create_text(
                     x + pad, header_h / 2, text=title, anchor="w",
-                    font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_MUTED),
+                    font=head_font, fill=color_of(T.COLOR_MUTED),
                 )
             elif anchor == "e":
                 self._header_canvas.create_text(
                     x + width - pad, header_h / 2, text=title, anchor="e",
-                    font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_MUTED),
+                    font=head_font, fill=color_of(T.COLOR_MUTED),
                 )
             else:
                 self._header_canvas.create_text(
                     x + width / 2, header_h / 2, text=title, anchor="center",
-                    font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_MUTED),
+                    font=head_font, fill=color_of(T.COLOR_MUTED),
                 )
             x += width + pad * 2
         self._header_canvas.create_line(
@@ -257,7 +263,7 @@ class Table(ctk.CTkFrame):
                 row_h,
                 text=self._empty_text,
                 anchor="center",
-                font=get_font(T.FONT_SMALL),
+                font=font,
                 fill=color_of(T.COLOR_FAINT),
             )
             self._canvas.configure(scrollregion=(0, 0, full, row_h * 2))
@@ -278,17 +284,17 @@ class Table(ctk.CTkFrame):
                 if anchor == "w":
                     self._canvas.create_text(
                         x + pad, top + row_h / 2, text=cell, anchor="w",
-                        font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_TEXT),
+                        font=font, fill=color_of(T.COLOR_TEXT),
                     )
                 elif anchor == "e":
                     self._canvas.create_text(
                         x + width - pad, top + row_h / 2, text=cell, anchor="e",
-                        font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_TEXT),
+                        font=font, fill=color_of(T.COLOR_TEXT),
                     )
                 else:
                     self._canvas.create_text(
                         x + width / 2, top + row_h / 2, text=cell, anchor="center",
-                        font=get_font(T.FONT_SMALL), fill=color_of(T.COLOR_TEXT),
+                        font=font, fill=color_of(T.COLOR_TEXT),
                     )
                 x += width + pad * 2
             self._canvas.create_line(

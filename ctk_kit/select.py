@@ -11,12 +11,12 @@ import contextlib
 import sys
 import time
 import tkinter as tk
+import tkinter.font as tkfont
 from typing import Callable, Optional, Sequence
 
 import customtkinter as ctk
 
 from . import tokens as T
-from .fonts import get_font
 from .inputs import CTkEntry
 from .theme import color_of
 
@@ -464,6 +464,8 @@ class TagSelectField(ctk.CTkFrame):
         self._values: list = []
         self._tags: list = []
         self._bg = color_of(T.COLOR_INPUT)
+        # 只用来量标签文字宽度；单独一份，不碰 get_font() 的共享缓存
+        self._measure_font = tkfont.Font(font=T.FONT_BODY)
 
         # 标签区：横向滚动；箭头固定在右侧
         # canvas 高度留出标签的上下留白：标签 24 + 上下各 4 = 32，正好不被裁
@@ -486,7 +488,7 @@ class TagSelectField(ctk.CTkFrame):
             text="▼",
             width=24,
             height=24,
-            font=get_font((T.FONT_NAME, 10)),
+            font=(T.FONT_NAME, 10),
             text_color=T.COLOR_MUTED,
             fg_color="transparent",
             corner_radius=5,
@@ -500,7 +502,7 @@ class TagSelectField(ctk.CTkFrame):
         self._hint = ctk.CTkLabel(
             self,
             text=placeholder,
-            font=get_font(T.FONT_SMALL),
+            font=T.FONT_SMALL,
             text_color=T.COLOR_FAINT,
             fg_color="transparent",
             anchor="w",
@@ -542,66 +544,30 @@ class TagSelectField(ctk.CTkFrame):
             self._panel.close()
 
     def _build_rows(self, parent: tk.Misc) -> int:
-        """铺候选行；返回行数。"""
+        """铺候选行；返回行数。
+
+        行和 ``DropField`` 用同一个做法：一行一个 ``CTkButton``，高度 32、
+        上下各留 1px、圆角 ``RADIUS_SMALL``，所以三张下拉列表的行距看起来一样。
+        区别只在选中态——已选中的行铺满 ``COLOR_ACTIVE``，文字转白。
+        """
         values = list(self._values_provider() or [])
-        card = color_of(T.COLOR_CARD)
-        hover = color_of(T.COLOR_SOFT_HOVER)
-        accent = color_of(T.COLOR_ACTIVE)
-        text_color = color_of(T.COLOR_TEXT)
-        # 必须用 CTkFont：裸 tuple 不跟 widget 缩放走，高分屏上会显得明显偏大
-        row_font = get_font(T.FONT_SMALL)
         for value in values:
             selected = value in self._values
-            # 行用纯 tk 控件：标记是 canvas 画的几何图形，不会出现字体那种像素马赛克，
-            # 悬停改底色也不用担心 CTk 的 transparent 解析成旧颜色
-            row = tk.Frame(parent, bg=card, height=_ROW_HEIGHT)
-            row.pack(fill="x", pady=1)
-            row.pack_propagate(False)
-            # 选中标记：实心小三角形，纯像素绘制
-            mark = tk.Canvas(
-                row, width=12, height=12, bg=card, highlightthickness=0, bd=0
-            )
-            if selected:
-                mark.create_polygon(3, 2, 3, 10, 10, 6, fill=accent, outline=accent)
-            mark.pack(side="left", padx=(6, 2))
-            label = tk.Label(
-                row,
+            button = ctk.CTkButton(
+                parent,
                 text=value,
-                bg=card,
-                fg=text_color,
-                font=row_font,
                 anchor="w",
+                height=32,
+                corner_radius=T.RADIUS_SMALL,
+                fg_color=T.COLOR_ACTIVE if selected else "transparent",
+                hover_color=T.COLOR_ACTIVE_HOVER if selected else T.COLOR_SOFT_HOVER,
+                text_color=T.COLOR_ACCENT_TEXT if selected else T.COLOR_TEXT,
+                font=T.FONT_SMALL,
+                command=lambda v=value: self._toggle(v),
             )
-            label.pack(side="left", fill="x", expand=True, padx=(0, 8))
-
-            def enter(
-                _event: tk.Event,
-                r: tk.Frame = row,
-                m: tk.Canvas = mark,
-                lab: tk.Label = label,
-            ) -> None:
-                """悬停：整行和文字一起提亮。"""
-                r.configure(bg=hover)
-                lab.configure(bg=hover)
-                m.configure(bg=hover)
-
-            def leave(
-                _event: tk.Event,
-                r: tk.Frame = row,
-                m: tk.Canvas = mark,
-                lab: tk.Label = label,
-            ) -> None:
-                """移出：整行还原。"""
-                r.configure(bg=card)
-                lab.configure(bg=card)
-                m.configure(bg=card)
-
-            for widget in (row, label, mark):
-                widget.bind("<Button-1>", lambda _e, v=value: self._toggle(v))
-                widget.bind("<Enter>", enter)
-                widget.bind("<Leave>", leave)
-                if self._panel._listing is not None:
-                    self._panel._listing.bind_wheel(widget)
+            button.pack(fill="x", pady=1)
+            if self._panel._listing is not None:
+                self._panel._listing.bind_wheel(button)
         return len(values)
 
     def _toggle(self, value: str) -> None:
@@ -620,17 +586,19 @@ class TagSelectField(ctk.CTkFrame):
 
         标签就是一个 ``CTkLabel``：底色、圆角、文字都在同一个控件上，
         不再套一层容器加一个 ×。点标签本身即可删掉。
+
+        字体传裸 tuple，让 CTk 自己建一份：``get_font()`` 返回的是全库共享的
+        ``CTkFont``，而 CTk 会对共享实例按控件缩放改写 size，一处改、处处变。
         """
         if value in self._values:
             return
-        font = get_font(T.FONT_BODY)
-        width = font.measure(value) + 24
+        width = self._measure_font.measure(value) + 24
         tag = ctk.CTkLabel(
             self._strip,
             text=value,
-            font=font,
-            text_color=T.COLOR_TEXT,
-            fg_color=T.COLOR_SOFT_HOVER,
+            font=T.FONT_BODY,
+            text_color=T.COLOR_ACCENT_TEXT,
+            fg_color=T.COLOR_ACTIVE,
             corner_radius=6,
             height=24,
             width=width,
@@ -638,8 +606,8 @@ class TagSelectField(ctk.CTkFrame):
         )
         tag.pack(side="left", padx=(0, 6), pady=4)
         tag.bind("<Button-1>", lambda _e, v=value: self._remove_tag(v))
-        tag.bind("<Enter>", lambda _e, t=tag: t.configure(fg_color=T.COLOR_BORDER_INPUT))
-        tag.bind("<Leave>", lambda _e, t=tag: t.configure(fg_color=T.COLOR_SOFT_HOVER))
+        tag.bind("<Enter>", lambda _e, t=tag: t.configure(fg_color=T.COLOR_ACTIVE_HOVER))
+        tag.bind("<Leave>", lambda _e, t=tag: t.configure(fg_color=T.COLOR_ACTIVE))
         tag.bind("<MouseWheel>", self._on_wheel)
         self._values.append(value)
         self._tags.append((value, tag))
@@ -707,6 +675,8 @@ class TagSelectField(ctk.CTkFrame):
     def destroy(self) -> None:
         """销毁前先收起面板。"""
         self._panel.close()
+        with contextlib.suppress(tk.TclError):
+            self.tk.call("font", "delete", self._measure_font.name)
         super().destroy()
 
 
@@ -767,7 +737,7 @@ class TreeSelectField(ctk.CTkFrame):
             border_width=0,
             corner_radius=0,
             height=height - 8,
-            font=get_font(T.FONT_BODY),
+            font=T.FONT_BODY,
             text_color=T.COLOR_TEXT,
             placeholder_text=placeholder,
             placeholder_text_color=T.COLOR_FAINT,
@@ -779,7 +749,7 @@ class TreeSelectField(ctk.CTkFrame):
             text="▼",
             width=24,
             height=24,
-            font=get_font((T.FONT_NAME, 10)),
+            font=(T.FONT_NAME, 10),
             text_color=T.COLOR_MUTED,
             fg_color="transparent",
             corner_radius=5,
@@ -875,7 +845,7 @@ class TreeSelectField(ctk.CTkFrame):
         self, parent: tk.Misc, depth: int, label: str, is_group: bool, path: tuple
     ) -> ctk.CTkFrame:
         """建一行并记进 ``_rows_map``；分组行顺手记下右侧的箭头。"""
-        font = get_font(T.FONT_SMALL)
+        font = T.FONT_SMALL
         row = ctk.CTkFrame(parent, fg_color="transparent", height=_ROW_HEIGHT)
         row.pack(fill="x", pady=1)
         row.pack_propagate(False)
@@ -894,7 +864,7 @@ class TreeSelectField(ctk.CTkFrame):
                 row,
                 text="▼" if path in self._expanded else "▶",
                 width=20,
-                font=get_font((T.FONT_NAME, 9)),
+                font=(T.FONT_NAME, 9),
                 text_color=T.COLOR_MUTED,
                 fg_color="transparent",
             )

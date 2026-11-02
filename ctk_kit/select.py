@@ -1176,24 +1176,24 @@ class Stepper(ctk.CTkFrame):
 
         self._minus = tk.Canvas(
             self,
-            width=34,
+            width=22,
             height=height - 2,
             bg=self._bg,
             highlightthickness=0,
             bd=0,
             cursor="hand2",
         )
-        self._minus.pack(side="left", fill="y", padx=(1, 0), pady=1)
+        self._minus.pack(side="left", fill="y", padx=(8, 0), pady=1)
         self._plus = tk.Canvas(
             self,
-            width=34,
+            width=22,
             height=height - 2,
             bg=self._bg,
             highlightthickness=0,
             bd=0,
             cursor="hand2",
         )
-        self._plus.pack(side="right", fill="y", padx=(0, 1), pady=1)
+        self._plus.pack(side="right", fill="y", padx=(0, 8), pady=1)
         self._mid = tk.Canvas(
             self,
             height=height - 2,
@@ -1320,12 +1320,15 @@ class Stepper(ctk.CTkFrame):
             return
         color = color_of(T.COLOR_MUTED)
         middle = height // 2
-        left = max(8, width // 2 - 7)
-        right = width // 2 + 7
-        canvas.create_line(left, middle, right, middle, fill=color, width=2)
+        half = 5
+        canvas.create_line(
+            width // 2 - half, middle, width // 2 + half, middle, fill=color, width=2
+        )
         if plus:
             center = width // 2
-            canvas.create_line(center, middle - 7, center, middle + 7, fill=color, width=2)
+            canvas.create_line(
+                center, middle - half, center, middle + half, fill=color, width=2
+            )
 
     def _draw_mid(self) -> None:
         """中间的值和右箭头：两者当作一个整体居中。"""
@@ -1342,7 +1345,7 @@ class Stepper(ctk.CTkFrame):
             text=self._label_of(self._value),
             anchor="w",
             fill=color_of(T.COLOR_TEXT),
-            font=(T.FONT_NAME, 12),
+            font=(T.FONT_NAME, 11),
         )
         bbox = canvas.bbox(text_item)
         text_width = (bbox[2] - bbox[0]) if bbox else 0

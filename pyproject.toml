@@ -35,12 +35,13 @@ classifiers = [
     "Topic :: Software Development :: User Interfaces",
     "Typing :: Typed",
 ]
-dependencies = ["customtkinter>=5.2"]
+dependencies = [
+    "customtkinter>=5.2",
+    # 抗锯齿绘制：勾选/单选指示符、Spinner 箭头、进度条与圆环、ImageViewer
+    "pillow>=9",
+]
 
 [project.optional-dependencies]
-# Pillow 用于 ImageViewer，以及 Progress / RingProgress 的抗锯齿绘制；
-# 没装时这些控件退回不抗锯齿的 canvas 画法，功能照常
-image = ["pillow>=9"]
 # 只有 PathField / DropZone 的拖入需要 tkinterdnd2，按钮选择路径不依赖它
 dnd = ["tkinterdnd2>=0.3"]
 

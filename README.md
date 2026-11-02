@@ -18,12 +18,8 @@ import 这一个包就够了。
 pip install ctk-kit
 ```
 
-图片查看器需要 Pillow，单独作为可选项（不装也能用其余全部控件，只有 `ImageViewer`
-和 `CTkImage` 用不了）：
-
-```
-pip install "ctk-kit[image]"
-```
+`pip` 会一并装上 Pillow：勾选/单选指示符、`Spinner` 箭头、`Progress` /
+`RingProgress` 的圆角与圆弧都靠它做抗锯齿绘制，`ImageViewer` 也需要它。
 
 ## 快速开始
 
@@ -118,7 +114,7 @@ CTkButton(bar, text="保存").pack()
 | `files` | `PathField` `DropZone` `pick_path` `has_dnd` | 拖放需要 `tkinterdnd2` |
 | `frames` | `Frame` | 默认透明底的布局容器 |
 | `table` | `Table` | `set_rows` / `add_row` / `remove_row` |
-| `image_view` | `ImageViewer` | 需要 Pillow |
+| `image_view` | `ImageViewer` | 依赖 Pillow（已在必需依赖里） |
 | `pages` | `PageRebuilder` | 多页面窗口；`add_page` / `remove_page`，页面可写 `on_show` / `on_hide` |
 | `page` | `PageBase` | 页面基类：注入 `app`，子类建议实现 `bind_events`，可选 `on_show` / `on_hide` |
 | `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，`add_page` / `remove_page`，见下 |

@@ -84,13 +84,14 @@
   - 中心百分比可以关掉；尺寸由 `size` 固定
   - 同样走 Pillow 3 倍超采样，圆环弧线不再是 canvas 那种硬阶梯
   - 没装 Pillow 时退回 canvas 直角色块 / 硬边弧，功能照常
-- 勾选框与单选圆点改用 Pillow 画指示符（`ctk_kit/choices.py`：`Check` / `Radio`）
-  - 4 倍尺寸画好再 LANCZOS 缩回，圆形和圆角方块边缘不再是一格一格的阶梯
+- 勾选框与单选圆点改用 Pillow 画指示符（`ctk_kit/choices.py`：`Check` / `Radio`）  - 4 倍尺寸画好再 LANCZOS 缩回，圆形和圆角方块边缘不再是一格一格的阶梯
   - `Checkbox()` 现在返回 `Check`，`radio_group()` 内部改用 `Radio`；两者都保留
     `get()` / `select()` / `deselect()` / `configure(command=...)`，调用方不用改
   - 没装 Pillow 时退回 canvas 画圆/方框
 - `Spinner` 箭头改用 Pillow 图片（和 ttkbootstrap 的 Spinbox 一样用固定尺寸的
   caret 图）：canvas 画多边形时中点取整会让上下两个三角差 1px，图片没有这个问题
+- Pillow 改为必需依赖：`pyproject.toml` 的 `dependencies` 里加上 `pillow>=9`，
+  原来的 `ctk-kit[image]` 可选组去掉（`pip install ctk-kit` 会直接装上）
 - `divider` 加了 `text`（线中间带一行字）、`dashed`（虚线）、`color`（线色）三个参数；
   新增 `vertical_divider` 画 1px 竖线
   - 纯 tk 的线不认令牌里的 `(浅色, 深色)` 元组，内部统一先解析成当前色

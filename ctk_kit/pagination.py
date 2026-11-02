@@ -143,6 +143,12 @@ class Pagination(ctk.CTkFrame):
         self._refresh_total()
         self._rebuild()
 
+    def configure(self, **kwargs: Any) -> None:
+        """``command=`` 换翻页回调，其余交给 ``CTkFrame``。"""
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        return super().configure(**kwargs)
+
     # --- 内部 ---
     def _refresh_total(self) -> None:
         """更新左侧「共 N 条」。"""

@@ -13,6 +13,7 @@ from button_page import ButtonPage
 from choices_page import ChoicesPage
 from collapse_page import CollapsePage
 from dialog_page import DialogPage
+from extras_page import ExtrasPage
 from image_page import ImagePage
 from inputs_page import InputsPage
 from listing_page import ListingPage
@@ -43,6 +44,7 @@ class DemoApp(App):
             pages={
                 "总览": OverviewPage,
                 "按钮": ButtonPage,
+                "组件": ExtrasPage,
                 "输入": InputsPage,
                 "下拉": SelectPage,
                 "选择": ChoicesPage,

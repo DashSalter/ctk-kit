@@ -38,7 +38,8 @@ classifiers = [
 dependencies = ["customtkinter>=5.2"]
 
 [project.optional-dependencies]
-# 只有 ImageViewer 需要 Pillow，其余控件不依赖它
+# Pillow 用于 ImageViewer，以及 Progress / RingProgress 的抗锯齿绘制；
+# 没装时这些控件退回不抗锯齿的 canvas 画法，功能照常
 image = ["pillow>=9"]
 # 只有 PathField / DropZone 的拖入需要 tkinterdnd2，按钮选择路径不依赖它
 dnd = ["tkinterdnd2>=0.3"]

@@ -1,7 +1,10 @@
-"""杂项控件：多种样式的进度条。
+"""杂项控件：多种样式的进度条与圆环进度。
 
-``Progress`` 比 ``inputs.ProgressBar`` 多几种形态：分格、带百分比文字、
-不确定态（来回滚动的动画）。连续条的外观和 ``ProgressBar`` 保持一致。
+绘制方式和 ttkbootstrap 的 ``Meter`` 一致：先用 Pillow 在 3 倍尺寸上画，
+最后缩回目标尺寸，靠重采样把边缘磨平。Tk 自己的 canvas 不做抗锯齿，
+直接用 ``create_arc`` / ``create_oval`` 画出来的圆环是硬像素阶梯。
+
+Pillow 是可选依赖：没装时退回 canvas 的直角/硬边画法，功能照常。
 """
 
 from __future__ import annotations
@@ -16,6 +19,16 @@ import customtkinter as ctk
 from . import tokens as T
 from .fonts import get_font
 from .theme import color_of
+
+try:  # Pillow 是可选依赖
+    from PIL import Image, ImageDraw, ImageTk
+
+    _HAS_PIL = True
+except Exception:  # noqa: BLE001
+    _HAS_PIL = False
+
+#: 超采样倍数：先画这么大再缩回去，边缘才有渐变过渡。
+_SCALE = 3
 
 
 def _shade(color: str, factor: float) -> str:
@@ -46,10 +59,9 @@ def _parent_bg(master: tk.Misc) -> str:
 
 
 class Progress(ctk.CTkFrame):
-    """进度条：连续 / 分格 / 带百分比文字 / 不确定态。
+    """进度条：连续 / 分格 / 带百分比 / 条纹 / 不确定态。
 
     整块是一个透明容器，左边是条本身，右边按需放百分比文字。
-    条高、圆角都跟着 ``height`` 走；``steps>0`` 时画成一格一格。
     """
 
     def __init__(
@@ -81,20 +93,17 @@ class Progress(ctk.CTkFrame):
         super().__init__(master, fg_color="transparent", width=width)
         self._value = max(0.0, min(1.0, float(value)))
         self._steps = max(0, int(steps))
-        self._height = max(4, int(height))
-        # 统一解析成当前外观下的单值：canvas 只认字符串，不认令牌元组
+        self._height = max(6, int(height))
+        self._striped = bool(striped)
         self._color = color_of(color or T.COLOR_ACTIVE)
         self._track_color = color_of(track or T.COLOR_BORDER_STRONG)
-        self._striped = bool(striped)
-        self._segments: list = []
-        self._fill: Optional[tk.Misc] = None
+        self._photo = None
         self._label: Optional[ctk.CTkLabel] = None
         self._anim_job: Optional[str] = None
         self._anim_pos = 0.0
 
-        row = ctk.CTkFrame(self, fg_color="transparent", height=self._height)
+        row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(fill="x", expand=True)
-        row.pack_propagate(False)
 
         if show_text:
             self._label = ctk.CTkLabel(
@@ -108,49 +117,16 @@ class Progress(ctk.CTkFrame):
             )
             self._label.pack(side="right", padx=(8, 0))
 
-        self._track = ctk.CTkFrame(
+        self._canvas = tk.Canvas(
             row,
+            width=max(20, width - (54 if show_text else 0)),
             height=self._height,
-            fg_color=T.COLOR_BORDER_STRONG if track is None else track,
-            corner_radius=self._height // 2,
+            bg=_parent_bg(row),
+            highlightthickness=0,
+            bd=0,
         )
-        self._track.pack(side="left", fill="x", expand=True)
-        self._track.pack_propagate(False)
-
-        if self._steps:
-            for index in range(self._steps):
-                cell = ctk.CTkFrame(
-                    self._track,
-                    fg_color="transparent",
-                    corner_radius=max(2, self._height // 2 - 1),
-                )
-                cell.place(
-                    relx=index / self._steps,
-                    rely=0,
-                    relwidth=1 / self._steps - 0.012,
-                    relheight=1,
-                )
-                self._segments.append(cell)
-        else:
-            if self._striped:
-                # 条纹要自己画斜线，用 canvas 当填充层
-                canvas = tk.Canvas(
-                    self._track,
-                    bg=self._color,
-                    highlightthickness=0,
-                    bd=0,
-                )
-                canvas.place(relx=0, rely=0, relheight=1, relwidth=0.001)
-                canvas.bind("<Configure>", self._draw_stripes)
-                self._fill = canvas
-            else:
-                self._fill = ctk.CTkFrame(
-                    self._track,
-                    fg_color=self._color,
-                    corner_radius=self._height // 2,
-                )
-                self._fill.place(relx=0, rely=0, relheight=1, relwidth=0.001)
-
+        self._canvas.pack(side="left")
+        self._canvas.bind("<Configure>", lambda _e: self._render())
         self._render()
 
     # ------------------------------------------------------------ 读写
@@ -159,47 +135,97 @@ class Progress(ctk.CTkFrame):
         return self._value
 
     def set(self, value: float) -> None:
-        """写入进度；会先夹到 0~1，再按当前形态重画。"""
+        """写入进度；会先夹到 0~1，再重画。"""
         self._value = max(0.0, min(1.0, float(value)))
         self._render()
 
-    # ------------------------------------------------------------ 外观
+    # ------------------------------------------------------------ 绘制
     def _render(self) -> None:
-        """按当前值和形态重画。"""
-        if self._label is not None:
-            self._label.configure(text=f"{round(self._value * 100)}%")
-        if self._steps:
-            filled = self._value * self._steps
-            for index, cell in enumerate(self._segments):
-                color = self._color if index < round(filled) else "transparent"
-                cell.configure(fg_color=color)
-            return
-        if self._fill is not None:
-            self._fill.place_configure(relwidth=max(0.001, self._value))
-            if self._striped:
-                self._draw_stripes()
-
-    def _draw_stripes(self, _event: Optional[tk.Event] = None) -> None:
-        """在填充层里画 45° 斜条纹；条纹宽度跟着条高走。"""
-        canvas = self._fill
-        if canvas is None:
-            return
-        canvas.delete("all")
+        """重画整条；尺寸没定下来之前先跳过。"""
+        canvas = self._canvas
         width = canvas.winfo_width()
         height = canvas.winfo_height()
-        if width <= 0 or height <= 0:
+        if width <= 1:
+            width = max(1, self.cget("width") or 240)
+        if height <= 1:
+            height = self._height
+        canvas.delete("all")
+        if self._label is not None:
+            self._label.configure(text=f"{round(self._value * 100)}%")
+        if not _HAS_PIL:
+            self._draw_plain(width, height)
             return
-        canvas.create_rectangle(0, 0, width, height, fill=self._color, outline="")
+        image = self._paint(width, height)
+        self._photo = ImageTk.PhotoImage(image.resize((width, height), Image.LANCZOS))
+        canvas.create_image(0, 0, image=self._photo, anchor="nw")
+
+    def _paint(self, width: int, height: int):
+        """在 3 倍尺寸上画好整条，再交给调用方缩回目标尺寸。"""
+        scale = _SCALE
+        w, h = width * scale, height * scale
+        image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        pen = ImageDraw.Draw(image)
+        radius = h // 2
+
+        pen.rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=self._track_color)
+
+        if self._steps:
+            gap = 3 * scale
+            cell = (w - gap * (self._steps - 1)) / self._steps
+            filled = round(self._value * self._steps)
+            for index in range(min(filled, self._steps)):
+                left = index * (cell + gap)
+                pen.rounded_rectangle(
+                    (left, 0, left + cell, h - 1), radius=radius, fill=self._color
+                )
+            return image
+
+        filled_width = int(round(w * self._value))
+        if filled_width <= 0:
+            return image
+        if not self._striped:
+            pen.rounded_rectangle(
+                (0, 0, filled_width - 1, h - 1), radius=radius, fill=self._color
+            )
+            return image
+
+        # 条纹：先铺一层主色，再画 45° 暗色斜线，最后用圆角蒙版裁掉两头
+        mask = Image.new("L", (w, h), 0)
+        ImageDraw.Draw(mask).rounded_rectangle(
+            (0, 0, filled_width - 1, h - 1), radius=radius, fill=255
+        )
+        pattern = Image.new("RGBA", (w, h), self._color)
+        stripe = ImageDraw.Draw(pattern)
         dark = _shade(self._color, 0.82)
-        step = max(6, height)
-        thick = max(2, height // 3)
-        for x in range(-height, width + height, step):
-            canvas.create_line(x, height, x + height, 0, fill=dark, width=thick)
+        step = max(6, height) * scale
+        thick = max(2, height // 3) * scale
+        for x in range(-h, w + h, step):
+            stripe.line((x, h, x + h, 0), fill=dark, width=thick)
+        image.paste(pattern, (0, 0), mask)
+        return image
+
+    def _draw_plain(self, width: int, height: int) -> None:
+        """没装 Pillow 时的退路：canvas 画直角色块。"""
+        canvas = self._canvas
+        canvas.create_rectangle(0, 0, width, height, fill=self._track_color, outline="")
+        if self._steps:
+            gap = 3
+            cell = (width - gap * (self._steps - 1)) / self._steps
+            for index in range(min(round(self._value * self._steps), self._steps)):
+                left = index * (cell + gap)
+                canvas.create_rectangle(
+                    left, 0, left + cell, height, fill=self._color, outline=""
+                )
+            return
+        filled = width * self._value
+        if filled <= 0:
+            return
+        canvas.create_rectangle(0, 0, filled, height, fill=self._color, outline="")
 
     # ------------------------------------------------------------ 不确定态
     def start_indeterminate(self) -> None:
-        """切成不确定态：一段色块在轨道里来回滚，用来表示「不知道还要多久」。"""
-        if self._steps or self._fill is None or self._anim_job is not None:
+        """切成不确定态：一段色块在轨道里来回滚。"""
+        if self._steps or self._anim_job is not None:
             return
         self._anim_pos = -0.3
         self._animate()
@@ -210,8 +236,6 @@ class Progress(ctk.CTkFrame):
             with contextlib.suppress(tk.TclError):
                 self.after_cancel(self._anim_job)
             self._anim_job = None
-        if self._fill is not None:
-            self._fill.place_configure(relx=0, relwidth=max(0.001, self._value))
         self._render()
 
     @property
@@ -221,12 +245,28 @@ class Progress(ctk.CTkFrame):
 
     def _animate(self) -> None:
         """一帧：把 30% 宽的色块往右推，出界后从左边重新进来。"""
-        if self._fill is None:
-            return
         self._anim_pos += 0.02
         if self._anim_pos > 1.0:
             self._anim_pos = -0.3
-        self._fill.place_configure(relx=max(0.0, self._anim_pos), relwidth=0.3)
+        canvas = self._canvas
+        width = max(1, canvas.winfo_width())
+        height = max(1, canvas.winfo_height())
+        canvas.delete("all")
+        if _HAS_PIL:
+            image = Image.new("RGBA", (width, height), color_of(T.COLOR_BORDER_STRONG))
+            start = int(max(0.0, self._anim_pos) * width)
+            end = min(width, start + int(0.3 * width))
+            if end > start:
+                pen = ImageDraw.Draw(image)
+                pen.rounded_rectangle(
+                    (start, 0, end - 1, height - 1),
+                    radius=height // 2,
+                    fill=self._color,
+                )
+            self._photo = ImageTk.PhotoImage(image)
+            canvas.create_image(0, 0, image=self._photo, anchor="nw")
+        else:
+            self._draw_plain(width, height)
         self._anim_job = self.after(30, self._animate)
 
     def destroy(self) -> None:
@@ -241,8 +281,8 @@ class Progress(ctk.CTkFrame):
 class RingProgress(ctk.CTkFrame):
     """圆环进度：外圈可以带刻度，中间显示百分比。
 
-    圆环用 canvas 的 ``create_arc`` 画；``ticks>0`` 时在环外侧画一圈短线，
-    走过的刻度用主色、剩下的用轨道色。整块尺寸由 ``size`` 决定，不随容器拉伸。
+    和 ttkbootstrap 的 ``Meter`` 一个思路：PIL 在 3 倍尺寸上画弧，再缩回来，
+    这样圆环边缘是平滑的，不会出现 canvas 那种一格一格的阶梯。
     """
 
     def __init__(
@@ -274,11 +314,11 @@ class RingProgress(ctk.CTkFrame):
         self._size = max(60, int(size))
         self._thickness = max(3, int(thickness))
         self._ticks = max(0, int(ticks))
-        # 统一解析成当前外观下的单值：canvas 只认字符串，不认令牌元组
         self._color = color_of(color or T.COLOR_ACTIVE)
         self._track_color = color_of(track or T.COLOR_BORDER_STRONG)
         self._show_text = show_text
         self._value = max(0.0, min(1.0, float(value)))
+        self._photo = None
 
         self._canvas = tk.Canvas(
             self,
@@ -306,17 +346,78 @@ class RingProgress(ctk.CTkFrame):
         """重画整块：轨道环、进度弧、刻度、中间文字。"""
         canvas = self._canvas
         canvas.delete("all")
+        if _HAS_PIL:
+            image = self._paint()
+            self._photo = ImageTk.PhotoImage(
+                image.resize((self._size, self._size), Image.LANCZOS)
+            )
+            canvas.create_image(0, 0, image=self._photo, anchor="nw")
+        else:
+            self._draw_plain()
+        if self._show_text:
+            canvas.create_text(
+                self._size / 2,
+                self._size / 2,
+                text=f"{round(self._value * 100)}%",
+                fill=color_of(T.COLOR_TEXT),
+                font=(T.FONT_NAME, max(11, self._size // 5)),
+            )
+
+    def _paint(self):
+        """在 3 倍尺寸上画圆环和刻度。"""
+        scale = _SCALE
+        size = self._size * scale
+        thickness = self._thickness * scale
+        # 底色不透明：透明像素在 Tk 里会和 canvas 背景拼出细微色差，看着像一块方框
+        image = Image.new("RGBA", (size, size), _parent_bg(self))
+        pen = ImageDraw.Draw(image)
+
+        tick_len = 6 * scale if self._ticks else 0
+        offset = (2 + (6 + 3 if self._ticks else 0)) * scale
+        box = (offset, offset, size - offset - 1, size - offset - 1)
+
+        pen.ellipse(box, outline=self._track_color, width=thickness)
+        if self._value > 0:
+            # PIL 的 0 度在 3 点钟方向、顺时针增大；从 -90 起步就是顶部
+            pen.arc(
+                box,
+                start=-90,
+                end=-90 + 360 * self._value,
+                fill=self._color,
+                width=thickness,
+            )
+
+        if self._ticks:
+            half = size / 2
+            outer = half - 2 * scale
+            inner = outer - tick_len
+            for index in range(self._ticks):
+                angle = math.radians(-90 + 360 * index / self._ticks)
+                cos = math.cos(angle)
+                sin = math.sin(angle)
+                done = index / self._ticks <= self._value
+                pen.line(
+                    (
+                        half + cos * inner,
+                        half + sin * inner,
+                        half + cos * outer,
+                        half + sin * outer,
+                    ),
+                    fill=self._color if done else self._track_color,
+                    width=2 * scale,
+                )
+        return image
+
+    def _draw_plain(self) -> None:
+        """没装 Pillow 时的退路：canvas 画弧（边缘会有阶梯）。"""
+        canvas = self._canvas
         size = self._size
         half = size / 2
         tick_len = 6 if self._ticks else 0
-        # 有刻度时把圆环整体往里收，给外圈刻度腾位置
         offset = 2 + tick_len + (3 if self._ticks else 0)
         radius = half - offset - self._thickness / 2
         box = (half - radius, half - radius, half + radius, half + radius)
-
-        canvas.create_oval(
-            *box, outline=self._track_color, width=self._thickness
-        )
+        canvas.create_oval(*box, outline=self._track_color, width=self._thickness)
         if self._value > 0:
             canvas.create_arc(
                 *box,
@@ -326,7 +427,6 @@ class RingProgress(ctk.CTkFrame):
                 outline=self._color,
                 width=self._thickness,
             )
-
         if self._ticks:
             outer = half - 2
             inner = half - 2 - tick_len
@@ -343,12 +443,3 @@ class RingProgress(ctk.CTkFrame):
                     fill=self._color if done else self._track_color,
                     width=2,
                 )
-
-        if self._show_text:
-            canvas.create_text(
-                half,
-                half,
-                text=f"{round(self._value * 100)}%",
-                fill=color_of(T.COLOR_TEXT),
-                font=(T.FONT_NAME, max(11, size // 5)),
-            )

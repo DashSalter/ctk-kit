@@ -71,9 +71,13 @@
   - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 斜条纹（`striped`）/
     不确定态（`start_indeterminate()`）
   - `color` / `track` 可单独换已完成色和轨道色
+  - 绘制照 ttkbootstrap 的 `Meter` 做法：Pillow 在 3 倍尺寸上画圆角矩形和斜纹，
+    再用 LANCZOS 缩回目标尺寸，圆角和条纹边缘是平滑的
 - 新增 `RingProgress`：圆环进度
   - `ticks>0` 时环外画一圈刻度，走过的刻度用主色；有刻度时圆环自动往里收
   - 中心百分比可以关掉；尺寸由 `size` 固定
+  - 同样走 Pillow 3 倍超采样，圆环弧线不再是 canvas 那种硬阶梯
+  - 没装 Pillow 时退回 canvas 直角色块 / 硬边弧，功能照常
 - `Spinner` 的两个箭头改成固定尺寸、只按高度居中：同一行里放几个 Spinner 时
   箭头看起来一样大，不会因为高度差 1px 就一大一小
 - `divider` 加了 `text`（线中间带一行字）、`dashed`（虚线）、`color`（线色）三个参数；

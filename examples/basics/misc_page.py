@@ -22,6 +22,7 @@ from ctk_kit import (
     PageBase,
     PageHeader,
     Progress,
+    RingProgress,
     Scrollable,
     Slider,
     divider,
@@ -48,6 +49,18 @@ busy.start_indeterminate()
 busy.stop_indeterminate()
 
 # 颜色都能换：color=已完成色，track=轨道色'''
+
+RING_CODE = '''from ctk_kit import RingProgress
+
+ring = RingProgress(frame, value=0.35, size=140)
+ring.set(0.6)          # 0~1
+ring.get()
+
+# 带刻度：ticks 是刻度根数，走过的用主色
+RingProgress(frame, value=0.65, size=160, thickness=8, ticks=24)
+
+# 有刻度时圆环会自动往里收，不会和刻度重叠
+# show_text=False 去掉中间的百分比'''
 
 DIVIDER_CODE = '''from ctk_kit import divider, vertical_divider
 
@@ -77,6 +90,7 @@ class MiscPageUI(PageBase):
         area.pack(fill="both", expand=True, pady=(14, 0))
 
         self._build_progress(area)
+        self._build_ring(area)
         self._build_divider(area)
 
     def _build_progress(self, area: tk.Misc) -> None:
@@ -117,12 +131,39 @@ class MiscPageUI(PageBase):
         self.driver.pack(side="left")
         self.driver.set(35)
 
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "条纹", width=72).pack(side="left")
+        self.striped = Progress(row, value=0.6, height=12, striped=True, width=260)
+        self.striped.pack(side="left")
+
         HintLabel(
             box,
-            "滑块拖动时三条进度条一起走；「播放」按钮切换不确定态动画。",
+            "滑块拖动时四条进度条一起走；「播放」按钮切换不确定态动画。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, PROGRESS_CODE, "value 收 0~1，显示文字时四舍五入成百分比。")
+
+    def _build_ring(self, area: tk.Misc) -> None:
+        """圆环进度：普通圆环与带刻度两种。"""
+        box = Card(area, title="圆环进度")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(14, 8))
+        self.ring = RingProgress(row, value=0.35, size=140)
+        self.ring.pack(side="left", padx=(0, 28))
+        self.ring_ticks = RingProgress(
+            row, value=0.65, size=160, thickness=8, ticks=24
+        )
+        self.ring_ticks.pack(side="left")
+
+        HintLabel(
+            box,
+            "ticks>0 时环外多一圈刻度，走过的刻度用主色；中间的百分比可以关掉。",
+        ).pack(fill="x", padx=16, pady=(0, 10))
+
+        CodePanel(box, RING_CODE, "set() 收 0~1，圆环尺寸由 size 固定，不随容器拉伸。")
 
     def _build_divider(self, area: tk.Misc) -> None:
         """分割线：实线 / 带文字 / 虚线 / 竖向。"""
@@ -172,12 +213,15 @@ class MiscPage(MiscPageUI):
         self.driver.configure(command=self._on_slide)
 
     def _on_slide(self, value: float) -> None:
-        """拖动主滑块：三条进度条一起走。"""
+        """拖动主滑块：所有进度条和圆环一起走。"""
         ratio = value / 100.0
         self.plain.set(ratio)
         self.stepped.set(ratio)
         self.labeled.set(ratio)
         self.busy.set(ratio)
+        self.striped.set(ratio)
+        self.ring.set(ratio)
+        self.ring_ticks.set(ratio)
         self._show(f"进度：{ratio * 100:.0f}%")
 
     def _on_busy_toggle(self) -> None:

@@ -109,7 +109,7 @@ from .layout import (
     style_scrollbar,
     vertical_divider,
 )
-from .misc import Progress
+from .misc import Progress, RingProgress
 from .notify import Notifier, notify
 from .page import PageBase
 from .pages import PageRebuilder
@@ -179,6 +179,7 @@ __all__ = [
     "PrimaryButton",
     "ProgressBar",
     "Progress",
+    "RingProgress",
     "Scrollable",
     "SecondaryButton",
     "SectionTitle",

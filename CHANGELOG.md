@@ -68,8 +68,14 @@
   - 直接改数字后回车会夹回区间；箭头是 canvas 画的小三角，不依赖字体符号
   - 箭头先 pack，输入框后 pack，否则 `expand` 的输入框会把箭头挤成 5px
 - 新增 `ctk_kit/misc.py` 里的 `Progress`：进度条的完整版
-  - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 不确定态（`start_indeterminate()`）
+  - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 斜条纹（`striped`）/
+    不确定态（`start_indeterminate()`）
   - `color` / `track` 可单独换已完成色和轨道色
+- 新增 `RingProgress`：圆环进度
+  - `ticks>0` 时环外画一圈刻度，走过的刻度用主色；有刻度时圆环自动往里收
+  - 中心百分比可以关掉；尺寸由 `size` 固定
+- `Spinner` 的两个箭头改成固定尺寸、只按高度居中：同一行里放几个 Spinner 时
+  箭头看起来一样大，不会因为高度差 1px 就一大一小
 - `divider` 加了 `text`（线中间带一行字）、`dashed`（虚线）、`color`（线色）三个参数；
   新增 `vertical_divider` 画 1px 竖线
   - 纯 tk 的线不认令牌里的 `(浅色, 深色)` 元组，内部统一先解析成当前色

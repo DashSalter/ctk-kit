@@ -698,7 +698,11 @@ class Spinner(ctk.CTkFrame):
         self._step(1 if event.y < middle else -1)
 
     def _draw_arrows(self) -> None:
-        """重画两个小三角；高度变了会重新调用。"""
+        """重画两个小三角；高度变了会重新调用。
+
+        两个三角的尺寸是固定的，只按控件高度居中——这样同一行里的几个
+        Spinner 箭头看起来一样大，不会因为高度差 1px 就一大一小。
+        """
         canvas = self._arrows
         canvas.delete("all")
         height = canvas.winfo_height()
@@ -706,10 +710,9 @@ class Spinner(ctk.CTkFrame):
             # 刚建好还没布局，先用构造时的高度兜底，否则会画在不可见的位置
             height = self._height - 2
         middle = height / 2
-        reach = max(3, int(height * 0.16))
         # canvas 只认具体的颜色字符串，令牌里的 (浅色, 深色) 元组要先解析
         color = color_of(T.COLOR_MUTED)
-        for center, direction in ((middle - reach - 2, -1), (middle + reach + 2, 1)):
+        for center, direction in ((middle - 9, -1), (middle + 9, 1)):
             # direction=-1 画上三角，1 画下三角
             if direction < 0:
                 points = (5, center + 3, 17, center + 3, 11, center - 3)

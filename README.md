@@ -108,7 +108,7 @@ CTkButton(bar, text="保存").pack()
 | `dropdown` | `DropField` | 单选下拉 |
 | `select` | `TagSelectField` `TreeSelectField` | 多选标签 / 层级树，面板行为与 `DropField` 一致 |
 | `layout` | `Card` `PageHeader` `SectionTitle` `divider` `vertical_divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | `Card.body` 拿内容容器 |
-| `misc` | `Progress` | 进度条：连续 / 分格 / 百分比 / 不确定态 |
+| `misc` | `Progress` `RingProgress` | 进度条 / 圆环：连续、分格、条纹、不确定态、刻度 |
 | `notify` | `Notifier` `notify` | |
 | `scroll_list` | `LazyList` | |
 | `context_menu` | `ContextMenu` `attach_menu` `attach_edit_menu` | 输入框默认带菜单 |
@@ -164,12 +164,19 @@ CTkButton(bar, text="保存").pack()
 - `ProgressBar(master, *, value=0.0, width=220, height=6)`
   细进度条，`value` 收 0~1
 - `Progress(master, *, value=0.0, width=240, height=8, steps=0, show_text=False,
-  color=None, track=None)`
+  striped=False, color=None, track=None)`
   进度条的完整版，比 `ProgressBar` 多几种形态
   - `steps>0` 时分格显示，达标的格子点亮
   - `show_text=True` 时右侧显示百分比
+  - `striped=True` 时已完成部分画成 45° 斜条纹
   - `start_indeterminate()` / `stop_indeterminate()`：不确定态，一段色块来回滚
   - `color` / `track` 可单独换已完成色和轨道色
+- `RingProgress(master, *, value=0.0, size=140, thickness=10, show_text=True,
+  ticks=0, color=None, track=None)`
+  圆环进度
+  - `ticks>0` 时环外画一圈刻度，走过的刻度用主色
+  - 有刻度时圆环自动往里收，不会和刻度重叠
+  - 整块尺寸由 `size` 固定，不随容器拉伸
 - `Spinner(master, *, from_=0, to=100, increment=1, values=None, value=None,
   command=None, placeholder="", height=36, width=160, as_int=True)`
   带上下箭头的步进输入框

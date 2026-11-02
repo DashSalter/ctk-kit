@@ -1,11 +1,11 @@
-"""选择页：分段、开关、勾选、单选、滑块。
+"""选择页：分段、开关、勾选、单选。
 
 从旧示例的「选择」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
 ``ChoicesPageUI`` 只建控件，``ChoicesPage`` 在构造时自动 ``bind_events()``。
 
-``Switch`` / ``Checkbox`` / ``Slider`` 的 command 可以后配，全部放在
-``bind_events`` 里；``Segmented`` 的 command 绑在内部重绘逻辑上，只能在构造
-时传，所以 UI 类留同名钩子方法，事件类覆写。
+``Switch`` / ``Checkbox`` 的 command 可以后配，全部放在 ``bind_events`` 里；
+``Segmented`` 的 command 绑在内部重绘逻辑上，只能在构造时传，所以 UI 类留
+同名钩子方法，事件类覆写。
 每个卡片底部都带一个「查看实现」折叠面板。
 """
 
@@ -24,7 +24,6 @@ from ctk_kit import (
     PageHeader,
     Scrollable,
     Segmented,
-    Slider,
     Switch,
     TextArea,
     radio_group,
@@ -92,17 +91,6 @@ var.set("总是同步")   # 直接改选中项
 
 # 返回 (容器, StringVar)；控件必须共用同一个 variable 才互斥'''
 
-SLIDER_CODE = '''from ctk_kit import Slider
-
-track = Slider(row, on_change, from_=0, to=100, steps=0, width=220)
-# command 收 float；steps>0 时只能停在等分点
-
-track.get()
-track.set(65)
-
-# 滑块把手是 12px 正圆，轨道 = height - 2 * border_width（4px）
-# 进度条在「杂项」页：Progress / RingProgress'''
-
 
 class ChoicesPageUI(PageBase):
     """选择页 UI：只建控件，事件留给 ChoicesPage。"""
@@ -111,9 +99,7 @@ class ChoicesPageUI(PageBase):
         super().__init__(master)
 
         self.header = PageHeader(self, "选择")
-        self.header.info.configure(
-            text="分段 / 开关 / 勾选 / 单选 / 滑块"
-        )
+        self.header.info.configure(text="分段 / 开关 / 勾选 / 单选")
 
         # 底部回显条先于滚动区 pack：内容再多也不会被挤掉
         self.feedback = HintLabel(self, "点任意选项，回显会出现在这里")
@@ -126,7 +112,6 @@ class ChoicesPageUI(PageBase):
         self._build_switches(area)
         self._build_checks(area)
         self._build_radio(area)
-        self._build_sliders(area)
 
     def _build_segmented(self, area: tk.Misc) -> None:
         """分段选择：常规、紧凑与空列表三种。"""
@@ -223,30 +208,6 @@ class ChoicesPageUI(PageBase):
 
         CodePanel(box, RADIO_CODE, "传自己的 variable 就能从外部读写选中项。")
 
-    def _build_sliders(self, area: tk.Misc) -> None:
-        """滑块：连续与分段两种。"""
-        box = Card(area, title="滑块")
-        box.pack(fill="x", pady=(12, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "连续", width=72).pack(side="left")
-        self.track = Slider(row, width=320)
-        self.track.pack(side="left", padx=(8, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "分段", width=72).pack(side="left")
-        self.stepped = Slider(row, steps=4, width=240)
-        self.stepped.pack(side="left", padx=(8, 0))
-
-        HintLabel(
-            box,
-            "Slider 的 command 收 float；拖动时回显当前值，进度条在「杂项」页。",
-        ).pack(fill="x", padx=16, pady=(0, 10))
-
-        CodePanel(box, SLIDER_CODE, "Slider 的 get() 读数、set() 赋值。")
-
     # --- 分段控件：command 必须构造时传（内部靠它重绘选中段文字），事件类覆写 ---
     def _on_segment(self, value: str) -> None:
         """主分类分段的切换回调：UI 类里空实现，由事件类覆写。"""
@@ -263,7 +224,7 @@ class ChoicesPage(ChoicesPageUI):
         self.bind_events()
 
     def bind_events(self) -> None:
-        """注册开关、勾选、单选与滑块的 command。"""
+        """注册开关、勾选与单选的 command。"""
         self.toggle.configure(command=self._on_toggle)
         self.compact_switch.configure(command=self._on_compact_switch)
         self.device_check.configure(command=self._on_device_check)
@@ -273,9 +234,6 @@ class ChoicesPage(ChoicesPageUI):
         # 选中项本身由共享的 StringVar 维护。
         for button in self.radio_group.winfo_children():
             button.configure(command=self._on_radio)
-
-        self.track.configure(command=self._on_slide)
-        self.stepped.configure(command=self._on_step)
 
     def _on_toggle(self) -> None:
         """开关只回调、不带参数，状态自己读。"""
@@ -296,14 +254,6 @@ class ChoicesPage(ChoicesPageUI):
     def _on_radio(self) -> None:
         """单选框的 command 不带参数，当前项从 StringVar 读。"""
         self._show(f"单选：{self.radio_var.get()}")
-
-    def _on_slide(self, value: float) -> None:
-        """连续滑块：回显百分比。"""
-        self._show(f"滑块：{value:.0f}%")
-
-    def _on_step(self, value: float) -> None:
-        """分段滑块：只能停在 0 / 25 / 50 / 75 / 100。"""
-        self._show(f"分段档位：{value:.0f}")
 
     def _on_segment(self, value: str) -> None:
         """主分类分段：command 收到选中项文字。"""

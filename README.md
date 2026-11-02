@@ -192,13 +192,13 @@ CTkButton(bar, text="保存").pack()
 - `TagSelectField(master, *, values_provider, command=None, placeholder="", height=36, values=None)`
   多选标签：选中的值变成圆角标签排进框里，标签右侧的小叉单独删
   - 值不重复；已选中的项在面板里带 `✓`，再点一次是取消选中
-  - 标签多了横向滚动（滚轮可滚，停在标签上也能滚），输入框固定在右侧不跟着滚走
+  - 没有输入框：点标签区空白或右侧箭头展开候选；标签多了横向滚动（滚轮可滚，停在标签上也能滚）
   - `command` 收到当前全部标签的列表；面板点选后不关，方便连续多选
   - 方法：`get()` → `list` / `set(values)` / `clear()` / `open_menu()`
 - `TreeSelectField(master, *, values_provider, command=None, placeholder="", height=36, value="")`
   层级树：`values_provider()` 返回嵌套的 `("分组", ["子项", ...])` 元组，字符串等于叶子
   - 分组节点只能展开 / 收起，右侧 `▶` / `▼` 跟着变；分组本身不可选中
-  - 子项逐级缩进；展开后行数变化会重算面板高度与上下翻转，收起时尽量保持滚动位置
+  - 子项逐级缩进；展开 / 收起只增删受影响的那几行、不重建整个列表，再重算面板高度与翻转
   - 只有叶子能选，选中后写进输入框、收起面板并回调 `command(value)`
   - 方法：`get()` / `set(value)` / `open_menu()`
 

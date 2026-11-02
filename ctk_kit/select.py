@@ -165,6 +165,18 @@ class _PopupPanel:
         if keep and keep[1] > keep[0]:
             self._listing.canvas.yview_moveto(keep[0])
 
+    def sync_rows(self, count: int) -> None:
+        """行数变了但内容已自己增删好：只重算面板高度与位置。
+
+        和 :meth:`refresh` 的区别是不动已有的行，展开树形节点时用它，
+        免得整块面板重建、看起来闪一下。
+        """
+        if not self.visible:
+            return
+        self._rows = max(0, int(count))
+        if not self._place_popup():
+            self.close()
+
     def close(self, _event: Optional[tk.Event] = None) -> None:
         """收起面板并清理绑定；重复调用安全。"""
         if self._root_bind_id is not None:
@@ -407,8 +419,9 @@ def _round_window_corners(owner: tk.Misc, popup: ctk.CTkToplevel) -> None:
 class TagSelectField(ctk.CTkFrame):
     """多选标签下拉：点开的候选项变成标签排进框里，标签右侧小叉可删。
 
-    标签不重复：已经选中的项再点一次会取消选中。标签多了横向滚动，
-    输入框固定在右侧，不会跟着滚走。
+    没有输入框：整块就是标签区，点空白处或右侧箭头展开候选。标签不重复：
+    已经选中的项再点一次会取消选中。标签多了横向滚动，鼠标停在标签上时
+    整块标签一起高亮。
     """
 
     def __init__(
@@ -427,7 +440,7 @@ class TagSelectField(ctk.CTkFrame):
             master: 父容器。
             values_provider: 返回全部候选的函数，每次展开下拉都会调用。
             command: 选中/删除后的回调，参数是当前全部标签（列表）。
-            placeholder: 输入框为空时的灰色占位文字。
+            placeholder: 一个标签都没有时的灰色提示文字。
             height: 整体高度（逻辑像素），默认 36。
             values: 初始选中的标签。
         """
@@ -453,7 +466,7 @@ class TagSelectField(ctk.CTkFrame):
         self._font = get_font(T.FONT_TINY)
         self._bg = color_of(T.COLOR_INPUT)
 
-        # 标签区：横向滚动；输入框与箭头固定在右侧
+        # 标签区：横向滚动；箭头固定在右侧
         self._canvas = tk.Canvas(
             self, height=height - 2, highlightthickness=0, bg=self._bg, bd=0
         )
@@ -468,18 +481,6 @@ class TagSelectField(ctk.CTkFrame):
             widget.bind("<MouseWheel>", self._on_wheel)
             widget.bind("<Button-1>", self._on_strip_click)
 
-        self.entry: CTkEntry = CTkEntry(
-            self,
-            fg_color="transparent",
-            border_width=0,
-            corner_radius=0,
-            width=108,
-            height=height - 8,
-            font=get_font(T.FONT_BODY),
-            text_color=T.COLOR_TEXT,
-            placeholder_text=placeholder,
-            placeholder_text_color=T.COLOR_FAINT,
-        )
         self.arrow: ctk.CTkLabel = ctk.CTkLabel(
             self,
             text="▼",
@@ -492,17 +493,26 @@ class TagSelectField(ctk.CTkFrame):
             anchor="center",
             cursor="hand2",
         )
-        # 右侧空间：先 pack 箭头占最右，再 pack 输入框，顺序才是 [标签][输入][箭头]
-        self.arrow.pack(side="right", padx=(0, 6), pady=1)
-        self.entry.pack(side="right", fill="y", padx=(4, 2), pady=1)
-        self.entry.bind("<BackSpace>", self._on_backspace)
+        self.arrow.pack(side="right", padx=(0, 8), pady=1)
         self.arrow.bind("<Button-1>", lambda _e: self.open_menu())
+
+        # 一个标签都没有时的灰字提示；有标签就藏起来
+        self._hint = ctk.CTkLabel(
+            self,
+            text=placeholder,
+            font=get_font(T.FONT_SMALL),
+            text_color=T.COLOR_FAINT,
+            fg_color="transparent",
+            anchor="w",
+        )
+        self._hint.place(x=10, rely=0.5, anchor="w")
 
         self._panel = _PopupPanel(self, build=self._build_rows)
         self.bind("<Destroy>", self._on_destroy)
 
         for value in values or ():
             self._add_tag(value)
+        self._sync_hint()
 
     # ------------------------------------------------------------ 读写
     def get(self) -> list:
@@ -551,9 +561,9 @@ class TagSelectField(ctk.CTkFrame):
             check = ctk.CTkLabel(
                 row,
                 text="✓" if value in self._values else "",
-                width=22,
+                width=20,
                 font=font,
-                text_color=T.COLOR_ACCENT,
+                text_color=T.COLOR_MUTED,
                 fg_color="transparent",
             )
             check.pack(side="right", padx=(0, 8))
@@ -586,7 +596,7 @@ class TagSelectField(ctk.CTkFrame):
         """加一个标签；重复值直接忽略。"""
         if value in self._values:
             return
-        width = self._font.measure(value) + 34
+        width = self._font.measure(value) + 36
         tag = ctk.CTkFrame(
             self._strip,
             fg_color=T.COLOR_SOFT_HOVER,
@@ -602,6 +612,7 @@ class TagSelectField(ctk.CTkFrame):
             font=self._font,
             text_color=T.COLOR_TEXT,
             fg_color="transparent",
+            corner_radius=0,
         )
         text.pack(side="left", padx=(8, 0))
         close = ctk.CTkLabel(
@@ -609,20 +620,49 @@ class TagSelectField(ctk.CTkFrame):
             text="×",
             width=18,
             font=self._font,
-            text_color=T.COLOR_MUTED,
+            text_color=T.COLOR_FAINT,
             fg_color="transparent",
+            corner_radius=0,
             cursor="hand2",
         )
-        close.pack(side="right", padx=(0, 4))
+        close.pack(side="right", padx=(0, 5))
+
+        def enter(_event: tk.Event) -> None:
+            """鼠标进到标签任何一块：整块标签一起高亮。"""
+            tag.configure(fg_color=T.COLOR_BORDER_INPUT)
+            close.configure(text_color=T.COLOR_TEXT)
+
+        def leave(_event: tk.Event) -> None:
+            """指针真的离开标签才还原（在标题和 × 之间移动不算离开）。"""
+            self.after_idle(lambda: _restore())
+
+        def _restore() -> None:
+            """确认指针不在标签里，再取消高亮。"""
+            try:
+                x, y = tag.winfo_pointerxy()
+                inside = (
+                    tag.winfo_rootx() <= x <= tag.winfo_rootx() + tag.winfo_width()
+                    and tag.winfo_rooty()
+                    <= y
+                    <= tag.winfo_rooty() + tag.winfo_height()
+                )
+            except tk.TclError:
+                return
+            if inside:
+                return
+            tag.configure(fg_color=T.COLOR_SOFT_HOVER)
+            close.configure(text_color=T.COLOR_FAINT)
+
         close.bind("<Button-1>", lambda _e, v=value: self._remove_tag(v))
-        close.bind("<Enter>", lambda _e, c=close: c.configure(text_color=T.COLOR_TEXT))
-        close.bind("<Leave>", lambda _e, c=close: c.configure(text_color=T.COLOR_MUTED))
         # 鼠标停在标签上时滚轮也要能滚标签区
-        for widget in (tag, text):
+        for widget in (tag, text, close):
             widget.bind("<MouseWheel>", self._on_wheel)
+            widget.bind("<Enter>", enter)
+            widget.bind("<Leave>", leave)
         self._values.append(value)
         self._tags.append((value, tag))
         self._sync_size()
+        self._sync_hint()
 
     def _remove_tag(self, value: str) -> None:
         """删掉一个标签并回调。"""
@@ -635,6 +675,7 @@ class TagSelectField(ctk.CTkFrame):
         if value in self._values:
             self._values.remove(value)
         self._sync_size()
+        self._sync_hint()
         self._notify()
         if self._panel.visible:
             self._panel.refresh()
@@ -643,6 +684,13 @@ class TagSelectField(ctk.CTkFrame):
         """把当前标签列表交给调用方。"""
         if self._command is not None:
             self._command(self.get())
+
+    def _sync_hint(self) -> None:
+        """没有标签时显示占位灰字，有了就藏起来。"""
+        if self._values:
+            self._hint.place_forget()
+        elif not self._hint.winfo_ismapped():
+            self._hint.place(x=10, rely=0.5, anchor="w")
 
     # ------------------------------------------------------------ 滚动与事件
     def _sync_region(self, _event: Optional[tk.Event] = None) -> None:
@@ -665,17 +713,9 @@ class TagSelectField(ctk.CTkFrame):
         return "break"
 
     def _on_strip_click(self, _event: Optional[tk.Event] = None) -> str:
-        """点标签区的空白处：展开面板并聚焦输入框。"""
-        self.entry.focus_set()
+        """点标签区的空白处：展开面板。"""
         self.open_menu()
         return "break"
-
-    def _on_backspace(self, _event: Optional[tk.Event] = None) -> Optional[str]:
-        """输入框为空时按退格删掉最后一个标签。"""
-        if self._values and not self.entry.get():
-            self._remove_tag(self._values[-1])
-            return "break"
-        return None
 
     def _on_destroy(self, event: tk.Event) -> None:
         """销毁时收面板，避免浮窗残留。"""
@@ -732,6 +772,12 @@ class TreeSelectField(ctk.CTkFrame):
         self._command = command
         self._height = height
         self._expanded: set = set()
+        #: 当前面板里可见行：``{路径: 行控件}``，用来增量增删
+        self._rows_map: dict = {}
+        #: 分组行的右箭头：``{路径: 箭头 label}``
+        self._markers: dict = {}
+        #: 行实际挂在哪一层，展开时新行要放进同一个容器
+        self._row_parent: Optional[tk.Misc] = None
 
         self.entry: CTkEntry = CTkEntry(
             self,
@@ -802,76 +848,134 @@ class TreeSelectField(ctk.CTkFrame):
         return (label, [cls._normalize(child) for child in children])
 
     def _flatten(self) -> list:
-        """按当前展开状态摊平成可见行：``(缩进层级, 文字, 是否分组, 路径)``。"""
+        """整棵树按当前展开状态摊平：``(缩进层级, 文字, 是否分组, 路径)``。"""
+        return self._subtree_rows(())
+
+    def _nodes_under(self, path: tuple) -> list:
+        """``path`` 对应的子节点列表；空路径返回整棵树。"""
+        nodes = self._tree()
+        for label in path:
+            found = None
+            for node_label, children in nodes:
+                if node_label == label:
+                    found = children
+                    break
+            nodes = found or []
+        return nodes
+
+    def _subtree_rows(self, path: tuple) -> list:
+        """``path`` 之下按展开状态可见的行（不含 ``path`` 自己）。"""
         rows: list = []
         expanded = self._expanded
 
         def walk(nodes: Sequence, depth: int, prefix: tuple) -> None:
             for label, children in nodes:
-                path = prefix + (label,)
+                child_path = prefix + (label,)
                 is_group = children is not None
-                rows.append((depth, label, is_group, path))
-                if is_group and path in expanded:
-                    walk(children, depth + 1, path)
+                rows.append((depth, label, is_group, child_path))
+                if is_group and child_path in expanded:
+                    walk(children, depth + 1, child_path)
 
-        walk(self._tree(), 0, ())
+        walk(self._nodes_under(path), len(path), path)
         return rows
 
     def _build_rows(self, parent: tk.Misc) -> int:
-        """铺树形行；返回行数。"""
+        """铺整棵树的可见行；返回行数。"""
+        self._row_parent = parent
+        self._rows_map.clear()
+        self._markers.clear()
         rows = self._flatten()
-        font = get_font(T.FONT_SMALL)
         for depth, label, is_group, path in rows:
-            row = ctk.CTkFrame(parent, fg_color="transparent", height=_ROW_HEIGHT)
-            row.pack(fill="x", pady=1)
-            row.pack_propagate(False)
-            text = ctk.CTkLabel(
-                row,
-                text=label,
-                anchor="w",
-                font=font,
-                text_color=T.COLOR_MUTED if is_group else T.COLOR_TEXT,
-                fg_color="transparent",
-            )
-            text.pack(side="left", fill="x", expand=True, padx=(10 + depth * 14, 0))
-            widgets = [row, text]
-            if is_group:
-                opened = path in self._expanded
-                marker = ctk.CTkLabel(
-                    row,
-                    text="▼" if opened else "▶",
-                    width=20,
-                    font=get_font((T.FONT_NAME, 9)),
-                    text_color=T.COLOR_MUTED,
-                    fg_color="transparent",
-                )
-                marker.pack(side="right", padx=(0, 8))
-                widgets.append(marker)
-
-            if is_group:
-                handler = lambda _e, p=path: self._toggle_expand(p)  # noqa: E731
-            else:
-                handler = lambda _e, v=label: self._pick(v)  # noqa: E731
-            for widget in widgets:
-                widget.bind("<Button-1>", handler)
-                widget.bind(
-                    "<Enter>", lambda _e, r=row: r.configure(fg_color=T.COLOR_SOFT_HOVER)
-                )
-                widget.bind(
-                    "<Leave>", lambda _e, r=row: r.configure(fg_color="transparent")
-                )
-                if self._panel._listing is not None:
-                    self._panel._listing.bind_wheel(widget)
+            self._make_row(parent, depth, label, is_group, path)
         return len(rows)
 
+    def _make_row(
+        self, parent: tk.Misc, depth: int, label: str, is_group: bool, path: tuple
+    ) -> ctk.CTkFrame:
+        """建一行并记进 ``_rows_map``；分组行顺手记下右侧的箭头。"""
+        font = get_font(T.FONT_SMALL)
+        row = ctk.CTkFrame(parent, fg_color="transparent", height=_ROW_HEIGHT)
+        row.pack(fill="x", pady=1)
+        row.pack_propagate(False)
+        text = ctk.CTkLabel(
+            row,
+            text=label,
+            anchor="w",
+            font=font,
+            text_color=T.COLOR_MUTED if is_group else T.COLOR_TEXT,
+            fg_color="transparent",
+        )
+        text.pack(side="left", fill="x", expand=True, padx=(10 + depth * 14, 0))
+        widgets = [row, text]
+        if is_group:
+            marker = ctk.CTkLabel(
+                row,
+                text="▼" if path in self._expanded else "▶",
+                width=20,
+                font=get_font((T.FONT_NAME, 9)),
+                text_color=T.COLOR_MUTED,
+                fg_color="transparent",
+            )
+            marker.pack(side="right", padx=(0, 8))
+            widgets.append(marker)
+            self._markers[path] = marker
+
+        if is_group:
+            handler = lambda _e, p=path: self._toggle_expand(p)  # noqa: E731
+        else:
+            handler = lambda _e, v=label: self._pick(v)  # noqa: E731
+        for widget in widgets:
+            widget.bind("<Button-1>", handler)
+            widget.bind(
+                "<Enter>", lambda _e, r=row: r.configure(fg_color=T.COLOR_SOFT_HOVER)
+            )
+            widget.bind(
+                "<Leave>", lambda _e, r=row: r.configure(fg_color="transparent")
+            )
+            if self._panel._listing is not None:
+                self._panel._listing.bind_wheel(widget)
+        self._rows_map[path] = row
+        return row
+
     def _toggle_expand(self, path: tuple) -> None:
-        """展开/收起一个分组节点，面板保持打开。"""
+        """展开 / 收起一个分组节点。
+
+        只在原来的行里增删受影响的那几行，不重建整个列表：重建会让面板
+        整体重绘一次，看起来就是「闪一下」。只改行数、再重算面板高度。
+        """
+        if not self._panel.visible:
+            return
         if path in self._expanded:
             self._expanded.discard(path)
+            self._remove_children(path)
         else:
             self._expanded.add(path)
-        if self._panel.visible:
-            self._panel.refresh()
+            self._insert_children(path)
+        marker = self._markers.get(path)
+        if marker is not None:
+            marker.configure(text="▼" if path in self._expanded else "▶")
+        self._panel.sync_rows(len(self._rows_map))
+
+    def _insert_children(self, path: tuple) -> None:
+        """把 ``path`` 之下按展开状态可见的行插到它后面。"""
+        anchor = self._rows_map.get(path)
+        if anchor is None or self._row_parent is None:
+            return
+        previous = anchor
+        for depth, label, is_group, child_path in self._subtree_rows(path):
+            row = self._make_row(self._row_parent, depth, label, is_group, child_path)
+            row.pack_configure(after=previous)
+            previous = row
+
+    def _remove_children(self, path: tuple) -> None:
+        """删掉 ``path`` 的所有后代行；别的行不动，pack 会自己往上收。"""
+        depth = len(path)
+        for child_path in [p for p in self._rows_map if len(p) > depth and p[:depth] == path]:
+            row = self._rows_map.pop(child_path, None)
+            self._markers.pop(child_path, None)
+            if row is not None:
+                with contextlib.suppress(tk.TclError):
+                    row.destroy()
 
     def _pick(self, value: str) -> None:
         """选中叶子：写入输入框、收起面板、回调。"""

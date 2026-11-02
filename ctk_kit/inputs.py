@@ -609,7 +609,7 @@ class Spinner(ctk.CTkFrame):
             bd=0,
             cursor="hand2",
         )
-        self._arrows.pack(side="right", fill="y", padx=(0, 2), pady=1)
+        self._arrows.pack(side="right", fill="y", padx=(0, 5), pady=1)
         self._arrows.bind("<Button-1>", self._on_arrow)
         self._arrows.bind("<Configure>", lambda _e: self._draw_arrows())
 
@@ -727,12 +727,12 @@ class Spinner(ctk.CTkFrame):
             if _HAS_PIL:
                 photo = self._arrow_image(up, color)
                 self._arrow_photos.append(photo)
-                canvas.create_image(11, center, image=photo, anchor="center")
+                canvas.create_image(9, center, image=photo, anchor="center")
                 continue
             if up:
-                points = (5, center + 3, 17, center + 3, 11, center - 3)
+                points = (3, center + 3, 15, center + 3, 9, center - 3)
             else:
-                points = (5, center - 3, 17, center - 3, 11, center + 3)
+                points = (3, center - 3, 15, center - 3, 9, center + 3)
             canvas.create_polygon(*points, fill=color, outline="")
 
     @staticmethod

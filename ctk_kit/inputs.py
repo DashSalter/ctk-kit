@@ -709,11 +709,13 @@ class Spinner(ctk.CTkFrame):
         if height <= 1:
             # 刚建好还没布局，先用构造时的高度兜底，否则会画在不可见的位置
             height = self._height - 2
-        middle = height / 2
+        # 用整数中点：小数中点加上 ±3 之后两个三角会被取整到不同高度，
+        # 看起来一大一小
+        middle = height // 2
         # canvas 只认具体的颜色字符串，令牌里的 (浅色, 深色) 元组要先解析
         color = color_of(T.COLOR_MUTED)
         for center, direction in ((middle - 9, -1), (middle + 9, 1)):
-            # direction=-1 画上三角，1 画下三角
+            # direction=-1 画上三角，1 画下三角；两者关于中心镜像，高宽一致
             if direction < 0:
                 points = (5, center + 3, 17, center + 3, 11, center - 3)
             else:

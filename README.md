@@ -309,8 +309,9 @@ app.notifier.show("云备份失败", title="网络错误", level="error", style=
 
 ### 对话框（`dialog`）
 
-模态窗口：弹出期间主窗口点不了，必须点按钮、按 Esc 或关窗才能继续。
-实现是普通 `Toplevel` + `transient` + `grab_set` + `wait_window`。
+模态面板：没有系统标题栏，弹出就是一块圆角卡片；弹出期间主窗口拖不动、
+点不了、滚轮也滚不动（`show()` 里把父窗口置为 `disabled`，不是只靠
+`grab_set` 那种拦不住标题栏和滚轮的假模态）。
 
 ```python
 from ctk_kit import alert, confirm, prompt

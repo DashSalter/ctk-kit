@@ -24,6 +24,7 @@ ttkbootstrap 的对话框一个路子。刻意没用无边框窗口：``override
 from __future__ import annotations
 
 import contextlib
+import sys
 import tkinter as tk
 from typing import Any, Optional, Sequence
 
@@ -34,7 +35,7 @@ from . import tokens as T
 from .buttons import CTkButton
 from .fonts import get_font
 from .inputs import FormEntry
-from .theme import color_of, is_dark, set_titlebar_dark
+from .theme import color_of
 
 __all__ = ["Dialog", "alert", "confirm", "prompt"]
 
@@ -102,6 +103,29 @@ def _badge(level: str, size: int = 34):
     return image.resize((size, size), Image.LANCZOS)
 
 
+def _round_corners(window: tk.Misc, radius: int = 12) -> None:
+    """把无边框窗口裁成圆角（Windows）；别的平台什么都不做。"""
+    with contextlib.suppress(Exception):
+        if sys.platform != "win32":
+            return
+        import ctypes
+
+        window.update_idletasks()
+        hwnd = ctypes.windll.user32.GetParent(window.winfo_id()) or window.winfo_id()
+        preference = ctypes.c_int(2)
+        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
+        )
+        if result == 0:
+            return
+        scaling = window.winfo_toplevel()._get_window_scaling()
+        r = int(radius * 2 * scaling)
+        region = ctypes.windll.gdi32.CreateRoundRectRgn(
+            0, 0, window.winfo_width() + 1, window.winfo_height() + 1, r, r
+        )
+        ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+
+
 class Dialog(ctk.CTkToplevel):
     """一个等待用户操作的卡片窗口。
 
@@ -135,11 +159,12 @@ class Dialog(ctk.CTkToplevel):
         self.withdraw()
         # 用普通窗口而不是 overrideredirect：无边框窗口在 Windows 上
         # grab_set() 不一定拦得住主窗口的输入，模态会失效。这里按
-        # ttkbootstrap 的做法——有标题栏、transient、grab_set。
-        self.title(title or " ")
-        self.transient(master.winfo_toplevel())
-        self.resizable(False, False)
-        self.configure(fg_color=T.COLOR_BG)
+        # 无边框卡片：没有系统标题栏，弹出来就是一块圆角面板。
+        # 模态不能只靠 grab_set（无边框窗口在 Windows 上拦不住标题栏和滚轮），
+        # 真正的做法是 show() 期间把父窗口置为 disabled。
+        self.overrideredirect(True)
+        self.configure(fg_color=T.COLOR_BORDER)
+        self._parent_window = master.winfo_toplevel()
 
         self._result: Any = None
         self._buttons: list = list(buttons) if buttons else [("确定", True)]
@@ -173,6 +198,17 @@ class Dialog(ctk.CTkToplevel):
         )
         icon.pack(side="left", padx=(0, 12))
 
+        if title:
+            heading = ctk.CTkLabel(
+                head,
+                text=title,
+                anchor="w",
+                font=get_font(T.FONT_CARD_TITLE),
+                text_color=T.COLOR_TEXT,
+                fg_color="transparent",
+            )
+            heading.pack(side="left", fill="x", expand=True)
+
         if message:
             text = ctk.CTkLabel(
                 body,
@@ -181,7 +217,7 @@ class Dialog(ctk.CTkToplevel):
                 justify="left",
                 wraplength=self._width - 86,
                 font=get_font(T.FONT_BODY),
-                text_color=T.COLOR_TEXT,
+                text_color=T.COLOR_TEXT_SOFT if title else T.COLOR_TEXT,
                 fg_color="transparent",
             )
             text.pack(fill="x", padx=18, pady=(12 if title else 0, 0))
@@ -279,20 +315,29 @@ class Dialog(ctk.CTkToplevel):
         """显示并等待用户操作，返回按下的按钮对应的值。
 
         关掉窗口或按 Esc 返回 ``None``；有输入框时返回输入的文字。
-        弹出期间 ``grab_set`` 会把所有输入都截到这个窗口上，主窗口点不了。
+
+        弹出期间会把父窗口置为 ``disabled``：主窗口不能拖、不能点，滚轮
+        也滚不动。只靠 ``grab_set`` 不够——无边框窗口在 Windows 上拦不住
+        标题栏拖动和 ``bind_all`` 的滚轮。
         """
+        parent = self._parent_window
         self.deiconify()
         self.wait_visibility()
-        # 标题栏跟进外观：窗口真正 mapped 之后 DWM 才接管
-        self.after(10, lambda: set_titlebar_dark(self, is_dark()))
-        self.lift()
+        _round_corners(self)
+        # 无边框窗口不走窗口管理器，得自己把父窗口压住
+        with contextlib.suppress(tk.TclError):
+            parent.attributes("-disabled", True)
         self.grab_set()
         if self._entry is not None:
             self._entry.focus_set()
             self._entry._entry.icursor("end")
         else:
             self.focus_force()
-        self.wait_window(self)
+        try:
+            self.wait_window(self)
+        finally:
+            with contextlib.suppress(tk.TclError):
+                parent.attributes("-disabled", False)
         return self._result
 
 

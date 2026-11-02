@@ -56,8 +56,11 @@ ring = RingProgress(frame, value=0.35, size=140)
 ring.set(0.6)          # 0~1
 ring.get()
 
-# 带刻度：ticks 是刻度根数，走过的用主色
+# 带刻度：ticks 是刻度根数（密度），走过的用主色
 RingProgress(frame, value=0.65, size=160, thickness=8, ticks=24)
+
+# 只要刻度、不要圆环：纯刻度圈
+RingProgress(frame, value=0.72, size=160, ticks=40, tick_len=10, ring=False)
 
 # 有刻度时圆环会自动往里收，不会和刻度重叠
 # show_text=False 去掉中间的百分比'''
@@ -176,14 +179,23 @@ class MiscPageUI(PageBase):
         self.ring_ticks = RingProgress(
             row, value=0.65, size=160, thickness=8, ticks=24
         )
-        self.ring_ticks.pack(side="left")
+        self.ring_ticks.pack(side="left", padx=(0, 28))
+        self.ring_dial = RingProgress(
+            row, value=0.72, size=160, tick_len=10, ticks=40, ring=False
+        )
+        self.ring_dial.pack(side="left")
 
         HintLabel(
             box,
-            "ticks>0 时环外多一圈刻度，走过的刻度用主色；中间的百分比可以关掉。",
+            "ticks>0 时环外多一圈刻度，走过的刻度用主色；ring=False 只留刻度"
+            "（纯刻度圈），ticks 就是刻度密度。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
-        CodePanel(box, RING_CODE, "set() 收 0~1，圆环尺寸由 size 固定，不随容器拉伸。")
+        CodePanel(
+            box,
+            RING_CODE,
+            "set() 收 0~1，圆环尺寸由 size 固定，不随容器拉伸。",
+        )
 
     def _build_divider(self, area: tk.Misc) -> None:
         """分割线：实线 / 带文字 / 虚线 / 竖向。"""

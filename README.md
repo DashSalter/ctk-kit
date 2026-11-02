@@ -173,9 +173,11 @@ CTkButton(bar, text="保存").pack()
   - `handle=True` 在进度端画一个圆点把手，拖着就能改值，`on_change` 收 0~1  - `start_indeterminate()` / `stop_indeterminate()`：不确定态，一段色块来回滚
   - `color` / `track` 可单独换已完成色和轨道色
 - `RingProgress(master, *, value=0.0, size=140, thickness=10, show_text=True,
-  ticks=0, color=None, track=None)`
+  ticks=0, color=None, track=None, ring=True, tick_len=6)`
   圆环进度
-  - `ticks>0` 时环外画一圈刻度，走过的刻度用主色
+  - `ticks>0` 时环外画一圈刻度，走过的刻度用主色；`ticks` 就是刻度密度
+  - `ring=False` 只画刻度、不画圆环本体（纯刻度圈）
+  - `tick_len` 控制每根刻度多长，默认 6
   - 有刻度时圆环自动往里收，不会和刻度重叠
   - 整块尺寸由 `size` 固定，不随容器拉伸
 - `Spinner(master, *, from_=0, to=100, increment=1, values=None, value=None,

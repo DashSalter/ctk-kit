@@ -338,6 +338,8 @@ class RingProgress(ctk.CTkFrame):
         ticks: int = 0,
         color: Optional[str] = None,
         track: Optional[str] = None,
+        ring: bool = True,
+        tick_len: int = 6,
     ) -> None:
         """创建圆环进度。
 
@@ -347,9 +349,11 @@ class RingProgress(ctk.CTkFrame):
             size: 整块的正方形边长（像素），默认 140。
             thickness: 圆环粗细（像素），默认 10。
             show_text: 中心是否显示百分比。
-            ticks: 大于 0 时在环外画这么多根刻度线。
+            ticks: 大于 0 时在环外画这么多根刻度线，也就是刻度的密集度。
             color: 已完成部分的颜色，默认主色。
             track: 轨道颜色，默认 ``COLOR_BORDER_STRONG``。
+            ring: 传 ``False`` 就只画刻度，不画圆环本体（纯刻度圈）。
+            tick_len: 每根刻度的长度（像素），默认 6。
         """
         super().__init__(master, fg_color="transparent", width=size, height=size)
         self.pack_propagate(False)
@@ -359,6 +363,8 @@ class RingProgress(ctk.CTkFrame):
         self._color = color_of(color or T.COLOR_ACTIVE)
         self._track_color = color_of(track or T.COLOR_BORDER_STRONG)
         self._show_text = show_text
+        self._ring = bool(ring)
+        self._tick_len = max(2, int(tick_len))
         self._value = max(0.0, min(1.0, float(value)))
         self._photo = None
 
@@ -414,20 +420,21 @@ class RingProgress(ctk.CTkFrame):
         image = Image.new("RGBA", (size, size), _parent_bg(self))
         pen = ImageDraw.Draw(image)
 
-        tick_len = 6 * scale if self._ticks else 0
-        offset = (2 + (6 + 3 if self._ticks else 0)) * scale
+        tick_len = self._tick_len * scale if self._ticks else 0
+        offset = (2 + (self._tick_len + 3 if self._ticks else 0)) * scale
         box = (offset, offset, size - offset - 1, size - offset - 1)
 
-        pen.ellipse(box, outline=self._track_color, width=thickness)
-        if self._value > 0:
-            # PIL 的 0 度在 3 点钟方向、顺时针增大；从 -90 起步就是顶部
-            pen.arc(
-                box,
-                start=-90,
-                end=-90 + 360 * self._value,
-                fill=self._color,
-                width=thickness,
-            )
+        if self._ring:
+            pen.ellipse(box, outline=self._track_color, width=thickness)
+            if self._value > 0:
+                # PIL 的 0 度在 3 点钟方向、顺时针增大；从 -90 起步就是顶部
+                pen.arc(
+                    box,
+                    start=-90,
+                    end=-90 + 360 * self._value,
+                    fill=self._color,
+                    width=thickness,
+                )
 
         if self._ticks:
             half = size / 2
@@ -455,20 +462,21 @@ class RingProgress(ctk.CTkFrame):
         canvas = self._canvas
         size = self._size
         half = size / 2
-        tick_len = 6 if self._ticks else 0
+        tick_len = self._tick_len if self._ticks else 0
         offset = 2 + tick_len + (3 if self._ticks else 0)
         radius = half - offset - self._thickness / 2
         box = (half - radius, half - radius, half + radius, half + radius)
-        canvas.create_oval(*box, outline=self._track_color, width=self._thickness)
-        if self._value > 0:
-            canvas.create_arc(
-                *box,
-                start=90,
-                extent=-359.99 * self._value,
-                style="arc",
-                outline=self._color,
-                width=self._thickness,
-            )
+        if self._ring:
+            canvas.create_oval(*box, outline=self._track_color, width=self._thickness)
+            if self._value > 0:
+                canvas.create_arc(
+                    *box,
+                    start=90,
+                    extent=-359.99 * self._value,
+                    style="arc",
+                    outline=self._color,
+                    width=self._thickness,
+                )
         if self._ticks:
             outer = half - 2
             inner = half - 2 - tick_len

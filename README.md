@@ -105,7 +105,8 @@ CTkButton(bar, text="保存").pack()
 | `buttons` | `PrimaryButton` `SecondaryButton` `DangerButton` `FlatButton` `SoftButton` | |
 | `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `bind_focus_border` | |
 | `text` | `TextArea` | |
-| `dropdown` | `DropField` | |
+| `dropdown` | `DropField` | 单选下拉 |
+| `select` | `TagSelectField` `TreeSelectField` | 多选标签 / 层级树，面板行为与 `DropField` 一致 |
 | `layout` | `Card` `PageHeader` `SectionTitle` `divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | `Card.body` 拿内容容器 |
 | `notify` | `Notifier` `notify` | |
 | `scroll_list` | `LazyList` | |
@@ -178,7 +179,7 @@ CTkButton(bar, text="保存").pack()
   - 方法：`get()` / `set(text)` / `clear()` / `append(text)` / `insert(text, at="end")`；
     插入和追加会自动刷新字数并触发 `on_change`，只读时也能写入（写完仍保持只读）
 
-### 下拉（`dropdown`）
+### 下拉（`dropdown` / `select`）
 
 - `DropField(master, *, values_provider, command=None, placeholder="", height=36)`
   - `values_provider()` 每次展开时调用，返回候选文字列表
@@ -188,6 +189,18 @@ CTkButton(bar, text="保存").pack()
   - 页面滚动会改变控件位置但不产生顶层事件，由 60 ms 一次的位置比对补上；控件滚出可视区就自动收起
   - 窗口变窄时面板跟着收窄，窄到放不下就直接收起，不会伸出窗口
   - 方法：`get()` / `set(value)` / `clear()`（`set` 不触发 `command`）
+- `TagSelectField(master, *, values_provider, command=None, placeholder="", height=36, values=None)`
+  多选标签：选中的值变成圆角标签排进框里，标签右侧的小叉单独删
+  - 值不重复；已选中的项在面板里带 `✓`，再点一次是取消选中
+  - 标签多了横向滚动（滚轮可滚，停在标签上也能滚），输入框固定在右侧不跟着滚走
+  - `command` 收到当前全部标签的列表；面板点选后不关，方便连续多选
+  - 方法：`get()` → `list` / `set(values)` / `clear()` / `open_menu()`
+- `TreeSelectField(master, *, values_provider, command=None, placeholder="", height=36, value="")`
+  层级树：`values_provider()` 返回嵌套的 `("分组", ["子项", ...])` 元组，字符串等于叶子
+  - 分组节点只能展开 / 收起，右侧 `▶` / `▼` 跟着变；分组本身不可选中
+  - 子项逐级缩进；展开后行数变化会重算面板高度与上下翻转，收起时尽量保持滚动位置
+  - 只有叶子能选，选中后写进输入框、收起面板并回调 `command(value)`
+  - 方法：`get()` / `set(value)` / `open_menu()`
 
 ### 布局（`layout`）
 

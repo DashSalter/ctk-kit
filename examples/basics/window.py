@@ -18,6 +18,7 @@ from listing_page import ListingPage
 from menu_page import MenuPage
 from notify_page import NotifyPage
 from overview_page import OverviewPage
+from select_page import SelectPage
 from settings_page import SettingsPage
 from table_page import TablePage
 
@@ -41,6 +42,7 @@ class DemoApp(App):
                 "总览": OverviewPage,
                 "按钮": ButtonPage,
                 "输入": InputsPage,
+                "下拉": SelectPage,
                 "选择": ChoicesPage,
                 "展开": CollapsePage,
                 "表格": TablePage,

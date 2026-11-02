@@ -112,7 +112,7 @@ class Progress(ctk.CTkFrame):
         self._anim_pos = 0.0
 
         # 有把手时上下多留一点空间，圆点才不会被切掉
-        self._canvas_height = self._height + (10 if self._handle else 0)
+        self._canvas_height = self._height + (16 if self._handle else 0)
 
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(fill="x", expand=True)
@@ -227,16 +227,11 @@ class Progress(ctk.CTkFrame):
                 image.paste(pattern, (0, 0), mask)
 
         if self._handle:
-            # 进度端一个圆点把手：先铺一圈底色当描边，再画主色圆心
-            center_x = filled_width
-            center_y = top + bar_h / 2
-            background = _parent_bg(self)
-            outer = bar_h / 2 + 5 * scale
-            pen.ellipse(
-                (center_x - outer, center_y - outer, center_x + outer, center_y + outer),
-                fill=background,
-            )
+            # 进度端一个圆点把手：只画主色圆，不加背景色描边——
+            # 描边会在圆点周围盖掉轨道，看起来像一圈黑框
             dot = bar_h / 2 + 3 * scale
+            center_x = min(max(filled_width, dot), w - dot)
+            center_y = top + bar_h / 2
             pen.ellipse(
                 (center_x - dot, center_y - dot, center_x + dot, center_y + dot),
                 fill=self._color,

@@ -170,8 +170,7 @@ CTkButton(bar, text="保存").pack()
   - `show_text=True` 时右侧显示百分比
   - `striped=True` 时已完成部分画成 45° 斜条纹
   - `radius=0` 换成直角端点；`height=2~4` 就是细线样式
-  - `handle=True` 在进度端画一个圆点把手，拖着就能改值，`on_change` 收 0~1
-  - `start_indeterminate()` / `stop_indeterminate()`：不确定态，一段色块来回滚
+  - `handle=True` 在进度端画一个圆点把手，拖着就能改值，`on_change` 收 0~1  - `start_indeterminate()` / `stop_indeterminate()`：不确定态，一段色块来回滚
   - `color` / `track` 可单独换已完成色和轨道色
 - `RingProgress(master, *, value=0.0, size=140, thickness=10, show_text=True,
   ticks=0, color=None, track=None)`

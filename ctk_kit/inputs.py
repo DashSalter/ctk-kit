@@ -437,8 +437,8 @@ def radio_group(
             value,
             variable=var,
             command=on_select,
-            width=18,
-            height=18,
+            width=20,
+            height=20,
             font=get_font(T.FONT_SMALL),
         )
         button.pack(anchor="w", pady=(0, gap) if index < len(values) - 1 else 0)

@@ -47,7 +47,7 @@ def _round_image(size: int, checked: bool, color: str, track: str, foreground: s
     total = size * scale
     image = Image.new("RGBA", (total, total), (0, 0, 0, 0))
     pen = ImageDraw.Draw(image)
-    pad = 2 * scale
+    pad = 1 * scale
     box = (pad, pad, total - pad - 1, total - pad - 1)
     if checked:
         pen.ellipse(box, fill=color)
@@ -70,7 +70,7 @@ def _square_image(
     total = size * scale
     image = Image.new("RGBA", (total, total), (0, 0, 0, 0))
     pen = ImageDraw.Draw(image)
-    pad = 2 * scale
+    pad = 1 * scale
     box = (pad, pad, total - pad - 1, total - pad - 1)
     radius = max(2, int(total * 0.22))
     if checked:

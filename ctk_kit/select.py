@@ -466,6 +466,10 @@ class TagSelectField(ctk.CTkFrame):
         self._bg = color_of(T.COLOR_INPUT)
         # 只用来量标签文字宽度；单独一份，不碰 get_font() 的共享缓存
         self._measure_font = tkfont.Font(font=T.FONT_BODY)
+        #: 候选行的字体，按当前缩放现算，不共享
+        self._row_font: Optional[tkfont.Font] = None
+        #: 上面那个字体对应的像素高度，缩放变了才重建
+        self._row_size: Optional[int] = None
 
         # 标签区：横向滚动；箭头固定在右侧
         # canvas 高度留出标签的上下留白：标签 24 + 上下各 4 = 32，正好不被裁
@@ -546,28 +550,70 @@ class TagSelectField(ctk.CTkFrame):
     def _build_rows(self, parent: tk.Misc) -> int:
         """铺候选行；返回行数。
 
-        行和 ``DropField`` 用同一个做法：一行一个 ``CTkButton``，高度 32、
-        上下各留 1px、圆角 ``RADIUS_SMALL``，所以三张下拉列表的行距看起来一样。
-        区别只在选中态——已选中的行铺满 ``COLOR_ACTIVE``，文字转白。
+        行高、上下留白与 ``DropField`` 一致；选中时只在行首画一个
+        ``COLOR_ACTIVE`` 的小方块，行本身不变色。
         """
         values = list(self._values_provider() or [])
+        card = color_of(T.COLOR_CARD)
+        hover = color_of(T.COLOR_SOFT_HOVER)
+        accent = color_of(T.COLOR_ACTIVE)
+        text_color = color_of(T.COLOR_TEXT)
+        # tk.Label 不认 CTkFont 的缩放，裸 tuple 在高分屏上会显得偏小；
+        # 这里按 widget 缩放现算像素高度，字体对象也独立，不碰共享缓存
+        size = -round(int(T.FONT_SMALL[1]) * self._get_widget_scaling())
+        if self._row_font is None or self._row_size != size:
+            self._row_font = tkfont.Font(family=T.FONT_NAME, size=size)
+            self._row_size = size
         for value in values:
             selected = value in self._values
-            button = ctk.CTkButton(
-                parent,
-                text=value,
-                anchor="w",
-                height=32,
-                corner_radius=T.RADIUS_SMALL,
-                fg_color=T.COLOR_ACTIVE if selected else "transparent",
-                hover_color=T.COLOR_ACTIVE_HOVER if selected else T.COLOR_SOFT_HOVER,
-                text_color=T.COLOR_ACCENT_TEXT if selected else T.COLOR_TEXT,
-                font=T.FONT_SMALL,
-                command=lambda v=value: self._toggle(v),
+            row = tk.Frame(parent, bg=card, height=_ROW_HEIGHT)
+            row.pack(fill="x", pady=1)
+            row.pack_propagate(False)
+            # 选中标记：行首一个小方块，四条边都是直角，没有斜边也就没有锯齿
+            mark = tk.Canvas(
+                row, width=10, height=10, bg=card, highlightthickness=0, bd=0
             )
-            button.pack(fill="x", pady=1)
-            if self._panel._listing is not None:
-                self._panel._listing.bind_wheel(button)
+            if selected:
+                mark.create_rectangle(1, 1, 9, 9, fill=accent, outline=accent)
+            mark.pack(side="left", padx=(8, 4))
+            label = tk.Label(
+                row,
+                text=value,
+                bg=card,
+                fg=text_color,
+                font=self._row_font,
+                anchor="w",
+            )
+            label.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+            def enter(
+                _event: tk.Event,
+                r: tk.Frame = row,
+                m: tk.Canvas = mark,
+                lab: tk.Label = label,
+            ) -> None:
+                """悬停：整行和文字一起提亮。"""
+                r.configure(bg=hover)
+                lab.configure(bg=hover)
+                m.configure(bg=hover)
+
+            def leave(
+                _event: tk.Event,
+                r: tk.Frame = row,
+                m: tk.Canvas = mark,
+                lab: tk.Label = label,
+            ) -> None:
+                """移出：整行还原。"""
+                r.configure(bg=card)
+                lab.configure(bg=card)
+                m.configure(bg=card)
+
+            for widget in (row, label, mark):
+                widget.bind("<Button-1>", lambda _e, v=value: self._toggle(v))
+                widget.bind("<Enter>", enter)
+                widget.bind("<Leave>", leave)
+                if self._panel._listing is not None:
+                    self._panel._listing.bind_wheel(widget)
         return len(values)
 
     def _toggle(self, value: str) -> None:
@@ -675,8 +721,11 @@ class TagSelectField(ctk.CTkFrame):
     def destroy(self) -> None:
         """销毁前先收起面板。"""
         self._panel.close()
-        with contextlib.suppress(tk.TclError):
-            self.tk.call("font", "delete", self._measure_font.name)
+        for font in (self._measure_font, self._row_font):
+            if font is None:
+                continue
+            with contextlib.suppress(tk.TclError):
+                self.tk.call("font", "delete", font.name)
         super().destroy()
 
 

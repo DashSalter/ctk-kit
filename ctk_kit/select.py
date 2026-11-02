@@ -169,6 +169,8 @@ class _PopupPanel:
             return False
         popup.deiconify()
         popup.bind("<Escape>", self.close)
+        # 鼠标进到面板上时再确认一次前台状态：切窗口的瞬间 FocusOut 可能没来
+        popup.bind("<Enter>", self._on_popup_enter)
         _round_window_corners(self._owner, popup)
 
         self._root_bind_id = self._owner.winfo_toplevel().bind(
@@ -374,6 +376,11 @@ class _PopupPanel:
         self._follow_job = None
         if not self.visible:
             return
+        # 每轮先确认主程序还在前台：切应用 / 切虚拟桌面时 FocusOut 不一定来，
+        # 而面板是 topmost，会一直压在新窗口上面
+        if not self._is_active_window():
+            self.close()
+            return
         if time.monotonic() < self._resize_quiet_until:
             if not self._clip_popup_to_window():
                 self.close()
@@ -396,6 +403,9 @@ class _PopupPanel:
         """焦点既不在面板、也不在本窗口时收起面板。"""
         if not self.visible:
             return
+        if not self._is_active_window():
+            self.close()
+            return
         try:
             focused = self._owner.winfo_toplevel().focus_get()
         except Exception:  # noqa: BLE001
@@ -407,6 +417,36 @@ class _PopupPanel:
             ):
                 return
         self.close()
+
+    def _is_active_window(self) -> bool:
+        """当前前台窗口是不是本程序（主窗口或面板本身）。
+
+        面板是 ``overrideredirect`` + ``topmost``：切到别的应用、别的虚拟桌面
+        或另一块屏幕时，``<FocusOut>`` 不一定能收到，不主动判断就会一直浮着。
+        Windows 上直接问系统当前前台窗口是谁。
+        """
+        root = self._owner.winfo_toplevel()
+        try:
+            if sys.platform == "win32":
+                import ctypes
+
+                user32 = ctypes.windll.user32
+                foreground = user32.GetForegroundWindow()
+                hwnds = {user32.GetParent(root.winfo_id()) or root.winfo_id()}
+                if self._popup is not None and self._popup.winfo_exists():
+                    hwnds.add(
+                        user32.GetParent(self._popup.winfo_id())
+                        or self._popup.winfo_id()
+                    )
+                return foreground in hwnds
+            return root.focus_displayof() is not None
+        except Exception:  # noqa: BLE001
+            return True
+
+    def _on_popup_enter(self, _event: Optional[tk.Event] = None) -> None:
+        """鼠标进到面板上时再确认一次：主程序已经不在前台就收起。"""
+        if not self._is_active_window():
+            self.close()
 
     def _maybe_close(self, event: tk.Event) -> None:
         """顶层窗口上的点击：点在面板外就收起。"""

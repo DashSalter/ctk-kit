@@ -69,6 +69,7 @@ from customtkinter import (
 )
 
 from . import tokens, theme
+from .badge import Badge, Tag
 from .branding import ICON_PATH, LOGO_PATH, load_logo, set_window_icon
 from .buttons import (
     CTkButton,
@@ -116,6 +117,7 @@ from .misc import Progress, RingProgress
 from .notify import Notifier, notify
 from .page import PageBase
 from .pages import PageRebuilder
+from .pagination import Pagination
 from .scroll_list import LazyList
 from .select import Stepper, TagSelectField, TreeSelectField
 from .sidebar import SidebarNav
@@ -130,10 +132,12 @@ from .theme import (
     repaint_native,
     set_titlebar_dark,
 )
+from .tooltip import Tooltip
 from .window import App
 
 __all__ = [
     "App",
+    "Badge",
     "CTk",
     "CTkBaseClass",
     "CTkButton",
@@ -183,6 +187,7 @@ __all__ = [
     "PageBase",
     "PageHeader",
     "PageRebuilder",
+    "Pagination",
     "PathField",
     "PrimaryButton",
     "ProgressBar",
@@ -198,8 +203,10 @@ __all__ = [
     "SoftButton",
     "Switch",
     "Table",
+    "Tag",
     "TextArea",
     "ToolbarEntry",
+    "Tooltip",
     "__version__",
     "alert",
     "apply_appearance",

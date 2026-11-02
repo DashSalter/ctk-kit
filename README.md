@@ -123,6 +123,7 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 | 模块 | 提供 | 备注 |
 | --- | --- | --- |
 | `buttons` | `PrimaryButton` `SecondaryButton` `DangerButton` `FlatButton` `SoftButton` | |
+| `badge` | `Badge` `Tag` | 只读状态标签 / 计数徽标 / 状态点 |
 | `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `Spinner` `bind_focus_border` | |
 | `choices` | `Check` `Radio` | 勾选 / 单选的指示符，Pillow 抗锯齿绘制 |
 | `text` | `TextArea` | |
@@ -142,7 +143,9 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 | `image_view` | `ImageViewer` | 依赖 Pillow（已在必需依赖里） |
 | `pages` | `PageRebuilder` | 多页面窗口；`add_page` / `remove_page`，页面可写 `on_show` / `on_hide` |
 | `page` | `PageBase` | 页面基类：注入 `app`，子类建议实现 `bind_events`，可选 `on_show` / `on_hide` |
+| `pagination` | `Pagination` | 页码条，和 `Table` / `LazyList` 搭配 |
 | `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，`add_page` / `remove_page`，见下 |
+| `tooltip` | `Tooltip` | 任意控件的悬停提示 |
 | `theme` / `tokens` | `apply_appearance` `color_of` 等 | 外观与设计令牌 |
 | `customtkinter` | `CTk` `App` `CTkButton` `CTkFrame` `CTkImage` `CTkFont` `set_appearance_mode` 等 | 原生类原样转出；`App` / `CTkEntry` / `CTkButton` / `Frame` 是带库默认样式或默认参数的子类，见上 |
 
@@ -160,6 +163,27 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 - `SoftButton(master, text, command)` —— `FlatButton` 的灰底版
 
 这些工厂返回的都是 `CTkButton`，`command` 收一个无参回调。
+
+### 徽标与标签（`badge`）
+
+`Badge` 是一个只读的小色块，`Tag` 是它的别名：
+
+```python
+from ctk_kit import Badge, Tag
+
+Badge(card, "已同步", color="success")             # 淡绿底、绿字
+Badge(card, "3", color="danger", variant="solid")  # 红底白字的计数
+Badge(card, dot=True, color="warning")              # 一个状态点
+Tag(card, "草稿", variant="outline")                # 描边标签
+```
+
+- `Badge(master, text="", *, color="accent", variant="soft", size="md", dot=False)`
+  - `color`：`"accent"` / `"primary"` / `"success"` / `"warning"` / `"danger"` /
+    `"error"` / `"info"` / `"neutral"`，也可以直接给颜色或 `(浅色, 深色)` 色对
+  - `variant`：`"soft"`（淡底，默认）/ `"solid"`（实底）/ `"outline"`（描边）
+  - `size`：`"sm"`（20 高、小一号字）/ `"md"`（24 高，默认）
+  - `dot=True`：只画圆点，不显示文字
+  - `.set_text(text)` / `.configure(text=...)` 换文字
 
 ### 输入（`inputs`）
 
@@ -309,6 +333,22 @@ app.notify("已复制到剪贴板", level="success")
 app.notifier.show("云备份失败", title="网络错误", level="error", style="card")
 ```
 
+### 悬浮提示（`tooltip`）
+
+鼠标停在控件上 0.5 秒后，下方弹一条说明；移开或按下控件就收起：
+
+```python
+from ctk_kit import Tooltip
+
+Tooltip(save_button, "保存当前草稿")
+Tooltip(status_entry, lambda: f"当前长度 {len(status_entry.get())}", delay=300)
+```
+
+- `Tooltip(widget, text="", *, delay=500, wraplength=300, font=FONT_SMALL, padding=(10, 6))`
+  - `text` 可以是字符串，也可以是「返回字符串」的函数，每次弹出前现取
+  - `.show()` / `.hide()` / `.set_text(text)` / `.destroy()`
+  - 提示窗口不抢焦点、不进任务栏；贴着屏幕边缘时自动往上或往左收
+
 ### 对话框（`dialog`）
 
 模态面板，和上面非阻塞的提示浮层（`notify`）分工不同：`alert` / `confirm` /
@@ -369,6 +409,26 @@ listing = LazyList(frame, make_card, key_of=lambda item: item["id"])
 listing.pack(fill="both", expand=True)
 listing.render(items)
 ```
+
+### 分页（`pagination`）
+
+```python
+from ctk_kit import Pagination
+
+pager = Pagination(card, total=238, page_size=20, command=load_page)
+pager.pack(fill="x")
+
+
+def load_page(page):
+    table.set_rows(fetch(page))
+```
+
+- `Pagination(master, total=0, page_size=10, *, current=1, command=None, siblings=1, show_total=False)`
+  - `command(page)`：用户点页码 / 上一页 / 下一页时调用；`set_page` / `set_total` 不触发
+  - `siblings`：当前页两边各留几页，多出来的折成「…」
+  - `show_total=True`：左边显示「共 N 条」
+  - `.set_page(page, notify=False)` / `.set_total(total)` / `.set_page_size(size)`
+  - `.page` / `.pages` 读当前页和总页数
 
 ### 右键菜单（`context_menu`）
 

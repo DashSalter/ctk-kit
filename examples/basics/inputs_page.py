@@ -27,6 +27,7 @@ from ctk_kit import (
     PageHeader,
     PathField,
     Scrollable,
+    Spinner,
     TextArea,
     attach_edit_menu,
     has_dnd,
@@ -163,6 +164,26 @@ menu.add_command("全部选中", select_all)
 #: 输入框右键菜单卡片里的示例文字。
 MENU_SAMPLE = "选中几个字再右键，试试剪切和复制"
 
+#: 步进输入的示例代码。
+SPINNER_CODE = '''from ctk_kit import Spinner
+
+count = Spinner(frame, from_=1, to=10, increment=1, value=1)
+count.pack(side="left")
+# Spinner(master, *, from_=0, to=100, increment=1, values=None, value=None,
+#         command=None, placeholder="", height=36, width=160, as_int=True)
+
+count.get()          # 1
+count.set(5)         # 直接写入
+
+# 小数步长
+Spinner(frame, from_=0.0, to=2.0, increment=0.5, as_int=False)
+
+# 一组备选文字：上下箭头在列表里前后移动
+Spinner(frame, values=["小", "中", "大"], value="中")
+
+# 数字到边界停住，备选停在首尾；直接改数字后回车会夹回区间里
+# command 收到当前值，数字模式是 int / float，备选模式是文字'''
+
 
 class InputsPageUI(PageBase):
     """输入页 UI：只建控件，事件留给 InputsPage。"""
@@ -183,6 +204,7 @@ class InputsPageUI(PageBase):
         area.pack(fill="both", expand=True, pady=(14, 0))
 
         self._build_entries(area)
+        self._build_spinner(area)
         self._build_edit_menu(area)
         self._build_paths(area)
         self._build_drop(area)
@@ -215,6 +237,58 @@ class InputsPageUI(PageBase):
             box,
             FORM_CODE,
             "height / password / show 三个参数最常用；返回的就是 CTkEntry，照常 bind。",
+        )
+
+    def _build_spinner(self, area: tk.Misc) -> None:
+        """步进输入：数字范围、小数步长、一组文字。"""
+        box = Card(area, title="步进输入")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "数量", width=72).pack(side="left")
+        self.spinner = Spinner(
+            row, from_=1, to=10, increment=1, value=1, command=self._on_spinner
+        )
+        self.spinner.pack(side="left")
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "小数", width=72).pack(side="left")
+        self.float_spinner = Spinner(
+            row,
+            from_=0.0,
+            to=2.0,
+            increment=0.5,
+            value=1.0,
+            width=120,
+            as_int=False,
+            command=self._on_spinner,
+        )
+        self.float_spinner.pack(side="left")
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "备选", width=72).pack(side="left")
+        self.size_spinner = Spinner(
+            row,
+            values=["小", "中", "大"],
+            value="中",
+            width=120,
+            command=self._on_spinner,
+        )
+        self.size_spinner.pack(side="left")
+
+        HintLabel(
+            box,
+            "点右侧上 / 下三角加减一步，也可以直接改数字后回车；"
+            "数字模式到边界停住，备选模式停在首尾。",
+        ).pack(fill="x", padx=16, pady=(0, 10))
+
+        CodePanel(
+            box,
+            SPINNER_CODE,
+            "from_ / to / increment 走数字；传 values 就变成一组文字之间切换。",
         )
 
     def _build_edit_menu(self, area: tk.Misc) -> None:
@@ -429,6 +503,9 @@ class InputsPageUI(PageBase):
     def _on_dropdown(self, value: str) -> None:
         """DropField 选中候选回调：UI 类里空实现，由事件类覆写。"""
 
+    def _on_spinner(self, value: object) -> None:
+        """Spinner 步进回调：UI 类里空实现，由事件类覆写。"""
+
     def _on_note(self, text: str) -> None:
         """备注 TextArea 的内容变化回调：UI 类里空实现，由事件类覆写。"""
 
@@ -493,6 +570,10 @@ class InputsPage(InputsPageUI):
     def _on_note(self, text: str) -> None:
         """备注文本区每改一次就报一次字数。"""
         self._show(f"备注当前 {len(text)} 字")
+
+    def _on_spinner(self, value: Any) -> None:
+        """步进输入：回显当前值。"""
+        self._show(f"步进：{value}")
 
     def _insert_stamp(self, entry: Any) -> None:
         """在光标处插入当前时间；这是「自定义菜单项」的演示。"""

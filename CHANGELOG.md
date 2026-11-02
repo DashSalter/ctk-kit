@@ -62,6 +62,11 @@
   `get_disabled()` / `set_disabled(values)` / `clear_disabled()`，构造时也能传 `disabled=[...]`
   - 禁用的项在面板里置灰、点击不响应；面板开着时改禁用集合会立刻刷新
   - 多选里如果某项已经在标签中，`disable()` 会顺手把它从标签里移除
+- 新增 `Spinner`：带上下箭头的步进输入框，示例在「输入」页
+  - 数字模式走 `from_` / `to` / `increment`，到边界停住；`as_int=False` 时返回 `float`
+  - 列表模式传 `values=[...]`，上下箭头在备选文字里前后移动
+  - 直接改数字后回车会夹回区间；箭头是 canvas 画的小三角，不依赖字体符号
+  - 箭头先 pack，输入框后 pack，否则 `expand` 的输入框会把箭头挤成 5px
 
 ## 0.9.1 — 2026-11-02
 

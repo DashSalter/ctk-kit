@@ -25,6 +25,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .context_menu import attach_edit_menu
 from .fonts import get_font
+from .theme import color_of
 
 # 分段选择的选中回调：收到被选中的那一段文字。
 SegmentCommand = Optional[Callable[[str], None]]
@@ -529,3 +530,196 @@ def ProgressBar(
     )
     bar.set(max(0.0, min(1.0, value)))
     return bar
+
+
+class Spinner(ctk.CTkFrame):
+    """带上下箭头的步进输入框：可以走数字范围，也可以走一组备选文字。
+
+    右侧是 canvas 画的两个小三角（不用字体符号，缩放后不会有马赛克）；
+    点上半格加一步、点下半格减一步。数字模式下到边界就停住，不绕回。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        from_: float = 0,
+        to: float = 100,
+        increment: float = 1,
+        values: Optional[Sequence[str]] = None,
+        value: Any = None,
+        command: Optional[Callable[[Any], None]] = None,
+        placeholder: str = "",
+        height: int = 36,
+        width: int = 160,
+        as_int: bool = True,
+    ) -> None:
+        """创建步进输入框。
+
+        参数:
+            master: 父容器。
+            from_ / to / increment: 数字模式的起止与步长（闭区间）。
+            values: 传了就走「一组文字」模式，上下箭头在列表里前后移动。
+            value: 初始值；不传时数字模式取 ``from_``，列表模式取第一项。
+            command: 每次步进或提交后的回调，参数是当前值。
+            placeholder: 输入框为空时的灰色占位文字。
+            height: 整体高度（逻辑像素），默认 36。
+            width: 控件宽度（逻辑像素），默认 160。
+            as_int: 数字模式下 ``get()`` 是否返回整数。
+        """
+        super().__init__(
+            master,
+            fg_color=T.COLOR_INPUT,
+            border_width=1,
+            border_color=T.COLOR_BORDER_INPUT,
+            corner_radius=T.RADIUS_SMALL,
+            height=height,
+            width=width,
+        )
+        self.pack_propagate(False)
+        # 和 DropField 同一个坑：CTk 默认把绘制高度取整到偶数，奇数物理像素时
+        # 底边描边会被裁掉。
+        self._draw_engine.set_round_to_even_numbers(False, False)
+        self._draw()
+
+        self._from = from_
+        self._to = to
+        self._increment = increment
+        self._values = list(values) if values is not None else None
+        self._command = command
+        self._as_int = as_int
+        self._height = height
+        self._bg = color_of(T.COLOR_INPUT)
+
+        # 先贴箭头、再放输入框：pack 按调用顺序分空间，反过来输入框会把箭头挤没
+        self._arrows = tk.Canvas(
+            self,
+            width=22,
+            height=height - 2,
+            bg=self._bg,
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self._arrows.pack(side="right", fill="y", padx=(0, 2), pady=1)
+        self._arrows.bind("<Button-1>", self._on_arrow)
+        self._arrows.bind("<Configure>", lambda _e: self._draw_arrows())
+
+        self.entry: CTkEntry = CTkEntry(
+            self,
+            fg_color="transparent",
+            border_width=0,
+            corner_radius=0,
+            font=T.FONT_BODY,
+            text_color=T.COLOR_TEXT,
+            placeholder_text=placeholder,
+            placeholder_text_color=T.COLOR_FAINT,
+        )
+        self.entry.pack(side="left", fill="both", expand=True, padx=(12, 2), pady=1)
+        self.entry.bind("<Return>", self._commit)
+        self.entry.bind("<FocusOut>", self._commit)
+
+        if value is not None:
+            self.set(value)
+        elif self._values:
+            self.set(self._values[0])
+        else:
+            self.set(self._from)
+        self._draw_arrows()
+
+    # ------------------------------------------------------------ 读写
+    def get(self) -> Any:
+        """当前值：数字模式按 ``as_int`` 返回 int/float，列表模式返回文字。"""
+        text = self.entry.get().strip()
+        if self._values is not None:
+            return text
+        return self._parse(text)
+
+    def set(self, value: Any) -> None:
+        """直接写入值（不触发回调，也不做越界钳制）。"""
+        text = self._format(value)
+        self.entry.delete(0, "end")
+        self.entry.insert(0, text)
+
+    # ------------------------------------------------------------ 内部
+    def _parse(self, text: str) -> Any:
+        """把输入框文字解析成数字；解析不了就退回起点。"""
+        try:
+            number = float(text)
+        except (TypeError, ValueError):
+            number = float(self._from)
+        if self._as_int and float(number).is_integer():
+            return int(number)
+        return number
+
+    def _format(self, value: Any) -> str:
+        """把值格式化成输入框里的文字。"""
+        if isinstance(value, float) and value.is_integer():
+            return str(int(value))
+        return str(value)
+
+    def _step(self, direction: int) -> None:
+        """上下挪一步：数字模式夹在区间里，列表模式夹在首尾之间。"""
+        if self._values is not None:
+            current = self.entry.get().strip()
+            try:
+                index = self._values.index(current)
+            except ValueError:
+                index = 0 if direction > 0 else len(self._values) - 1
+            index = max(0, min(len(self._values) - 1, index + direction))
+            self.set(self._values[index])
+        else:
+            current = self._parse(self.entry.get())
+            stepped = current + direction * self._increment
+            stepped = max(self._from, min(self._to, stepped))
+            self.set(stepped)
+        self._notify()
+
+    def _commit(self, _event: Optional[tk.Event] = None) -> None:
+        """回车或失焦：把手输的文字夹回区间里再写回。"""
+        if self._values is not None:
+            current = self.entry.get().strip()
+            if current not in self._values and self._values:
+                self.set(self._values[0])
+        else:
+            number = self._parse(self.entry.get())
+            number = max(self._from, min(self._to, number))
+            self.set(number)
+        self._notify()
+
+    def _notify(self) -> None:
+        """把当前值交给调用方。"""
+        if self._command is not None:
+            self._command(self.get())
+
+    def _on_arrow(self, event: tk.Event) -> None:
+        """点上半个加一步、下半个减一步。"""
+        middle = max(1, self._arrows.winfo_height()) / 2
+        self._step(1 if event.y < middle else -1)
+
+    def _draw_arrows(self) -> None:
+        """重画两个小三角；高度变了会重新调用。"""
+        canvas = self._arrows
+        canvas.delete("all")
+        height = canvas.winfo_height()
+        if height <= 1:
+            # 刚建好还没布局，先用构造时的高度兜底，否则会画在不可见的位置
+            height = self._height - 2
+        middle = height / 2
+        reach = max(3, int(height * 0.16))
+        # canvas 只认具体的颜色字符串，令牌里的 (浅色, 深色) 元组要先解析
+        color = color_of(T.COLOR_MUTED)
+        for center, direction in ((middle - reach - 2, -1), (middle + reach + 2, 1)):
+            # direction=-1 画上三角，1 画下三角
+            if direction < 0:
+                points = (5, center + 3, 17, center + 3, 11, center - 3)
+            else:
+                points = (5, center - 3, 17, center - 3, 11, center + 3)
+            canvas.create_polygon(*points, fill=color, outline="")
+
+    def configure(self, **kwargs: Any) -> None:
+        """改外观后补一次重绘，圆角/描边颜色才会跟着变。"""
+        super().configure(**kwargs)
+        if "fg_color" in kwargs or "border_color" in kwargs:
+            self._draw()
+

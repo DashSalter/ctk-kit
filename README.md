@@ -162,6 +162,13 @@ CTkButton(bar, text="保存").pack()
   滑块，`command` 收 `float`；`steps>0` 时只能停在等分点
 - `ProgressBar(master, *, value=0.0, width=220, height=6)`
   细进度条，`value` 收 0~1
+- `Spinner(master, *, from_=0, to=100, increment=1, values=None, value=None,
+  command=None, placeholder="", height=36, width=160, as_int=True)`
+  带上下箭头的步进输入框
+  - 数字模式：`from_` / `to` / `increment`，到边界停住；`as_int=False` 时 `get()` 收 `float`
+  - 列表模式：传 `values=["小", "中", "大"]`，上下箭头在列表里前后移动，同样停在首尾
+  - 也可以直接改数字后回车，会夹回区间里；`set()` 写入不触发 `command`
+  - 箭头是 canvas 画的两个小三角，不依赖字体符号
 - `bind_focus_border(widget, *, source=None, idle_color=None, width=2, on_width=None)`
   给任意控件绑「聚焦才出现描边」的样式；`source` 是真正接焦点事件的子控件，
   `idle_color` 是不聚焦时的描边色，`on_width(width)` 在每次切换时回调

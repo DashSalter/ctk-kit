@@ -274,7 +274,6 @@ class Dialog(ctk.CTkToplevel):
         self._wheel_bind_linux = None
         self._wheel_bind_linux5 = None
         self._move_bind = None
-        self._follow_job = None
 
         self.update_idletasks()
         self._place_over(master)
@@ -292,6 +291,9 @@ class Dialog(ctk.CTkToplevel):
         self.update_idletasks()
         width = self._width
         height = self.winfo_reqheight()
+        # 记下来给 _reposition 用：拖动时每帧读 winfo_height 会被自己的
+        # geometry 反复放大，必须固定在第一次算出的尺寸上
+        self._frame_size = (width, height)
         try:
             parent = master.winfo_toplevel()
             left = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
@@ -341,6 +343,10 @@ class Dialog(ctk.CTkToplevel):
         self.deiconify()
         self.wait_visibility()
         _round_corners(self)
+        # 无边框窗口不参与 WM 的层级管理：拖动主窗口时它会被压到下面，看起来像
+        # 「消失了」。对话框本来就是模态，关掉之前一直置顶即可。
+        with contextlib.suppress(tk.TclError):
+            self.attributes("-topmost", True)
         self.grab_set()
 
         # 滚轮：拦在 toplevel 这一层，比 bind_all 早一步
@@ -368,24 +374,51 @@ class Dialog(ctk.CTkToplevel):
                     parent.unbind(event, bind_id)
             with contextlib.suppress(tk.TclError):
                 self.grab_release()
+            with contextlib.suppress(tk.TclError):
+                self.attributes("-topmost", False)
         return self._result
 
     def _block_wheel(self, _event: tk.Event) -> str:
         """截住滚轮：对话框打开时背景不该跟着滚。"""
         return "break"
 
-    def _on_parent_configure(self, _event: Optional[tk.Event] = None) -> None:
-        """父窗口动了：隔一帧再重新居中，拖动时不至于一帧一个位置。"""
-        if self._follow_job is not None:
-            return
-        self._follow_job = self.after(16, self._reposition)
+    def _on_parent_configure(self, event: Optional[tk.Event] = None) -> None:
+        """父窗口动了就立刻重新居中，拖窗口时对话框跟手走。
+
+        ``<Configure>`` 绑在顶层窗口上会收到所有子控件冒泡上来的事件（滚动页面
+        时每帧几十个），所以先按 ``event.widget`` 过滤掉。
+
+        这里直接重排、不隔帧：Windows 上 Tk 处理 ``WM_MOVE`` 时是同步分发
+        ``<Configure>`` 的，隔帧会退回主循环，拖动过程中就完全不跟手——
+        DropField 的下拉面板能跟手，用的也是这个路子。
+        """
+        if event is not None:
+            with contextlib.suppress(tk.TclError):
+                if event.widget is not self._parent_window.winfo_toplevel():
+                    return
+        self._reposition()
+
 
     def _reposition(self) -> None:
-        """重新摆位；``_place_over`` 本身会把坐标夹进屏幕。"""
-        self._follow_job = None
+        """重新居中；拖动时每帧都会走这里，所以不碰 ``update_idletasks``。
+
+        尺寸已经定下来了（``_place_over`` 里算过），这里只用现成的高度和父窗口
+        位置重算坐标，再夹进屏幕。
+        """
         if not self.winfo_exists():
             return
-        self._place_over(self._parent_window)
+        parent = self._parent_window.winfo_toplevel()
+        width, height = getattr(
+            self, "_frame_size", (self._width, max(120, self.winfo_reqheight()))
+        )
+        left = parent.winfo_rootx() + (parent.winfo_width() - width) // 2
+        top = parent.winfo_rooty() + (parent.winfo_height() - height) // 2
+        screen_w = self.winfo_screenwidth()
+        screen_h = self.winfo_screenheight()
+        left = min(max(0, left), max(0, screen_w - width))
+        top = min(max(0, top), max(0, screen_h - height))
+        with contextlib.suppress(tk.TclError):
+            self.geometry(f"{width}x{height}+{left}+{top}")
 
 
 def alert(

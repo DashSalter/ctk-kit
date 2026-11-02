@@ -146,23 +146,9 @@ class MiscPageUI(PageBase):
         self.thin = Progress(row, value=0.55, height=3, radius=0, width=260)
         self.thin.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "可拖", width=72).pack(side="left")
-        self.handle_bar = Progress(
-            row,
-            value=0.4,
-            height=6,
-            handle=True,
-            width=260,
-            on_change=self._on_handle_drag,
-        )
-        self.handle_bar.pack(side="left")
-
         HintLabel(
             box,
-            "滑块拖动时所有进度条一起走；「播放」按钮切换不确定态；"
-            "「可拖」那条可以直接拖圆点改值。",
+            "拖动「拖动」那条可以直接改值；「播放」按钮切换不确定态。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, PROGRESS_CODE, "value 收 0~1，显示文字时四舍五入成百分比。")
@@ -242,7 +228,7 @@ class MiscPage(MiscPageUI):
 
     def bind_events(self) -> None:
         """进度条的拖动回调在构造时已经挂好，这里只留一个占位。"""
-        # driver / handle_bar 的 on_change 都在构造时传了，无需再绑
+        # driver 的 on_change 在构造时已经传了，这里无需再绑
 
     def _on_slide(self, value: float) -> None:
         """拖动主进度条：所有进度条和圆环一起走。"""
@@ -253,7 +239,6 @@ class MiscPage(MiscPageUI):
         self.busy.set(ratio)
         self.striped.set(ratio)
         self.thin.set(ratio)
-        self.handle_bar.set(ratio)
         self.ring.set(ratio)
         self.ring_ticks.set(ratio)
         self.ring_dial.set(ratio)
@@ -269,10 +254,6 @@ class MiscPage(MiscPageUI):
             self.busy.start_indeterminate()
             self.busy_button.configure(text="停止")
             self._show("不确定态：动画中")
-
-    def _on_handle_drag(self, value: float) -> None:
-        """拖动带把手的进度条：回显当前值。"""
-        self._show(f"拖动进度：{value * 100:.0f}%")
 
     def _show(self, text: str) -> None:
         """把交互结果写回底部回显条。"""

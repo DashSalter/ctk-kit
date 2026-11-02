@@ -137,9 +137,29 @@ class MiscPageUI(PageBase):
         self.striped = Progress(row, value=0.6, height=12, striped=True, width=260)
         self.striped.pack(side="left")
 
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "细线", width=72).pack(side="left")
+        self.thin = Progress(row, value=0.55, height=3, radius=0, width=260)
+        self.thin.pack(side="left")
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "可拖", width=72).pack(side="left")
+        self.handle_bar = Progress(
+            row,
+            value=0.4,
+            height=6,
+            handle=True,
+            width=260,
+            on_change=self._on_handle_drag,
+        )
+        self.handle_bar.pack(side="left")
+
         HintLabel(
             box,
-            "滑块拖动时四条进度条一起走；「播放」按钮切换不确定态动画。",
+            "滑块拖动时所有进度条一起走；「播放」按钮切换不确定态；"
+            "「可拖」那条可以直接拖圆点改值。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, PROGRESS_CODE, "value 收 0~1，显示文字时四舍五入成百分比。")
@@ -220,6 +240,8 @@ class MiscPage(MiscPageUI):
         self.labeled.set(ratio)
         self.busy.set(ratio)
         self.striped.set(ratio)
+        self.thin.set(ratio)
+        self.handle_bar.set(ratio)
         self.ring.set(ratio)
         self.ring_ticks.set(ratio)
         self._show(f"进度：{ratio * 100:.0f}%")
@@ -234,6 +256,10 @@ class MiscPage(MiscPageUI):
             self.busy.start_indeterminate()
             self.busy_button.configure(text="停止")
             self._show("不确定态：动画中")
+
+    def _on_handle_drag(self, value: float) -> None:
+        """拖动带把手的进度条：回显当前值。"""
+        self._show(f"拖动进度：{value * 100:.0f}%")
 
     def _show(self, text: str) -> None:
         """把交互结果写回底部回显条。"""

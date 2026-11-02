@@ -70,6 +70,8 @@
 - 新增 `ctk_kit/misc.py` 里的 `Progress`：进度条的完整版
   - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 斜条纹（`striped`）/
     不确定态（`start_indeterminate()`）
+  - `radius` 控制端点圆角，传 0 换成直角；`height=2~4` 就是细线样式
+  - `handle=True` 在进度端画一个圆点把手（带底色描边），拖着就能改值
   - `color` / `track` 可单独换已完成色和轨道色
   - 绘制照 ttkbootstrap 的 `Meter` 做法：Pillow 在 3 倍尺寸上画圆角矩形和斜纹，
     再用 LANCZOS 缩回目标尺寸，圆角和条纹边缘是平滑的

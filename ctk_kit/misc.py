@@ -76,6 +76,9 @@ class Progress(ctk.CTkFrame):
         striped: bool = False,
         color: Optional[str] = None,
         track: Optional[str] = None,
+        radius: Optional[int] = None,
+        handle: bool = False,
+        on_change=None,
     ) -> None:
         """创建进度条。
 
@@ -83,24 +86,33 @@ class Progress(ctk.CTkFrame):
             master: 父容器。
             value: 初始进度，0~1。
             width: 整行宽度（含右侧文字），默认 240。
-            height: 条本身的高度（像素），默认 8。
+            height: 条本身的高度（像素），默认 8；给 2~4 就是细线样式。
             steps: 大于 0 时分格显示，格子数就是它。
             show_text: 右侧是否显示百分比文字。
             striped: ``True`` 时已完成部分画成斜条纹。
             color: 已完成部分的颜色，默认主色（``COLOR_ACTIVE``）。
             track: 轨道颜色，默认 ``COLOR_BORDER_STRONG``。
+            radius: 两端圆角，默认 ``height / 2``（胶囊）；传真 0 就是直角。
+            handle: ``True`` 时在进度端画一个圆点把手，并且可以拖着改值。
+            on_change: 拖把手时的回调，参数是 0~1 的进度。
         """
         super().__init__(master, fg_color="transparent", width=width)
         self._value = max(0.0, min(1.0, float(value)))
         self._steps = max(0, int(steps))
-        self._height = max(6, int(height))
+        self._height = max(2, int(height))
         self._striped = bool(striped)
         self._color = color_of(color or T.COLOR_ACTIVE)
         self._track_color = color_of(track or T.COLOR_BORDER_STRONG)
+        self._radius = radius
+        self._handle = bool(handle)
+        self._on_change = on_change
         self._photo = None
         self._label: Optional[ctk.CTkLabel] = None
         self._anim_job: Optional[str] = None
         self._anim_pos = 0.0
+
+        # 有把手时上下多留一点空间，圆点才不会被切掉
+        self._canvas_height = self._height + (10 if self._handle else 0)
 
         row = ctk.CTkFrame(self, fg_color="transparent")
         row.pack(fill="x", expand=True)
@@ -120,13 +132,17 @@ class Progress(ctk.CTkFrame):
         self._canvas = tk.Canvas(
             row,
             width=max(20, width - (54 if show_text else 0)),
-            height=self._height,
+            height=self._canvas_height,
             bg=_parent_bg(row),
             highlightthickness=0,
             bd=0,
         )
         self._canvas.pack(side="left")
         self._canvas.bind("<Configure>", lambda _e: self._render())
+        if self._handle:
+            self._canvas.bind("<Button-1>", self._on_drag)
+            self._canvas.bind("<B1-Motion>", self._on_drag)
+            self._canvas.configure(cursor="hand2")
         self._render()
 
     # ------------------------------------------------------------ 读写
@@ -148,7 +164,7 @@ class Progress(ctk.CTkFrame):
         if width <= 1:
             width = max(1, self.cget("width") or 240)
         if height <= 1:
-            height = self._height
+            height = self._canvas_height
         canvas.delete("all")
         if self._label is not None:
             self._label.configure(text=f"{round(self._value * 100)}%")
@@ -163,11 +179,20 @@ class Progress(ctk.CTkFrame):
         """在 3 倍尺寸上画好整条，再交给调用方缩回目标尺寸。"""
         scale = _SCALE
         w, h = width * scale, height * scale
-        image = Image.new("RGBA", (w, h), (0, 0, 0, 0))
+        bar_h = self._height * scale
+        top = (h - bar_h) / 2
+        image = Image.new("RGBA", (w, h), _parent_bg(self))
         pen = ImageDraw.Draw(image)
-        radius = h // 2
+        if self._radius is None:
+            radius = bar_h // 2
+        else:
+            radius = max(0, min(self._radius * scale, bar_h // 2))
 
-        pen.rounded_rectangle((0, 0, w - 1, h - 1), radius=radius, fill=self._track_color)
+        def bar(left: float, right: float):
+            """条本身的矩形：垂直居中，两端圆角跟着 radius。"""
+            return (left, top, right, top + bar_h - 1)
+
+        pen.rounded_rectangle(bar(0, w - 1), radius=radius, fill=self._track_color)
 
         if self._steps:
             gap = 3 * scale
@@ -176,33 +201,55 @@ class Progress(ctk.CTkFrame):
             for index in range(min(filled, self._steps)):
                 left = index * (cell + gap)
                 pen.rounded_rectangle(
-                    (left, 0, left + cell, h - 1), radius=radius, fill=self._color
+                    bar(left, left + cell), radius=radius, fill=self._color
                 )
             return image
 
         filled_width = int(round(w * self._value))
-        if filled_width <= 0:
-            return image
-        if not self._striped:
-            pen.rounded_rectangle(
-                (0, 0, filled_width - 1, h - 1), radius=radius, fill=self._color
-            )
-            return image
+        if filled_width > 0:
+            if not self._striped:
+                pen.rounded_rectangle(
+                    bar(0, filled_width - 1), radius=radius, fill=self._color
+                )
+            else:
+                # 条纹：先铺一层主色，再画 45° 暗色斜线，最后用圆角蒙版裁掉两头
+                mask = Image.new("L", (w, h), 0)
+                ImageDraw.Draw(mask).rounded_rectangle(
+                    bar(0, filled_width - 1), radius=radius, fill=255
+                )
+                pattern = Image.new("RGBA", (w, h), self._color)
+                stripe = ImageDraw.Draw(pattern)
+                dark = _shade(self._color, 0.82)
+                step = max(6, self._height) * scale
+                thick = max(2, self._height // 3) * scale
+                for x in range(-int(bar_h), w + int(bar_h), step):
+                    stripe.line((x, h, x + bar_h, 0), fill=dark, width=thick)
+                image.paste(pattern, (0, 0), mask)
 
-        # 条纹：先铺一层主色，再画 45° 暗色斜线，最后用圆角蒙版裁掉两头
-        mask = Image.new("L", (w, h), 0)
-        ImageDraw.Draw(mask).rounded_rectangle(
-            (0, 0, filled_width - 1, h - 1), radius=radius, fill=255
-        )
-        pattern = Image.new("RGBA", (w, h), self._color)
-        stripe = ImageDraw.Draw(pattern)
-        dark = _shade(self._color, 0.82)
-        step = max(6, height) * scale
-        thick = max(2, height // 3) * scale
-        for x in range(-h, w + h, step):
-            stripe.line((x, h, x + h, 0), fill=dark, width=thick)
-        image.paste(pattern, (0, 0), mask)
+        if self._handle:
+            # 进度端一个圆点把手：先铺一圈底色当描边，再画主色圆心
+            center_x = filled_width
+            center_y = top + bar_h / 2
+            background = _parent_bg(self)
+            outer = bar_h / 2 + 5 * scale
+            pen.ellipse(
+                (center_x - outer, center_y - outer, center_x + outer, center_y + outer),
+                fill=background,
+            )
+            dot = bar_h / 2 + 3 * scale
+            pen.ellipse(
+                (center_x - dot, center_y - dot, center_x + dot, center_y + dot),
+                fill=self._color,
+            )
         return image
+
+    def _on_drag(self, event: tk.Event) -> None:
+        """拖把手：按横向位置改进度，并回调。"""
+        width = max(1, self._canvas.winfo_width())
+        self._value = max(0.0, min(1.0, event.x / width))
+        self._render()
+        if self._on_change is not None:
+            self._on_change(self._value)
 
     def _draw_plain(self, width: int, height: int) -> None:
         """没装 Pillow 时的退路：canvas 画直角色块。"""

@@ -164,11 +164,13 @@ CTkButton(bar, text="保存").pack()
 - `ProgressBar(master, *, value=0.0, width=220, height=6)`
   细进度条，`value` 收 0~1
 - `Progress(master, *, value=0.0, width=240, height=8, steps=0, show_text=False,
-  striped=False, color=None, track=None)`
+  striped=False, color=None, track=None, radius=None, handle=False, on_change=None)`
   进度条的完整版，比 `ProgressBar` 多几种形态
   - `steps>0` 时分格显示，达标的格子点亮
   - `show_text=True` 时右侧显示百分比
   - `striped=True` 时已完成部分画成 45° 斜条纹
+  - `radius=0` 换成直角端点；`height=2~4` 就是细线样式
+  - `handle=True` 在进度端画一个圆点把手，拖着就能改值，`on_change` 收 0~1
   - `start_indeterminate()` / `stop_indeterminate()`：不确定态，一段色块来回滚
   - `color` / `track` 可单独换已完成色和轨道色
 - `RingProgress(master, *, value=0.0, size=140, thickness=10, show_text=True,

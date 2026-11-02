@@ -67,6 +67,13 @@
   - 列表模式传 `values=[...]`，上下箭头在备选文字里前后移动
   - 直接改数字后回车会夹回区间；箭头是 canvas 画的小三角，不依赖字体符号
   - 箭头先 pack，输入框后 pack，否则 `expand` 的输入框会把箭头挤成 5px
+- 新增对话框：`alert` / `confirm` / `prompt` / `Dialog`（`ctk_kit/dialog.py`）
+  - 模态：普通 `Toplevel` + `transient` + `grab_set` + `wait_window`，弹出期间主窗口点不了
+  - 没用无边框窗口：`overrideredirect` 在 Windows 上 `grab_set` 不一定拦得住主窗口输入
+  - `level` 决定图标颜色（info / success / warn / error），`detail` 在正文下面补小字
+  - `confirm` 返回布尔；`prompt` 返回字符串或 None；`Dialog` 按 `buttons=[(文字, 返回值)]` 返回被点的值
+  - `danger=True` 让确认按钮变危险色
+  - 示例新增「弹窗」页
 - 程序图标：`App` 默认挂上内置 logo，标题栏左上角和任务栏都是它
   - `icon=True`（默认）用内置图；`icon=False` 不设；`icon="路径"` 用自定义 `.ico` / `.png`
   - 新模块 `ctk_kit/branding.py`：`set_window_icon(window)` 给任意窗口挂图标，

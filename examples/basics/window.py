@@ -12,6 +12,7 @@ from ctk_kit import App, SidebarNav
 from button_page import ButtonPage
 from choices_page import ChoicesPage
 from collapse_page import CollapsePage
+from dialog_page import DialogPage
 from image_page import ImagePage
 from inputs_page import InputsPage
 from listing_page import ListingPage
@@ -49,6 +50,7 @@ class DemoApp(App):
                 "表格": TablePage,
                 "图片": ImagePage,
                 "提示": NotifyPage,
+                "弹窗": DialogPage,
                 "菜单": MenuPage,
                 "列表": ListingPage,
                 "杂项": MiscPage,

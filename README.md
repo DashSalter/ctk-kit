@@ -307,6 +307,33 @@ app.notify("已复制到剪贴板", level="success")
 app.notifier.show("云备份失败", title="网络错误", level="error", style="card")
 ```
 
+### 对话框（`dialog`）
+
+模态窗口：弹出期间主窗口点不了，必须点按钮、按 Esc 或关窗才能继续。
+实现是普通 `Toplevel` + `transient` + `grab_set` + `wait_window`。
+
+```python
+from ctk_kit import alert, confirm, prompt
+
+alert(app, "已保存到 D:/backup", title="完成", level="success")
+
+if confirm(app, "删除这份备份？", title="删除备份", level="warn", danger=True, ok="删除"):
+    ...
+
+name = prompt(app, "给备份起个名字", title="重命名", value="backup-01")
+```
+
+- `alert(master, message, *, title="", level="info", ok="知道了", detail="")`：只有一个按钮
+- `confirm(master, message, *, title="", level="warn", ok="确定", cancel="取消", detail="", danger=False)`
+  - 返回 `True` / `False`；点取消、按 Esc、关窗都是 `False`
+  - `danger=True` 让确认按钮变危险色
+- `prompt(master, message, *, title="", value="", ok="确定", cancel="取消", detail="")`
+  - 返回输入的字符串；取消或 Esc 返回 `None`；输入框里按回车等同确定
+- `Dialog(master, *, title="", message="", detail="", level="info", buttons=None, prompt=None, danger=False, width=392)`
+  - `buttons=[(文字, 返回值), ...]`，最后一个按钮是主按钮；`.show()` 返回被点的那个值
+  - Esc / 关窗返回 `None`
+  - `level` 只影响左上角图标的颜色：`"info"` / `"success"` / `"warn"` / `"error"`
+
 ### 懒加载列表（`scroll_list`）
 
 - `LazyList(master, render_card, *, key_of=None, first_batch=12, load_more=8, load_delay_ms=90, load_threshold=0.92, gap=(0, 10), padx=(0, 8), item_height=None)`

@@ -82,6 +82,7 @@ from .choices import Check, Radio
 from .collapse import Collapsible
 from .code_panel import CodePanel
 from .context_menu import ContextMenu, attach_edit_menu, attach_menu
+from .dialog import Dialog, alert, confirm, prompt
 from .dropdown import DropField
 from .files import DropZone, PathField, has_dnd, pick_path
 from .frames import Frame

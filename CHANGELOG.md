@@ -15,6 +15,10 @@
   （常常是末尾），看着像「粘错地方」。现在弹菜单前先把插入点挪到点击处
   - 粘之前还会撤掉占位符、聚焦输入框：空框不会再出现「粘贴后混进 placeholder 文字」
   - 发 `<<Copy>>` / `<<Cut>>` / `<<Paste>>` 前把焦点还给输入框，点完菜单也能接着打字
+- 修 `DropField` 底边描边在部分缩放下消失：外框原来用 `CTkFrame` 的 `border_width`，
+  那是「一内一外两个圆角矩形叠出来」的画法，高度按物理像素取整成奇数时内框会把底边
+  盖掉（高分屏缩放下尤其明显）。改成「外框铺描边色、内层内缩 1px 铺底色」，
+  四边和圆角都不再缺一截
 - 新增 `attach_edit_menu(widget, items=None, *, preset=True, width=132, reset=False)`：默认菜单的底层函数
   - 返回 `ContextMenu`，挂上之后仍可 `add_command` 继续追加
   - 重复调用返回同一个菜单对象，这次传的 `items` 追加到已有菜单末尾；`preset` / `width`

@@ -104,9 +104,8 @@ class DropField(ctk.CTkFrame):
         """
         super().__init__(
             master,
-            fg_color=T.COLOR_INPUT,
-            border_width=1,
-            border_color=T.COLOR_BORDER_INPUT,
+            fg_color=T.COLOR_BORDER_INPUT,
+            border_width=0,
             corner_radius=T.RADIUS_SMALL,
             height=height,
         )
@@ -125,22 +124,36 @@ class DropField(ctk.CTkFrame):
         self._rows: int = 0
         self._listing: Optional[_PopupList] = None
 
-        self.entry: CTkEntry = CTkEntry(
+        # 描边用「外框底色露一圈」，不用 CTkFrame 的 border_width：
+        # 后者是一内一外两个圆角矩形叠出来的，控件高度按物理像素取整成奇数时，
+        # 内框会把底边那一条盖掉（高分屏上尤其明显，底边直接消失）。
+        self._border = max(1, int(round(self._apply_widget_scaling(1))))
+        self._inner = ctk.CTkFrame(
             self,
+            fg_color=T.COLOR_INPUT,
+            border_width=0,
+            corner_radius=max(0, T.RADIUS_SMALL - 1),
+        )
+        self._inner.pack(
+            fill="both", expand=True, padx=self._border, pady=self._border
+        )
+        self._inner.pack_propagate(False)
+
+        self.entry: CTkEntry = CTkEntry(
+            self._inner,
             fg_color="transparent",
             border_width=0,
             corner_radius=0,
-            height=height - 2,
+            height=height - 4,
             font=get_font(T.FONT_BODY),
             text_color=T.COLOR_TEXT,
             placeholder_text=placeholder,
             placeholder_text_color=T.COLOR_FAINT,
         )
-        # 内缩量等于外框的 border_width，否则子控件会压住那 1px 描边
-        self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=1)
+        self.entry.pack(side="left", fill="both", expand=True, padx=(11, 0), pady=0)
 
         self.arrow: ctk.CTkLabel = ctk.CTkLabel(
-            self,
+            self._inner,
             text=_ARROW_CLOSED,
             width=34,
             height=26,
@@ -150,7 +163,7 @@ class DropField(ctk.CTkFrame):
             corner_radius=5,
             anchor="center",
         )
-        self.arrow.pack(side="right", padx=(0, 4), pady=1)
+        self.arrow.pack(side="right", padx=(0, 3), pady=0)
         self.arrow.configure(cursor="hand2")
         self.arrow.bind("<Button-1>", lambda _event: self.open_menu())
         self.arrow.bind("<Enter>", lambda _event: self._set_hover(True))

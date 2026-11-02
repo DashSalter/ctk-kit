@@ -40,6 +40,7 @@ from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
 import customtkinter as ctk
 
 from . import tokens as T
+from .branding import logo_path
 from .buttons import SecondaryButton
 from .fonts import get_font
 from .pages import PageRebuilder
@@ -55,6 +56,22 @@ PageBuilder = Callable[[tk.Misc], tk.Misc]
 _THAW_MS = 320
 
 
+def _load_logo(spec: Union[bool, str], size: int):
+    """把 ``logo`` 参数变成 ``CTkImage``：``True`` 用内置图，``False`` 不显示。
+
+    传字符串时读自定义图片。用 ``CTkImage`` 而不是裸 ``PhotoImage``，HighDPI
+    缩放下才会跟着一起缩放。
+    """
+    if spec is False or not spec:
+        return None
+
+    from PIL import Image
+
+    path = logo_path(size) if spec is True else spec
+    image = Image.open(path).convert("RGBA")
+    return ctk.CTkImage(light_image=image, dark_image=image, size=(size, size))
+
+
 class SidebarNav(ctk.CTkFrame):
     """侧边栏导航 + 页面容器。
 
@@ -64,6 +81,9 @@ class SidebarNav(ctk.CTkFrame):
         pages: 页面名到建页函数的映射；顺序就是导航按钮的顺序。建页函数只
             接收一个参数——页面容器，返回建好的页面。
         subtitle: 大标题下面的小字（版本号、一句话说明）。
+        logo: 大标题左侧的图标。``True``（默认）用内置 logo，``False`` 不显示，
+            传字符串则用自定义图片路径。
+        logo_size: 图标边长（逻辑像素），默认 32。
         width: 侧边栏宽度。整数是逻辑像素（例如 200）；``0`` 到 ``1`` 之间的
             小数是按 ``SidebarNav`` 宽度的比例（例如 ``0.2`` 表示 20%），
             窗口拉宽时侧边栏跟着变宽。默认 200。
@@ -93,6 +113,8 @@ class SidebarNav(ctk.CTkFrame):
         title: str,
         pages: Mapping[str, PageBuilder],
         subtitle: str = "",
+        logo: Union[bool, str] = True,
+        logo_size: int = 32,
         width: Union[int, float] = 200,
         padding: Tuple[int, int] = (16, 16),
         bottom_pages: Optional[Mapping[str, PageBuilder]] = None,
@@ -144,25 +166,50 @@ class SidebarNav(ctk.CTkFrame):
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
 
+        # 顶部品牌区：logo 在左，大标题 / 小标题在右，两行字整体与 logo 垂直居中。
+        self._logo_size = max(16, int(logo_size))
+        self._logo_image = _load_logo(logo, self._logo_size)
+        self._head = ctk.CTkFrame(
+            self.sidebar, fg_color="transparent", bg_color=T.COLOR_SIDE
+        )
+        self._head.pack(fill="x", padx=18, pady=(22, 20))
+
+        if self._logo_image is not None:
+            self.logo_label = ctk.CTkLabel(
+                self._head,
+                text="",
+                image=self._logo_image,
+                width=self._logo_size,
+                height=self._logo_size,
+                fg_color="transparent",
+                bg_color=T.COLOR_SIDE,
+            )
+            self.logo_label.pack(side="left", padx=(0, 10))
+
+        self._title_box = ctk.CTkFrame(
+            self._head, fg_color="transparent", bg_color=T.COLOR_SIDE
+        )
+        self._title_box.pack(side="left", fill="x", expand=True)
+
         self.title_label = ctk.CTkLabel(
-            self.sidebar,
+            self._title_box,
             text=title,
             font=get_font((T.FONT_NAME, 16, "bold")),
             text_color=T.COLOR_TEXT,
             bg_color=T.COLOR_SIDE,
             anchor="w",
         )
-        self.title_label.pack(fill="x", padx=18, pady=(22, 1))
+        self.title_label.pack(fill="x")
 
         self.subtitle_label = ctk.CTkLabel(
-            self.sidebar,
+            self._title_box,
             text=subtitle,
             font=get_font(T.FONT_TINY),
             text_color=T.COLOR_MUTED,
             bg_color=T.COLOR_SIDE,
             anchor="w",
         )
-        self.subtitle_label.pack(fill="x", padx=18, pady=(0, 20))
+        self.subtitle_label.pack(fill="x", pady=(1, 0))
 
         for name in self._nav_names:
             self._add_nav_button(name)
@@ -512,6 +559,10 @@ class SidebarNav(ctk.CTkFrame):
         self.content.configure(fg_color=bg)
         self.body.configure(bg_color=bg)
         self.sidebar.configure(fg_color=side, bg_color=side)
+        self._head.configure(fg_color="transparent", bg_color=side)
+        self._title_box.configure(fg_color="transparent", bg_color=side)
+        if self._logo_image is not None:
+            self.logo_label.configure(bg_color=side)
         self.title_label.configure(text_color=color_of(T.COLOR_TEXT), bg_color=side)
         self.subtitle_label.configure(
             text_color=color_of(T.COLOR_MUTED), bg_color=side

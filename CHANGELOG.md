@@ -94,6 +94,8 @@
     以及 `LOGO_PATH` / `ICON_PATH` / `logo_path(size)`
   - 资源在 `ctk_kit/logo/`：`logo.png`（1024 透明主图）、`logo-16…256.png`（预渲染小图）、
     `logo.ico`（多尺寸 Windows 图标）、`logo-source.jpg`（原始手绘图留档）
+- `SidebarNav` 顶部大标题左侧显示内置 logo：`logo=True`（默认）/ `False` / 自定义路径，
+  `logo_size` 控制边长（默认 32 逻辑像素）；切深浅色时跟着刷新背景
 - `ImageViewer` 空状态默认画 logo：没图时中间显示图标，下面一行提示文字；
   `empty_image=False` 回到原来的纯文字
 - 新增 `ctk_kit/misc.py` 里的 `Progress`：进度条的完整版  - 连续 / 分格（`steps`）/ 带百分比（`show_text`）/ 斜条纹（`striped`）/

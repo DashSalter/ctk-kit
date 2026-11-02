@@ -463,11 +463,10 @@ class TagSelectField(ctk.CTkFrame):
         self._height = height
         self._values: list = []
         self._tags: list = []
-        self._font = get_font(T.FONT_TINY)
         self._bg = color_of(T.COLOR_INPUT)
 
         # 标签区：横向滚动；箭头固定在右侧
-        # canvas 高度留出标签的上下留白：标签 22 + 上下各 5 = 32，正好不被裁
+        # canvas 高度留出标签的上下留白：标签 24 + 上下各 4 = 32，正好不被裁
         self._canvas = tk.Canvas(
             self, height=height - 4, highlightthickness=0, bg=self._bg, bd=0
         )
@@ -556,8 +555,13 @@ class TagSelectField(ctk.CTkFrame):
             row = tk.Frame(parent, bg=card, height=_ROW_HEIGHT)
             row.pack(fill="x", pady=1)
             row.pack_propagate(False)
-            mark = tk.Frame(row, bg=accent if selected else card, width=3)
-            mark.pack(side="left", fill="y", pady=8, padx=(0, 7))
+            # 选中标记是小圆点：canvas 的 oval 是纯像素，不像字体符号那样有马赛克
+            dot = tk.Canvas(
+                row, width=12, height=12, bg=card, highlightthickness=0, bd=0
+            )
+            if selected:
+                dot.create_oval(2, 2, 10, 10, fill=accent, outline="")
+            dot.pack(side="left", padx=(6, 2))
             label = tk.Label(
                 row,
                 text=value,
@@ -571,29 +575,26 @@ class TagSelectField(ctk.CTkFrame):
             def enter(
                 _event: tk.Event,
                 r: tk.Frame = row,
-                m: tk.Frame = mark,
+                m: tk.Canvas = dot,
                 lab: tk.Label = label,
-                chosen: bool = selected,
             ) -> None:
-                """悬停：整行和文字一起提亮；已选中的竖条保持主色。"""
+                """悬停：整行和文字一起提亮。"""
                 r.configure(bg=hover)
                 lab.configure(bg=hover)
-                if not chosen:
-                    m.configure(bg=hover)
+                m.configure(bg=hover)
 
             def leave(
                 _event: tk.Event,
                 r: tk.Frame = row,
-                m: tk.Frame = mark,
+                m: tk.Canvas = dot,
                 lab: tk.Label = label,
-                chosen: bool = selected,
             ) -> None:
-                """移出：整行还原，选中行的竖条留在主色。"""
+                """移出：整行还原。"""
                 r.configure(bg=card)
                 lab.configure(bg=card)
-                m.configure(bg=accent if chosen else card)
+                m.configure(bg=card)
 
-            for widget in (row, label, mark):
+            for widget in (row, label, dot):
                 widget.bind("<Button-1>", lambda _e, v=value: self._toggle(v))
                 widget.bind("<Enter>", enter)
                 widget.bind("<Leave>", leave)
@@ -613,72 +614,31 @@ class TagSelectField(ctk.CTkFrame):
 
     # ------------------------------------------------------------ 标签
     def _add_tag(self, value: str) -> None:
-        """加一个标签；重复值直接忽略。"""
+        """加一个标签；重复值直接忽略。
+
+        标签就是一个 ``CTkLabel``：底色、圆角、文字都在同一个控件上，
+        不再套一层容器加一个 ×。点标签本身即可删掉。
+        """
         if value in self._values:
             return
-        width = self._font.measure(value) + 36
-        tag = ctk.CTkFrame(
+        font = get_font(T.FONT_BODY)
+        width = font.measure(value) + 24
+        tag = ctk.CTkLabel(
             self._strip,
-            fg_color=T.COLOR_SOFT_HOVER,
-            corner_radius=0,
-            height=22,
-            width=width,
-        )
-        tag.pack(side="left", padx=(0, 6), pady=5)
-        tag.pack_propagate(False)
-        text = ctk.CTkLabel(
-            tag,
             text=value,
-            font=self._font,
+            font=font,
             text_color=T.COLOR_TEXT,
-            fg_color="transparent",
-            corner_radius=0,
-        )
-        text.pack(side="left", padx=(8, 0))
-        close = ctk.CTkLabel(
-            tag,
-            text="×",
-            width=18,
-            font=self._font,
-            text_color=T.COLOR_FAINT,
-            fg_color="transparent",
-            corner_radius=0,
+            fg_color=T.COLOR_SOFT_HOVER,
+            corner_radius=6,
+            height=24,
+            width=width,
             cursor="hand2",
         )
-        close.pack(side="right", padx=(0, 5))
-
-        def enter(_event: tk.Event) -> None:
-            """鼠标进到标签任何一块：整块标签一起高亮。"""
-            tag.configure(fg_color=T.COLOR_BORDER_INPUT)
-            close.configure(text_color=T.COLOR_TEXT)
-
-        def leave(_event: tk.Event) -> None:
-            """指针真的离开标签才还原（在标题和 × 之间移动不算离开）。"""
-            self.after_idle(lambda: _restore())
-
-        def _restore() -> None:
-            """确认指针不在标签里，再取消高亮。"""
-            try:
-                x, y = tag.winfo_pointerxy()
-                inside = (
-                    tag.winfo_rootx() <= x <= tag.winfo_rootx() + tag.winfo_width()
-                    and tag.winfo_rooty()
-                    <= y
-                    <= tag.winfo_rooty() + tag.winfo_height()
-                )
-            except tk.TclError:
-                return
-            if inside:
-                return
-            tag.configure(fg_color=T.COLOR_SOFT_HOVER)
-            close.configure(text_color=T.COLOR_FAINT)
-
-        close.bind("<Button-1>", lambda _e, v=value: self._remove_tag(v))
-        # 鼠标停在标签上时滚轮也要能滚标签区
-        for widget in (tag, text, close):
-            widget.bind("<MouseWheel>", self._on_wheel)
-            widget.bind("<Enter>", enter)
-            widget.bind("<Leave>", leave)
+        tag.pack(side="left", padx=(0, 6), pady=4)
+        tag.bind("<Button-1>", lambda _e, v=value: self._remove_tag(v))
+        tag.bind("<Enter>", lambda _e, t=tag: t.configure(fg_color=T.COLOR_BORDER_INPUT))
+        tag.bind("<Leave>", lambda _e, t=tag: t.configure(fg_color=T.COLOR_SOFT_HOVER))
+        tag.bind("<MouseWheel>", self._on_wheel)
         self._values.append(value)
         self._tags.append((value, tag))
         self._sync_size()

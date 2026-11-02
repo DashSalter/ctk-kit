@@ -85,7 +85,7 @@ tags.set(["Rust"])      # 整体替换
 tags.clear()            # 清空
 
 # 已选中的项再点一次 = 取消选中；标签不重复
-# 标签右侧的小叉可以单独删；标签多了横向滚动'''
+# 点标签直接删掉；标签多了横向滚动'''
 
 TREE_CODE = '''from ctk_kit import TreeSelectField
 
@@ -210,7 +210,7 @@ class SelectPageUI(PageBase):
 
         HintLabel(
             box,
-            "已选中的项再点一次是取消选中；标签不重复。标签右侧小叉可单独删，"
+            "已选中的项再点一次是取消选中；标签不重复。点标签本身就能删掉，"
             "标签多了横向滚动；没有输入框，点标签区空白也能展开候选。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 

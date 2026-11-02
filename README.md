@@ -190,7 +190,7 @@ CTkButton(bar, text="保存").pack()
   - 窗口变窄时面板跟着收窄，窄到放不下就直接收起，不会伸出窗口
   - 方法：`get()` / `set(value)` / `clear()`（`set` 不触发 `command`）
 - `TagSelectField(master, *, values_provider, command=None, placeholder="", height=36, values=None)`
-  多选标签：选中的值变成圆角标签排进框里，标签右侧的小叉单独删
+  多选标签：选中的值变成圆角标签排进框里，点标签本身即可删掉
   - 值不重复；已选中的项在面板里带 `✓`，再点一次是取消选中
   - 没有输入框：点标签区空白或右侧箭头展开候选；标签多了横向滚动（滚轮可滚，停在标签上也能滚）
   - `command` 收到当前全部标签的列表；面板点选后不关，方便连续多选

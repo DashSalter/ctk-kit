@@ -198,7 +198,7 @@ def divider(
     text: str = "",
     dashed: bool = False,
     color: Any = None,
-) -> ctk.CTkFrame:
+) -> tk.Misc:
     """分隔线；用 Frame 而不是 ttk.Separator，颜色好控制。
 
     参数:
@@ -213,7 +213,8 @@ def divider(
     """
     line_color = color or T.COLOR_BORDER
     if not text and not dashed:
-        line = ctk.CTkFrame(master, height=1, fg_color=line_color)
+        # 纯 tk.Frame：CTkFrame 的 1px 高度会被它自己的圆角/描边吃掉，画不出来
+        line = tk.Frame(master, height=1, bg=_resolve(line_color))
         line.pack(fill="x", pady=pady)
         return line
 

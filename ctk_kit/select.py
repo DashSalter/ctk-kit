@@ -467,8 +467,9 @@ class TagSelectField(ctk.CTkFrame):
         self._bg = color_of(T.COLOR_INPUT)
 
         # 标签区：横向滚动；箭头固定在右侧
+        # canvas 高度留出标签的上下留白：标签 22 + 上下各 5 = 32，正好不被裁
         self._canvas = tk.Canvas(
-            self, height=height - 2, highlightthickness=0, bg=self._bg, bd=0
+            self, height=height - 4, highlightthickness=0, bg=self._bg, bd=0
         )
         self._canvas.pack(side="left", fill="both", expand=True, padx=(10, 0), pady=1)
         self._strip = tk.Frame(self._canvas, bg=self._bg)
@@ -544,39 +545,58 @@ class TagSelectField(ctk.CTkFrame):
     def _build_rows(self, parent: tk.Misc) -> int:
         """铺候选行；返回行数。"""
         values = list(self._values_provider() or [])
-        font = get_font(T.FONT_SMALL)
+        card = color_of(T.COLOR_CARD)
+        hover = color_of(T.COLOR_SOFT_HOVER)
+        accent = color_of(T.COLOR_ACCENT)
+        text_color = color_of(T.COLOR_TEXT)
         for value in values:
-            row = ctk.CTkFrame(parent, fg_color="transparent", height=_ROW_HEIGHT)
+            selected = value in self._values
+            # 行用纯 tk 控件：圆点和竖条都是直角图形，不会出现字体那种像素马赛克，
+            # 悬停改底色也不用担心 CTk 的 transparent 解析成旧颜色
+            row = tk.Frame(parent, bg=card, height=_ROW_HEIGHT)
             row.pack(fill="x", pady=1)
             row.pack_propagate(False)
-            label = ctk.CTkLabel(
+            mark = tk.Frame(row, bg=accent if selected else card, width=3)
+            mark.pack(side="left", fill="y", pady=8, padx=(0, 7))
+            label = tk.Label(
                 row,
                 text=value,
+                bg=card,
+                fg=text_color,
+                font=T.FONT_SMALL,
                 anchor="w",
-                font=font,
-                text_color=T.COLOR_TEXT,
-                fg_color="transparent",
             )
-            label.pack(side="left", fill="x", expand=True, padx=(10, 0))
-            check = ctk.CTkLabel(
-                row,
-                text="✓" if value in self._values else "",
-                width=20,
-                font=font,
-                text_color=T.COLOR_MUTED,
-                fg_color="transparent",
-            )
-            check.pack(side="right", padx=(0, 8))
-            for widget in (row, label, check):
-                widget.bind(
-                    "<Button-1>", lambda _e, v=value: self._toggle(v)
-                )
-                widget.bind(
-                    "<Enter>", lambda _e, r=row: r.configure(fg_color=T.COLOR_SOFT_HOVER)
-                )
-                widget.bind(
-                    "<Leave>", lambda _e, r=row: r.configure(fg_color="transparent")
-                )
+            label.pack(side="left", fill="x", expand=True, padx=(0, 8))
+
+            def enter(
+                _event: tk.Event,
+                r: tk.Frame = row,
+                m: tk.Frame = mark,
+                lab: tk.Label = label,
+                chosen: bool = selected,
+            ) -> None:
+                """悬停：整行和文字一起提亮；已选中的竖条保持主色。"""
+                r.configure(bg=hover)
+                lab.configure(bg=hover)
+                if not chosen:
+                    m.configure(bg=hover)
+
+            def leave(
+                _event: tk.Event,
+                r: tk.Frame = row,
+                m: tk.Frame = mark,
+                lab: tk.Label = label,
+                chosen: bool = selected,
+            ) -> None:
+                """移出：整行还原，选中行的竖条留在主色。"""
+                r.configure(bg=card)
+                lab.configure(bg=card)
+                m.configure(bg=accent if chosen else card)
+
+            for widget in (row, label, mark):
+                widget.bind("<Button-1>", lambda _e, v=value: self._toggle(v))
+                widget.bind("<Enter>", enter)
+                widget.bind("<Leave>", leave)
                 if self._panel._listing is not None:
                     self._panel._listing.bind_wheel(widget)
         return len(values)
@@ -600,7 +620,7 @@ class TagSelectField(ctk.CTkFrame):
         tag = ctk.CTkFrame(
             self._strip,
             fg_color=T.COLOR_SOFT_HOVER,
-            corner_radius=6,
+            corner_radius=4,
             height=22,
             width=width,
         )

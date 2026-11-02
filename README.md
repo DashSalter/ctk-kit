@@ -181,7 +181,7 @@ CTkButton(bar, text="保存").pack()
 
 ### 下拉（`dropdown` / `select`）
 
-- `DropField(master, *, values_provider, command=None, placeholder="", height=36)`
+- `DropField(master, *, values_provider, command=None, placeholder="", height=36, disabled=None)`
   - `values_provider()` 每次展开时调用，返回候选文字列表
   - `command` 收选中的文字
   - 面板贴输入框展开；下方放不下会自动翻到上方，候选超过 8 项时面板内部滚动
@@ -189,18 +189,23 @@ CTkButton(bar, text="保存").pack()
   - 页面滚动会改变控件位置但不产生顶层事件，由 60 ms 一次的位置比对补上；控件滚出可视区就自动收起
   - 窗口变窄时面板跟着收窄，窄到放不下就直接收起，不会伸出窗口
   - 方法：`get()` / `set(value)` / `clear()`（`set` 不触发 `command`）
-- `TagSelectField(master, *, values_provider, command=None, placeholder="", height=36, values=None)`
-  多选标签：选中的值变成圆角标签排进框里，点标签本身即可删掉
-  - 值不重复；已选中的项在面板里带 `✓`，再点一次是取消选中
+- `TagSelectField(master, *, values_provider, command=None, placeholder="", height=36, values=None, disabled=None)`
+  多选标签：选中的值变成青色标签排进框里，点标签本身即可删掉
+  - 值不重复；已选中的项再点一次是取消选中
   - 没有输入框：点标签区空白或右侧箭头展开候选；标签多了横向滚动（滚轮可滚，停在标签上也能滚）
   - `command` 收到当前全部标签的列表；面板点选后不关，方便连续多选
   - 方法：`get()` → `list` / `set(values)` / `clear()` / `open_menu()`
-- `TreeSelectField(master, *, values_provider, command=None, placeholder="", height=36, value="")`
+- `TreeSelectField(master, *, values_provider, command=None, placeholder="", height=36, value="", disabled=None)`
   层级树：`values_provider()` 返回嵌套的 `("分组", ["子项", ...])` 元组，字符串等于叶子
   - 分组节点只能展开 / 收起，右侧 `▶` / `▼` 跟着变；分组本身不可选中
   - 子项逐级缩进；展开 / 收起只增删受影响的那几行、不重建整个列表，再重算面板高度与翻转
   - 只有叶子能选，选中后写进输入框、收起面板并回调 `command(value)`
   - 方法：`get()` / `set(value)` / `open_menu()`
+- 三个下拉都支持禁用个别候选项，接口一样：
+  - `disable(value)` / `enable(value)` / `is_disabled(value) -> bool`
+  - `get_disabled() -> list` / `set_disabled(values)` / `clear_disabled()`
+  - 也可以构造时传 `disabled=[...]`；面板开着时改会立刻刷新
+  - 禁用的项在列表里置灰、点了不响应；多选里如果它已经在标签中，`disable()` 会顺手移除
 
 ### 布局（`layout`）
 

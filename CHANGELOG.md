@@ -58,6 +58,10 @@
     也会再确认一次
 - 示例窗新增「下拉」页（`examples/basics/select_page.py`）：单选 / 多选标签 / 层级树三张卡片，
   每张都带「查看实现」
+- 三个下拉都支持禁用个别候选项：`disable(value)` / `enable(value)` / `is_disabled(value)` /
+  `get_disabled()` / `set_disabled(values)` / `clear_disabled()`，构造时也能传 `disabled=[...]`
+  - 禁用的项在面板里置灰、点击不响应；面板开着时改禁用集合会立刻刷新
+  - 多选里如果某项已经在标签中，`disable()` 会顺手把它从标签里移除
 
 ## 0.9.1 — 2026-11-02
 

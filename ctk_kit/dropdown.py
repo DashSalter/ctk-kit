@@ -92,6 +92,7 @@ class DropField(ctk.CTkFrame):
         command: Optional[Callable[[str], None]] = None,
         placeholder: str = "",
         height: int = 36,
+        disabled: Optional[Sequence[str]] = None,
     ) -> None:
         """创建下拉输入框。
 
@@ -101,6 +102,7 @@ class DropField(ctk.CTkFrame):
             command: 选中候选后的回调，参数是被选中的字符串。
             placeholder: 输入框为空时的灰色占位文字。
             height: 整体高度（像素），默认 36。
+            disabled: 一开始就置灰的候选项；之后可以用 ``disable()`` 等方法改。
         """
         super().__init__(
             master,
@@ -118,6 +120,7 @@ class DropField(ctk.CTkFrame):
         self._draw()
         self._values_provider: Callable[[], Sequence[str]] = values_provider
         self._command: Optional[Callable[[str], None]] = command
+        self._disabled: set = set(disabled or ())
         self._popup: Optional[ctk.CTkToplevel] = None
         self._root_bind_id: Optional[str] = None
         self._focus_bind_id: Optional[str] = None
@@ -183,6 +186,68 @@ class DropField(ctk.CTkFrame):
         self.set("")
 
     # --- 下拉面板 ---
+    def _build_rows(self, listing: _PopupList) -> None:
+        """铺候选按钮：禁用的项置灰、点了不响应。"""
+        for value in list(self._values_provider() or []):
+            disabled = value in self._disabled
+            button = ctk.CTkButton(
+                listing.inner,
+                text=value,
+                anchor="w",
+                height=32,
+                corner_radius=T.RADIUS_SMALL,
+                fg_color="transparent",
+                hover_color=T.COLOR_CARD if disabled else T.COLOR_SOFT_HOVER,
+                text_color=T.COLOR_TEXT,
+                text_color_disabled=T.COLOR_FAINT,
+                font=get_font(T.FONT_SMALL),
+                command=lambda v=value: self._pick(v),
+                state="disabled" if disabled else "normal",
+            )
+            button.pack(fill="x", pady=1)
+            listing.bind_wheel(button)
+
+    def _refresh_rows(self) -> None:
+        """面板开着的时候按新的禁用集合重铺，关着就什么都不做。"""
+        if self._listing is None or self._popup is None:
+            return
+        if not self._popup.winfo_exists():
+            return
+        for child in self._listing.inner.winfo_children():
+            child.destroy()
+        self._build_rows(self._listing)
+        self._rows = len(list(self._values_provider() or []))
+        if not self._place_popup():
+            self._close_menu()
+
+    # ------------------------------------------------------------ 禁用项
+    def disable(self, value: str) -> None:
+        """把某个候选项置灰：能看到，但点不了。"""
+        self._disabled.add(value)
+        self._refresh_rows()
+
+    def enable(self, value: str) -> None:
+        """解除某个候选项的禁用。"""
+        self._disabled.discard(value)
+        self._refresh_rows()
+
+    def is_disabled(self, value: str) -> bool:
+        """这个候选项当前是不是禁用的。"""
+        return value in self._disabled
+
+    def get_disabled(self) -> list:
+        """当前所有被禁用的候选项（按传入顺序）。"""
+        return list(self._disabled)
+
+    def set_disabled(self, values: Optional[Sequence[str]]) -> None:
+        """整体设置禁用集合；传 ``None`` 或空列表等于全部解除。"""
+        self._disabled = set(values or ())
+        self._refresh_rows()
+
+    def clear_disabled(self) -> None:
+        """解除全部禁用。"""
+        self.set_disabled(None)
+
     def open_menu(self) -> None:
         """展开候选面板；已经展开时再次调用会收起。"""
         if self._popup is not None and self._popup.winfo_exists():
@@ -211,21 +276,7 @@ class DropField(ctk.CTkFrame):
 
         listing = _PopupList(body, color_of(T.COLOR_CARD))
         listing.pack(fill="both", expand=True, padx=5, pady=5)
-        for value in values:
-            button = ctk.CTkButton(
-                listing.inner,
-                text=value,
-                anchor="w",
-                height=32,
-                corner_radius=T.RADIUS_SMALL,
-                fg_color="transparent",
-                hover_color=T.COLOR_SOFT_HOVER,
-                text_color=T.COLOR_TEXT,
-                font=get_font(T.FONT_SMALL),
-                command=lambda v=value: self._pick(v),
-            )
-            button.pack(fill="x", pady=1)
-            listing.bind_wheel(button)
+        self._build_rows(listing)
 
         popup.update_idletasks()
         self._popup = popup

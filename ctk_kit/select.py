@@ -505,6 +505,7 @@ class TagSelectField(ctk.CTkFrame):
         placeholder: str = "",
         height: int = 36,
         values: Optional[Sequence[str]] = None,
+        disabled: Optional[Sequence[str]] = None,
     ) -> None:
         """创建多选标签下拉。
 
@@ -515,6 +516,7 @@ class TagSelectField(ctk.CTkFrame):
             placeholder: 一个标签都没有时的灰色提示文字。
             height: 整体高度（逻辑像素），默认 36。
             values: 初始选中的标签。
+            disabled: 一开始就置灰的候选项；之后可以用 ``disable()`` 等方法改。
         """
         super().__init__(
             master,
@@ -535,6 +537,7 @@ class TagSelectField(ctk.CTkFrame):
         self._height = height
         self._values: list = []
         self._tags: list = []
+        self._disabled: set = set(disabled or ())
         self._bg = color_of(T.COLOR_INPUT)
         # 只用来量标签文字宽度；单独一份，不碰 get_font() 的共享缓存
         self._measure_font = tkfont.Font(font=T.FONT_BODY)
@@ -626,6 +629,7 @@ class TagSelectField(ctk.CTkFrame):
         values = list(self._values_provider() or [])
         for value in values:
             selected = value in self._values
+            disabled = value in self._disabled
             button = ctk.CTkButton(
                 parent,
                 text=value,
@@ -634,19 +638,61 @@ class TagSelectField(ctk.CTkFrame):
                 corner_radius=T.RADIUS_SMALL,
                 fg_color=_SELECTED_ROW_BG if selected else "transparent",
                 hover_color=(
-                    _SELECTED_ROW_HOVER if selected else T.COLOR_SOFT_HOVER
+                    T.COLOR_CARD
+                    if disabled
+                    else (_SELECTED_ROW_HOVER if selected else T.COLOR_SOFT_HOVER)
                 ),
                 text_color=T.COLOR_ACTIVE if selected else T.COLOR_TEXT,
+                text_color_disabled=T.COLOR_FAINT,
                 font=T.FONT_SMALL,
                 command=lambda v=value: self._toggle(v),
+                state="disabled" if disabled else "normal",
             )
             button.pack(fill="x", pady=1)
             if self._panel._listing is not None:
                 self._panel._listing.bind_wheel(button)
         return len(values)
 
+    # ------------------------------------------------------------ 禁用项
+    def disable(self, value: str) -> None:
+        """把某个候选项置灰；已经选中的会顺手从标签里移除。"""
+        self._disabled.add(value)
+        if value in self._values:
+            self._remove_tag(value)
+        elif self._panel.visible:
+            self._panel.refresh()
+
+    def enable(self, value: str) -> None:
+        """解除某个候选项的禁用。"""
+        self._disabled.discard(value)
+        if self._panel.visible:
+            self._panel.refresh()
+
+    def is_disabled(self, value: str) -> bool:
+        """这个候选项当前是不是禁用的。"""
+        return value in self._disabled
+
+    def get_disabled(self) -> list:
+        """当前所有被禁用的候选项。"""
+        return list(self._disabled)
+
+    def set_disabled(self, values: Optional[Sequence[str]]) -> None:
+        """整体设置禁用集合；传 ``None`` 或空列表等于全部解除。"""
+        self._disabled = set(values or ())
+        for value in list(self._values):
+            if value in self._disabled:
+                self._remove_tag(value)
+        if self._panel.visible:
+            self._panel.refresh()
+
+    def clear_disabled(self) -> None:
+        """解除全部禁用。"""
+        self.set_disabled(None)
+
     def _toggle(self, value: str) -> None:
         """切换一个候选：没选就加标签，已选就删掉；面板保持打开。"""
+        if value in self._disabled:
+            return
         if value in self._values:
             self._remove_tag(value)
         else:
@@ -771,6 +817,7 @@ class TreeSelectField(ctk.CTkFrame):
         placeholder: str = "",
         height: int = 36,
         value: str = "",
+        disabled: Optional[Sequence[str]] = None,
     ) -> None:
         """创建层级树下拉。
 
@@ -799,6 +846,7 @@ class TreeSelectField(ctk.CTkFrame):
         self._command = command
         self._height = height
         self._expanded: set = set()
+        self._disabled: set = set(disabled or ())
         #: 当前面板里可见行：``{路径: 行控件}``，用来增量增删
         self._rows_map: dict = {}
         #: 分组行的右箭头：``{路径: 箭头 label}``
@@ -855,6 +903,37 @@ class TreeSelectField(ctk.CTkFrame):
     def open_menu(self) -> None:
         """展开候选面板。"""
         self._panel.open()
+
+    # ------------------------------------------------------------ 禁用项
+    def disable(self, value: str) -> None:
+        """把某个叶子候选置灰：能看到，但选不了。"""
+        self._disabled.add(value)
+        if self._panel.visible:
+            self._panel.refresh()
+
+    def enable(self, value: str) -> None:
+        """解除某个叶子候选的禁用。"""
+        self._disabled.discard(value)
+        if self._panel.visible:
+            self._panel.refresh()
+
+    def is_disabled(self, value: str) -> bool:
+        """这个叶子候选当前是不是禁用的。"""
+        return value in self._disabled
+
+    def get_disabled(self) -> list:
+        """当前所有被禁用的候选。"""
+        return list(self._disabled)
+
+    def set_disabled(self, values: Optional[Sequence[str]]) -> None:
+        """整体设置禁用集合；传 ``None`` 或空列表等于全部解除。"""
+        self._disabled = set(values or ())
+        if self._panel.visible:
+            self._panel.refresh()
+
+    def clear_disabled(self) -> None:
+        """解除全部禁用。"""
+        self.set_disabled(None)
 
     def _tree(self) -> list:
         """把外部数据统一成 ``(文字, 子项列表或 None)`` 的嵌套结构。"""
@@ -924,12 +1003,17 @@ class TreeSelectField(ctk.CTkFrame):
         row = ctk.CTkFrame(parent, fg_color="transparent", height=_ROW_HEIGHT)
         row.pack(fill="x", pady=1)
         row.pack_propagate(False)
+        disabled = (not is_group) and label in self._disabled
         text = ctk.CTkLabel(
             row,
             text=label,
             anchor="w",
             font=font,
-            text_color=T.COLOR_MUTED if is_group else T.COLOR_TEXT,
+            text_color=(
+                T.COLOR_MUTED
+                if is_group
+                else (T.COLOR_FAINT if disabled else T.COLOR_TEXT)
+            ),
             fg_color="transparent",
         )
         text.pack(side="left", fill="x", expand=True, padx=(10 + depth * 14, 0))
@@ -949,12 +1033,17 @@ class TreeSelectField(ctk.CTkFrame):
 
         if is_group:
             handler = lambda _e, p=path: self._toggle_expand(p)  # noqa: E731
+        elif disabled:
+            handler = lambda _e: None  # noqa: E731
         else:
             handler = lambda _e, v=label: self._pick(v)  # noqa: E731
         for widget in widgets:
             widget.bind("<Button-1>", handler)
             widget.bind(
-                "<Enter>", lambda _e, r=row: r.configure(fg_color=T.COLOR_SOFT_HOVER)
+                "<Enter>",
+                lambda _e, r=row, d=disabled: r.configure(
+                    fg_color="transparent" if d else T.COLOR_SOFT_HOVER
+                ),
             )
             widget.bind(
                 "<Leave>", lambda _e, r=row: r.configure(fg_color="transparent")
@@ -1006,6 +1095,8 @@ class TreeSelectField(ctk.CTkFrame):
 
     def _pick(self, value: str) -> None:
         """选中叶子：写入输入框、收起面板、回调。"""
+        if value in self._disabled:
+            return
         self.set(value)
         self._panel.close()
         if self._command is not None:

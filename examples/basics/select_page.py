@@ -16,6 +16,7 @@ from ctk_kit import (
     CodePanel,
     DropField,
     FieldLabel,
+    FlatButton,
     Frame,
     HintLabel,
     PageBase,
@@ -178,8 +179,23 @@ class SelectPageUI(PageBase):
         self.preset.pack(side="left", fill="x", expand=True)
         self.preset.set("Alpha")
 
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "禁用项", width=72).pack(side="left")
+        self.disabled_field = DropField(
+            row,
+            values_provider=_preset_values,
+            placeholder="Beta 一开始就是禁用的",
+            disabled=["Beta"],
+        )
+        self.disabled_field.pack(side="left", fill="x", expand=True)
+        self.disabled_button = FlatButton(row, "解除 Beta", self._on_toggle_disabled)
+        self.disabled_button.pack(side="left", padx=(8, 0))
+
         HintLabel(
-            box, "选中候选后写进输入框并收起面板；get() / set() 与输入框一致。"
+            box,
+            "禁用的候选项置灰、点不了：disable() / enable() / is_disabled() / "
+            "get_disabled() / set_disabled() / clear_disabled()。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(
@@ -288,6 +304,17 @@ class SelectPage(SelectPageUI):
         """层级树选中叶子：回显。"""
         self.tree_value.configure(text=f"已选：{value}")
         self._show(f"层级选中：{value}")
+
+    def _on_toggle_disabled(self) -> None:
+        """切换 Beta 的禁用状态，并更新按钮文字。"""
+        if self.disabled_field.is_disabled("Beta"):
+            self.disabled_field.enable("Beta")
+            self.disabled_button.configure(text="禁用 Beta")
+            self._show("已解除 Beta 的禁用")
+        else:
+            self.disabled_field.disable("Beta")
+            self.disabled_button.configure(text="解除 Beta")
+            self._show("Beta 已禁用，点它不会有反应")
 
     def _on_single_key(self, _event: tk.Event) -> None:
         """手动改单选输入框时也回显。"""

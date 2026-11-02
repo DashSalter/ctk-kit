@@ -27,6 +27,13 @@ from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .theme import color_of
 
+try:  # Pillow 是可选依赖：装了就用抗锯齿的箭头图片
+    from PIL import Image, ImageDraw, ImageTk
+
+    _HAS_PIL = True
+except Exception:  # noqa: BLE001
+    _HAS_PIL = False
+
 # 分段选择的选中回调：收到被选中的那一段文字。
 SegmentCommand = Optional[Callable[[str], None]]
 # 开关、勾选回调：不接收参数（CTk 的约定）。
@@ -590,6 +597,7 @@ class Spinner(ctk.CTkFrame):
         self._as_int = as_int
         self._height = height
         self._bg = color_of(T.COLOR_INPUT)
+        self._arrow_photos: list = []
 
         # 先贴箭头、再放输入框：pack 按调用顺序分空间，反过来输入框会把箭头挤没
         self._arrows = tk.Canvas(
@@ -700,27 +708,46 @@ class Spinner(ctk.CTkFrame):
     def _draw_arrows(self) -> None:
         """重画两个小三角；高度变了会重新调用。
 
-        两个三角的尺寸是固定的，只按控件高度居中——这样同一行里的几个
-        Spinner 箭头看起来一样大，不会因为高度差 1px 就一大一小。
+        照 ttkbootstrap 的 Spinbox：箭头用**图片**而不是按坐标画多边形。
+        两个箭头是同一套绘制出的位图（只是上下翻转），尺寸严格一致；
+        canvas 直接画多边形时，小数中点加取整会让两个三角形差 1px。
         """
         canvas = self._arrows
         canvas.delete("all")
+        self._arrow_photos = []
         height = canvas.winfo_height()
         if height <= 1:
             # 刚建好还没布局，先用构造时的高度兜底，否则会画在不可见的位置
             height = self._height - 2
-        # 用整数中点：小数中点加上 ±3 之后两个三角会被取整到不同高度，
-        # 看起来一大一小
         middle = height // 2
         # canvas 只认具体的颜色字符串，令牌里的 (浅色, 深色) 元组要先解析
         color = color_of(T.COLOR_MUTED)
-        for center, direction in ((middle - 9, -1), (middle + 9, 1)):
-            # direction=-1 画上三角，1 画下三角；两者关于中心镜像，高宽一致
-            if direction < 0:
+        for index, center in enumerate((middle - 9, middle + 9)):
+            up = index == 0
+            if _HAS_PIL:
+                photo = self._arrow_image(up, color)
+                self._arrow_photos.append(photo)
+                canvas.create_image(11, center, image=photo, anchor="center")
+                continue
+            if up:
                 points = (5, center + 3, 17, center + 3, 11, center - 3)
             else:
                 points = (5, center - 3, 17, center - 3, 11, center + 3)
             canvas.create_polygon(*points, fill=color, outline="")
+
+    @staticmethod
+    def _arrow_image(up: bool, color: str, width: int = 12, height: int = 7):
+        """画一个上/下三角的小图：4 倍尺寸画完再缩，边缘平滑。"""
+        scale = 4
+        image = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
+        pen = ImageDraw.Draw(image)
+        w, h = width * scale, height * scale
+        if up:
+            points = [(0, h - 1), (w - 1, h - 1), (w // 2, 0)]
+        else:
+            points = [(0, 0), (w - 1, 0), (w // 2, h - 1)]
+        pen.polygon(points, fill=color)
+        return ImageTk.PhotoImage(image.resize((width, height), Image.LANCZOS))
 
     def configure(self, **kwargs: Any) -> None:
         """改外观后补一次重绘，圆角/描边颜色才会跟着变。"""

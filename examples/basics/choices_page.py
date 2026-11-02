@@ -1,4 +1,4 @@
-"""选择页：分段、开关、勾选、单选、滑块与进度条。
+"""选择页：分段、开关、勾选、单选、滑块。
 
 从旧示例的「选择」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
 ``ChoicesPageUI`` 只建控件，``ChoicesPage`` 在构造时自动 ``bind_events()``。
@@ -22,7 +22,6 @@ from ctk_kit import (
     HintLabel,
     PageBase,
     PageHeader,
-    ProgressBar,
     Scrollable,
     Segmented,
     Slider,
@@ -93,7 +92,7 @@ var.set("总是同步")   # 直接改选中项
 
 # 返回 (容器, StringVar)；控件必须共用同一个 variable 才互斥'''
 
-SLIDER_CODE = '''from ctk_kit import Slider, ProgressBar
+SLIDER_CODE = '''from ctk_kit import Slider
 
 track = Slider(row, on_change, from_=0, to=100, steps=0, width=220)
 # command 收 float；steps>0 时只能停在等分点
@@ -101,11 +100,8 @@ track = Slider(row, on_change, from_=0, to=100, steps=0, width=220)
 track.get()
 track.set(65)
 
-bar = ProgressBar(row, value=0.0, width=220, height=6)
-# ProgressBar(master, *, value=0.0, width=220, height=6)
-bar.set(0.65)        # 收 0~1
-
-# 滑块把手是 12px 正圆，轨道 = height - 2 * border_width（4px）'''
+# 滑块把手是 12px 正圆，轨道 = height - 2 * border_width（4px）
+# 进度条在「杂项」页：Progress / RingProgress'''
 
 
 class ChoicesPageUI(PageBase):
@@ -116,7 +112,7 @@ class ChoicesPageUI(PageBase):
 
         self.header = PageHeader(self, "选择")
         self.header.info.configure(
-            text="分段 / 开关 / 勾选 / 单选 / 滑块 / 进度条"
+            text="分段 / 开关 / 勾选 / 单选 / 滑块"
         )
 
         # 底部回显条先于滚动区 pack：内容再多也不会被挤掉
@@ -228,17 +224,15 @@ class ChoicesPageUI(PageBase):
         CodePanel(box, RADIO_CODE, "传自己的 variable 就能从外部读写选中项。")
 
     def _build_sliders(self, area: tk.Misc) -> None:
-        """滑块与进度条：拖动滑块同步右边进度条。"""
-        box = Card(area, title="滑块 / 进度条")
+        """滑块：连续与分段两种。"""
+        box = Card(area, title="滑块")
         box.pack(fill="x", pady=(12, 0))
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "连续", width=72).pack(side="left")
         self.track = Slider(row, width=320)
-        self.track.pack(side="left", padx=(8, 12))
-        self.bar = ProgressBar(row, value=0.0, width=140)
-        self.bar.pack(side="left")
+        self.track.pack(side="left", padx=(8, 0))
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
@@ -246,19 +240,12 @@ class ChoicesPageUI(PageBase):
         self.stepped = Slider(row, steps=4, width=240)
         self.stepped.pack(side="left", padx=(8, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "细进度条", width=72).pack(side="left")
-        self.thin_bar = ProgressBar(row, value=0.65, width=200, height=6)
-        self.thin_bar.pack(side="left", padx=(8, 0))
-
         HintLabel(
             box,
-            "拖动「连续」的滑块会同步右边进度条；Slider 的 command 收 float，"
-            "ProgressBar.set() 收 0~1。",
+            "Slider 的 command 收 float；拖动时回显当前值，进度条在「杂项」页。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
-        CodePanel(box, SLIDER_CODE, "Slider 的 get() 读数、set() 赋值，和进度条一起用。")
+        CodePanel(box, SLIDER_CODE, "Slider 的 get() 读数、set() 赋值。")
 
     # --- 分段控件：command 必须构造时传（内部靠它重绘选中段文字），事件类覆写 ---
     def _on_segment(self, value: str) -> None:
@@ -311,8 +298,7 @@ class ChoicesPage(ChoicesPageUI):
         self._show(f"单选：{self.radio_var.get()}")
 
     def _on_slide(self, value: float) -> None:
-        """连续滑块：同步进度条并回显百分比。"""
-        self.bar.set(value / 100.0)
+        """连续滑块：回显百分比。"""
         self._show(f"滑块：{value:.0f}%")
 
     def _on_step(self, value: float) -> None:

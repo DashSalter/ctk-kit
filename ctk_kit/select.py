@@ -30,6 +30,10 @@ _RESIZE_QUIET = 0.30
 _PANEL_GAP = 2
 #: 面板里每一行的高度（逻辑像素）。
 _ROW_HEIGHT = 32
+#: 已选中候选行的底色：把激活色按很低的比例压进卡片色，选多了也不晃眼。
+_SELECTED_ROW_BG = ("#e4f5f9", "#1f343b")
+#: 上面那行的悬停底色，比它稍亮一点。
+_SELECTED_ROW_HOVER = ("#d6eef4", "#274149")
 
 
 class _PopupList(tk.Frame):
@@ -548,7 +552,8 @@ class TagSelectField(ctk.CTkFrame):
 
         行和 ``DropField`` 用同一个做法：一行一个 ``CTkButton``，高度 32、
         上下各留 1px、圆角 ``RADIUS_SMALL``，所以三张下拉列表的行距看起来一样。
-        区别只在选中态——已选中的行铺满 ``COLOR_ACTIVE``，文字转白。
+        选中态不用整行亮色（选多了整块面板会晃眼），只给一层很淡的青底
+        加青色文字。
         """
         values = list(self._values_provider() or [])
         for value in values:
@@ -559,9 +564,11 @@ class TagSelectField(ctk.CTkFrame):
                 anchor="w",
                 height=32,
                 corner_radius=T.RADIUS_SMALL,
-                fg_color=T.COLOR_ACTIVE if selected else "transparent",
-                hover_color=T.COLOR_ACTIVE_HOVER if selected else T.COLOR_SOFT_HOVER,
-                text_color=T.COLOR_ACCENT_TEXT if selected else T.COLOR_TEXT,
+                fg_color=_SELECTED_ROW_BG if selected else "transparent",
+                hover_color=(
+                    _SELECTED_ROW_HOVER if selected else T.COLOR_SOFT_HOVER
+                ),
+                text_color=T.COLOR_ACTIVE if selected else T.COLOR_TEXT,
                 font=T.FONT_SMALL,
                 command=lambda v=value: self._toggle(v),
             )

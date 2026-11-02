@@ -107,7 +107,8 @@ CTkButton(bar, text="保存").pack()
 | `text` | `TextArea` | |
 | `dropdown` | `DropField` | 单选下拉 |
 | `select` | `TagSelectField` `TreeSelectField` | 多选标签 / 层级树，面板行为与 `DropField` 一致 |
-| `layout` | `Card` `PageHeader` `SectionTitle` `divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | `Card.body` 拿内容容器 |
+| `layout` | `Card` `PageHeader` `SectionTitle` `divider` `vertical_divider` `FieldLabel` `HintLabel` `empty_hint` `Scrollable` `style_scrollable` `style_scrollbar` | `Card.body` 拿内容容器 |
+| `misc` | `Progress` | 进度条：连续 / 分格 / 百分比 / 不确定态 |
 | `notify` | `Notifier` `notify` | |
 | `scroll_list` | `LazyList` | |
 | `context_menu` | `ContextMenu` `attach_menu` `attach_edit_menu` | 输入框默认带菜单 |
@@ -162,6 +163,13 @@ CTkButton(bar, text="保存").pack()
   滑块，`command` 收 `float`；`steps>0` 时只能停在等分点
 - `ProgressBar(master, *, value=0.0, width=220, height=6)`
   细进度条，`value` 收 0~1
+- `Progress(master, *, value=0.0, width=240, height=8, steps=0, show_text=False,
+  color=None, track=None)`
+  进度条的完整版，比 `ProgressBar` 多几种形态
+  - `steps>0` 时分格显示，达标的格子点亮
+  - `show_text=True` 时右侧显示百分比
+  - `start_indeterminate()` / `stop_indeterminate()`：不确定态，一段色块来回滚
+  - `color` / `track` 可单独换已完成色和轨道色
 - `Spinner(master, *, from_=0, to=100, increment=1, values=None, value=None,
   command=None, placeholder="", height=36, width=160, as_int=True)`
   带上下箭头的步进输入框
@@ -219,7 +227,11 @@ CTkButton(bar, text="保存").pack()
 - `PageHeader(master, title)` → `PageHeader`：左标题右信息，右侧标签用 `header.info` 访问（也兼容 `head, info = PageHeader(...)` 解包）
 - `SectionTitle(master, text)`：分区标题
 - `Card(master, *, title="")`：圆角卡片；传 `title` 时在卡片上方放标题（标题在卡片外，卡片要用 pack 放置）
-- `divider(master, *, pady=(12, 0))`：分隔线
+- `divider(master, *, pady=(12, 0), text="", dashed=False, color=None)`：分隔线
+  - `text` 给了就从左边起排一行字，右边接实线；`dashed=True` 画虚线
+  - `color` 可单独指定线色（默认 `COLOR_BORDER`）
+- `vertical_divider(master, *, height=20, padx=(0, 0), color=None)`：1px 宽竖线，
+  用来隔开同一行里的几块内容
 - `FieldLabel(master, text, *, width=112)`：表单左侧字段名
 - `HintLabel(master, text)`：灰色说明文字
 - `empty_hint(master, title, detail="")`：空态

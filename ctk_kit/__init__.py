@@ -107,7 +107,9 @@ from .layout import (
     SectionTitle,
     style_scrollable,
     style_scrollbar,
+    vertical_divider,
 )
+from .misc import Progress
 from .notify import Notifier, notify
 from .page import PageBase
 from .pages import PageRebuilder
@@ -176,6 +178,7 @@ __all__ = [
     "PathField",
     "PrimaryButton",
     "ProgressBar",
+    "Progress",
     "Scrollable",
     "SecondaryButton",
     "SectionTitle",
@@ -196,6 +199,7 @@ __all__ = [
     "bind_focus_border",
     "color_of",
     "divider",
+    "vertical_divider",
     "empty_hint",
     "get_appearance_mode",
     "has_dnd",

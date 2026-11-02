@@ -169,18 +169,104 @@ class Card(ctk.CTkFrame):
         return pady, pady
 
 
-def divider(master: tk.Misc, *, pady: tuple[int, int] = (T.SPACE_MD, 0)) -> ctk.CTkFrame:
-    """1px 分隔线；用 Frame 而不是 ttk.Separator，颜色好控制。
+def _resolve(color: Any) -> Any:
+    """令牌里的颜色是 (浅色, 深色) 元组，纯 tk 控件只认解析后的字符串。"""
+    if isinstance(color, (tuple, list)) and len(color) == 2:
+        from .theme import color_of
+
+        return color_of(color)
+    return color
+
+
+def _canvas_bg(master: tk.Misc) -> str:
+    """给 canvas 找一个实际的背景色：tk 的 canvas 不认 ``transparent``。"""
+    try:
+        value = master.cget("fg_color")
+    except Exception:  # noqa: BLE001
+        value = None
+    if isinstance(value, (tuple, list)):
+        return _resolve(value)
+    if isinstance(value, str) and value and value != "transparent":
+        return value
+    return _resolve(T.COLOR_CARD)
+
+
+def divider(
+    master: tk.Misc,
+    *,
+    pady: tuple = (T.SPACE_MD, 0),
+    text: str = "",
+    dashed: bool = False,
+    color: Any = None,
+) -> ctk.CTkFrame:
+    """分隔线；用 Frame 而不是 ttk.Separator，颜色好控制。
 
     参数:
         master: 父容器。
         pady: ``(上, 下)`` 外边距，默认 ``(12, 0)``。
+        text: 给了就在线中间挖个口、放这行字（从左边起排）。
+        dashed: ``True`` 时画成虚线（canvas 画的短线段）。
+        color: 线的颜色，默认 ``COLOR_BORDER``。
 
     返回:
-        已 ``pack(fill="x")`` 的 1px 高 Frame。
+        已 ``pack(fill="x")`` 的一行容器。
     """
-    line = ctk.CTkFrame(master, height=1, fg_color=T.COLOR_BORDER)
-    line.pack(fill="x", pady=pady)
+    line_color = color or T.COLOR_BORDER
+    if not text and not dashed:
+        line = ctk.CTkFrame(master, height=1, fg_color=line_color)
+        line.pack(fill="x", pady=pady)
+        return line
+
+    row = ctk.CTkFrame(master, fg_color="transparent")
+    row.pack(fill="x", pady=pady)
+
+    if text:
+        label = ctk.CTkLabel(
+            row,
+            text=text,
+            font=get_font(T.FONT_SMALL),
+            text_color=T.COLOR_MUTED,
+            fg_color="transparent",
+        )
+        label.pack(side="left", padx=(0, 10))
+    _line(row, line_color, dashed, side="left", fill="x", expand=True)
+    return row
+
+
+def _line(master: tk.Misc, color: Any, dashed: bool, **pack_options: Any) -> tk.Misc:
+    """画一根实线或虚线；虚线用 canvas 的短线段拼。"""
+    if not dashed:
+        line = tk.Frame(master, height=1, bg=_resolve(color))
+        line.pack(**pack_options)
+        return line
+
+    canvas = tk.Canvas(
+        master, height=1, bg=_canvas_bg(master), highlightthickness=0, bd=0
+    )
+    canvas.pack(**pack_options)
+    fill = _resolve(color)
+
+    def redraw(_event: tk.Event = None) -> None:
+        """宽度变了就重画一遍：短线段在 canvas 里不会自己拉伸。"""
+        canvas.delete("all")
+        width = max(1, canvas.winfo_width())
+        step, gap = 4, 4
+        x = 0
+        while x < width:
+            canvas.create_line(x, 0, min(width, x + step), 0, fill=fill)
+            x += step + gap
+
+    canvas.bind("<Configure>", redraw)
+    redraw()
+    return canvas
+
+
+def vertical_divider(
+    master: tk.Misc, *, height: int = 20, padx: tuple = (0, 0), color: Any = None
+) -> tk.Frame:
+    """1px 宽的竖向分隔线，用来隔开同一行里的几块内容。"""
+    line = tk.Frame(master, width=1, height=height, bg=_resolve(color or T.COLOR_BORDER))
+    line.pack(side="left", fill="y", padx=padx)
     return line
 
 

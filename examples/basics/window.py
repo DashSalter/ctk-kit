@@ -16,6 +16,7 @@ from image_page import ImagePage
 from inputs_page import InputsPage
 from listing_page import ListingPage
 from menu_page import MenuPage
+from misc_page import MiscPage
 from notify_page import NotifyPage
 from overview_page import OverviewPage
 from select_page import SelectPage
@@ -50,6 +51,7 @@ class DemoApp(App):
                 "提示": NotifyPage,
                 "菜单": MenuPage,
                 "列表": ListingPage,
+                "杂项": MiscPage,
             },
             bottom_pages={
                 "设置": SettingsPage,

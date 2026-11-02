@@ -18,6 +18,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .inputs import CTkEntry
+from .layout import style_scrollbar
 from .theme import color_of
 
 #: 面板最多铺几行，超出就在面板内部滚动。
@@ -30,10 +31,10 @@ _RESIZE_QUIET = 0.30
 _PANEL_GAP = 2
 #: 面板里每一行的高度（逻辑像素）。
 _ROW_HEIGHT = 32
-#: 已选中候选行的底色：把激活色按很低的比例压进卡片色，选多了也不晃眼。
-_SELECTED_ROW_BG = ("#e4f5f9", "#1f343b")
-#: 上面那行的悬停底色，比它稍亮一点。
-_SELECTED_ROW_HOVER = ("#d6eef4", "#274149")
+#: 已选中候选行的底色：只比卡片色亮一点点，选多了也不晃眼。
+_SELECTED_ROW_BG = ("#eef8fa", "#1b262b")
+#: 上面那行的悬停底色，比它稍亮一格。
+_SELECTED_ROW_HOVER = ("#e2f1f5", "#223036")
 
 
 class _PopupList(tk.Frame):
@@ -42,7 +43,16 @@ class _PopupList(tk.Frame):
     def __init__(self, master: tk.Misc, bg: str) -> None:
         """建列表：canvas 承载内容，内容超出时自己滚动。"""
         super().__init__(master, bg=bg, highlightthickness=0, bd=0)
-        self.canvas = tk.Canvas(self, bg=bg, highlightthickness=0, bd=0)
+        # 滚动条先建先 pack：pack 按调用顺序分配空间，倒过来放它会被 canvas 挤没
+        self.scrollbar = style_scrollbar(
+            ctk.CTkScrollbar(self, orientation="vertical", command=self._yview)
+        )
+        self.scrollbar.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        self.scrollbar.pack_forget()
+
+        self.canvas = tk.Canvas(
+            self, bg=bg, highlightthickness=0, bd=0, yscrollcommand=self._on_scroll
+        )
         self.inner = tk.Frame(self.canvas, bg=bg)
         self._window = self.canvas.create_window((0, 0), window=self.inner, anchor="nw")
         self.canvas.pack(side="left", fill="both", expand=True)
@@ -52,6 +62,24 @@ class _PopupList(tk.Frame):
         self.canvas.bind("<Configure>", self._sync_width)
         for widget in (self, self.canvas, self.inner):
             widget.bind("<MouseWheel>", self._on_wheel, add="+")
+
+    def set_scrollable(self, flag: bool) -> None:
+        """按需显示右侧滚动条；内容放得下时收起来。"""
+        if flag == self.scrollable:
+            return
+        self.scrollable = flag
+        if flag:
+            self.scrollbar.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        else:
+            self.scrollbar.pack_forget()
+
+    def _yview(self, *args: object) -> None:
+        """滚动条拖动时驱动 canvas。"""
+        self.canvas.yview(*args)
+
+    def _on_scroll(self, first: str, last: str) -> None:
+        """canvas 滚动时同步滚动条滑块位置。"""
+        self.scrollbar.set(first, last)
 
     def bind_wheel(self, widget: tk.Misc) -> None:
         """行自己也要绑：鼠标停在行上时滚轮事件不会冒泡到 canvas。"""
@@ -283,7 +311,7 @@ class _PopupPanel:
 
         if self._listing is not None:
             content_px = self._rows * row_px + pad_px
-            self._listing.scrollable = content_px > height_px
+            self._listing.set_scrollable(content_px > height_px)
         self._last_key = self._anchor_key()
         return True
 

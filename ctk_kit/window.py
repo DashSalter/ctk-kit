@@ -108,9 +108,10 @@ class App(CTk):
             self.geometry(f"{int(size[0])}x{int(size[1])}")
         if min_size is not None:
             self.minsize(int(min_size[0]), int(min_size[1]))
+        restored = False
         if remember_geometry:
-            self._restore_geometry(min_size)
-        if center:
+            restored = self._restore_geometry(min_size)
+        if center and not restored:
             self.after_idle(self._center_on_screen)
 
         if icon is not False:
@@ -260,11 +261,15 @@ class App(CTk):
         top = max(0, (self.winfo_screenheight() - height) // 2)
         self.geometry(f"{width}x{height}+{left}+{top}")
 
-    def _restore_geometry(self, min_size: Optional[Sequence[int]]) -> None:
-        """按上次保存的几何恢复窗口；没有记录或文件损坏就保持原样。"""
+    def _restore_geometry(self, min_size: Optional[Sequence[int]]) -> bool:
+        """按上次保存的几何恢复窗口；没有记录或文件损坏就保持原样。
+
+        返回是否真的恢复了；调用方据此决定还要不要居中——用户上次把窗口
+        放在某个位置，就不该被 ``center=True`` 又挪回屏幕中间。
+        """
         state = read_geometry(self._config_path)
         if state is None:
-            return
+            return False
 
         width, height, x, y = state
         if min_size is not None:
@@ -274,7 +279,7 @@ class App(CTk):
         # 没有保存过位置（-1）时只恢复大小，位置交给 CTk 的默认行为。
         if x < 0 or y < 0:
             self.geometry(f"{width}x{height}")
-            return
+            return False
 
         # 位置是物理像素；宽高是逻辑像素，夹到屏幕内之前先换回物理尺寸。
         scale = float(getattr(self, "_window_scaling", 1.0) or 1.0)
@@ -283,6 +288,7 @@ class App(CTk):
         x = max(0, min(x, max_x))
         y = max(0, min(y, max_y))
         self.geometry(f"{width}x{height}+{x}+{y}")
+        return True
 
     def _save_geometry(self) -> None:
         """把当前大小和位置写进配置。最大化/最小化时保留上次的普通几何。"""

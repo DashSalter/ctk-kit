@@ -250,18 +250,12 @@ class Notifier:
         # 主窗口被别的应用盖住或最小化时，提示也跟着一起下去。
         with contextlib.suppress(Exception):
             window.transient(self.master)
-        # 窗口底用卡片色兜底：裁剪差半像素时露出来的也是卡片色，不是异色。
-        window.configure(fg_color=T.COLOR_CARD)
-
-        # 描边用「一圈底色」而不是控件自带的 border：一行底色铺满的环、
-        # 卡片内缩 1px，四边宽度就是绝对均匀的，圆角处也跟着一起弯。
-        ring = ctk.CTkFrame(
-            window, fg_color=T.COLOR_BORDER, corner_radius=radius, bg_color=T.COLOR_CARD
-        )
-        ring.pack(fill="both", expand=True)
+        # 描边用「一圈底色」而不是控件自带的 border：窗口整面铺描边色，
+        # 卡片四边各内缩 1px，四边宽度就是绝对均匀的，圆角处也跟着一起弯。
+        window.configure(fg_color=T.COLOR_BORDER)
 
         card = ctk.CTkFrame(
-            ring,
+            window,
             fg_color=T.COLOR_CARD,
             corner_radius=max(1, radius - 1),
             border_width=0,
@@ -462,6 +456,7 @@ class Notifier:
 
     def _round_window_corners(self, window) -> None:
         """把窗口裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
+        # 半径跟内部卡片同值：窗口比卡片更圆时，四角会露出一圈粗描边。
         round_window_corners(window, T.RADIUS_SMALL, self._scaling())
 
     def _remove(self, notice, notify=True, relayout=True) -> None:

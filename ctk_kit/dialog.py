@@ -33,7 +33,7 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw
 
 from . import tokens as T
-from .popup import round_window_corners
+from .popup import round_window_corners, scaled_geometry
 from .buttons import CTkButton
 from .fonts import get_font
 from .inputs import FormEntry
@@ -165,7 +165,8 @@ class Dialog(ctk.CTkToplevel):
         body = ctk.CTkFrame(
             self,
             fg_color=T.COLOR_CARD,
-            corner_radius=T.RADIUS_MEDIUM - 1,
+            # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
+            corner_radius=T.RADIUS_SMALL,
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
@@ -273,7 +274,10 @@ class Dialog(ctk.CTkToplevel):
         不会跟着一起消失。
         """
         self.update_idletasks()
-        width = self._width
+        # _width 是逻辑像素，其余测量值都是物理像素；这里统一成物理像素，
+        # 否则 geometry 会把高度再乘一遍缩放。
+        scaling = self._get_window_scaling()
+        width = max(1, int(round(self._width * scaling)))
         height = self.winfo_reqheight()
         # 记下来给 _reposition 用：拖动时每帧读 winfo_height 会被自己的
         # geometry 反复放大，必须固定在第一次算出的尺寸上
@@ -290,7 +294,7 @@ class Dialog(ctk.CTkToplevel):
         screen_h = self.winfo_screenheight()
         left = min(max(0, left), max(0, screen_w - width))
         top = min(max(0, top), max(0, screen_h - height))
-        self.geometry(f"{width}x{height}+{left}+{top}")
+        self.geometry(scaled_geometry(self, width, height, left, top))
 
     # ------------------------------------------------------------ 结果
     def _submit_prompt(self) -> None:
@@ -326,7 +330,7 @@ class Dialog(ctk.CTkToplevel):
         parent = self._parent_window
         self.deiconify()
         self.wait_visibility()
-        _round_corners(self)
+        _round_corners(self, T.RADIUS_SMALL)
         # 无边框窗口不参与 WM 的层级管理：拖动主窗口时它会被压到下面，看起来像
         # 「消失了」。对话框本来就是模态，关掉之前一直置顶即可。
         with contextlib.suppress(tk.TclError):
@@ -402,7 +406,7 @@ class Dialog(ctk.CTkToplevel):
         left = min(max(0, left), max(0, screen_w - width))
         top = min(max(0, top), max(0, screen_h - height))
         with contextlib.suppress(tk.TclError):
-            self.geometry(f"{width}x{height}+{left}+{top}")
+            self.geometry(scaled_geometry(self, width, height, left, top))
 
 
 def alert(

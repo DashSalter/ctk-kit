@@ -91,10 +91,17 @@ class PageBase(Frame):
             return
         self._built_callback = callback
 
+    def _alive(self) -> bool:
+        """页面窗口还在不在；根窗口已经销毁时 ``winfo_exists`` 自己会抛。"""
+        try:
+            return bool(self.winfo_exists())
+        except tk.TclError:
+            return False
+
     def _run_build_step(self) -> None:
         """建一张排队的卡片，让出一帧，再排下一张。"""
         self._build_job = None
-        if not self.winfo_exists() or not self._build_queue:
+        if not self._alive() or not self._build_queue:
             self._finish_build()
             return
         step = self._build_queue.pop(0)
@@ -108,6 +115,11 @@ class PageBase(Frame):
             self._build_queue.clear()
             self._resume_scrollbars()
             return
+        # update() 会处理事件循环：切页重建可能在这期间把本页销毁了，
+        # 这时候不能再遍历控件去恢复滚动条，也不能再排下一次 after。
+        if not self._alive():
+            self._build_queue.clear()
+            return
         if self._build_queue:
             self._build_job = self.after(1, self._run_build_step)
         else:
@@ -115,6 +127,9 @@ class PageBase(Frame):
 
     def _finish_build(self) -> None:
         """分帧队列清空：恢复滚动条并回调 ``when_built``。"""
+        if not self._alive():
+            self._build_queue.clear()
+            return
         self._resume_scrollbars()
         if self._built_callback is not None:
             callback, self._built_callback = self._built_callback, None
@@ -157,7 +172,11 @@ class PageBase(Frame):
             self._build_job = None
         self._build_queue.clear()
         self._built_callback = None
-        self._resume_scrollbars()
+        try:
+            self._resume_scrollbars()
+        except tk.TclError:
+            # 父窗口先一步销毁时遍历控件树会抛，退出路径上忽略
+            pass
         super().destroy()
 
     def bind_events(self) -> None:

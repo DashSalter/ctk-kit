@@ -17,7 +17,39 @@ from typing import Optional
 
 from . import tokens as T
 
-__all__ = ["round_window_corners"]
+__all__ = ["round_window_corners", "scaled_geometry"]
+
+
+def scaled_geometry(
+    window: tk.Misc,
+    width: int,
+    height: int,
+    x: Optional[int] = None,
+    y: Optional[int] = None,
+) -> str:
+    """拼 ``CTkToplevel.geometry`` 用的几何串（宽高按物理像素给）。
+
+    ``CTkToplevel.geometry`` 会再把宽高乘一遍窗口缩放，而 ``winfo_reqwidth()``
+    这类量出来的值已经是物理像素；直接传进去会被放大（125% 缩放下窗口大
+    25%，1px 的描边在右边、下边看起来就比左边厚）。这里先除回去，让窗口的
+    物理尺寸正好等于传入值。``x`` / ``y`` 是屏幕物理像素，不参与换算。
+
+    参数:
+        window: 目标窗口（``CTkToplevel``）。
+        width: 宽度（物理像素）。
+        height: 高度（物理像素）。
+        x: 屏幕横坐标（物理像素）。
+        y: 屏幕纵坐标（物理像素）。
+    """
+    scaling = 1.0
+    with contextlib.suppress(Exception):
+        scaling = window._get_window_scaling() or 1.0
+    scaled_w = max(1, int(round(width / scaling)))
+    scaled_h = max(1, int(round(height / scaling)))
+    text = f"{scaled_w}x{scaled_h}"
+    if x is not None and y is not None:
+        text += f"+{int(x)}+{int(y)}"
+    return text
 
 
 def round_window_corners(

@@ -18,6 +18,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .popup import round_window_corners, scaled_geometry
 
 __all__ = ["Calendar", "DatePicker"]
 
@@ -319,21 +320,32 @@ class DatePicker(ctk.CTkFrame):
         win = ctk.CTkToplevel(self)
         win.overrideredirect(True)
         win.attributes("-topmost", True)
-        win.configure(fg_color=T.COLOR_CARD)
+        win.configure(fg_color=T.COLOR_BORDER)
+        # 描边画在窗口上，卡片四边各内缩 1px；Calendar 自身不再画边框。
+        body = ctk.CTkFrame(
+            win,
+            fg_color=T.COLOR_CARD,
+            # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
+            corner_radius=T.RADIUS_SMALL,
+            border_width=0,
+        )
+        body.pack(fill="both", expand=True, padx=1, pady=1)
 
-        calendar = Calendar(win, value=self._value, command=self._pick)
+        calendar = Calendar(body, value=self._value, command=self._pick, border_width=0)
         calendar.pack(padx=8, pady=8)
 
         win.update_idletasks()
         x = self.winfo_rootx()
         y = self.winfo_rooty() + self.winfo_height() + 4
-        w = calendar.winfo_reqwidth() + 16
-        h = calendar.winfo_reqheight() + 16
+        w = win.winfo_reqwidth()
+        h = win.winfo_reqheight()
         if x + w > self.winfo_screenwidth():
             x = self.winfo_screenwidth() - w - 8
         if y + h > self.winfo_screenheight():
             y = self.winfo_rooty() - h - 4
-        win.geometry(f"{w}x{h}+{max(0, x)}+{max(0, y)}")
+        # 宽高是物理像素，geometry 会再乘窗口缩放，交给 scaled_geometry 除回去。
+        win.geometry(scaled_geometry(win, w, h, max(0, x), max(0, y)))
+        round_window_corners(win, T.RADIUS_SMALL)
 
         win.focus_force()
         win.bind("<FocusOut>", lambda _e: self.close())

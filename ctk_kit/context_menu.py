@@ -175,7 +175,8 @@ class ContextMenu:
         body = ctk.CTkFrame(
             popup,
             fg_color=T.COLOR_CARD,
-            corner_radius=max(1, T.RADIUS_MEDIUM - 1),
+            # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
+            corner_radius=T.RADIUS_SMALL,
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
@@ -379,7 +380,8 @@ class ContextMenu:
 
     def _round_window_corners(self, popup: ctk.CTkToplevel, scaling: float) -> None:
         """把窗口本身裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
-        round_window_corners(popup, T.RADIUS_MEDIUM, scaling)
+        # 半径跟内部卡片同值：窗口比卡片更圆时，四角会露出一圈粗描边。
+        round_window_corners(popup, T.RADIUS_SMALL, scaling)
 
 
 def _accepts_one_arg(func: Callable) -> bool:

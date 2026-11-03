@@ -361,11 +361,35 @@ class App(CTk):
         self.destroy()
 
     def destroy(self) -> None:
-        """销毁前补存一次几何，``app.destroy()`` 直接关闭时也能记住。"""
+        """销毁前补存一次几何，并清掉还挂着的 after 定时器。"""
         if (
             getattr(self, "_remember_geometry", False)
             and not getattr(self, "_geometry_written", False)
         ):
             self._save_geometry()
             self._geometry_written = True
+        self._cancel_pending_afters()
         super().destroy()
+
+    def _cancel_pending_afters(self) -> None:
+        """取消解释器里所有待触发的 after。
+
+        Tk 的 after 定时器挂在解释器上，不随控件销毁自动取消；主窗口关掉后
+        它们再触发就会报 ``invalid command name "...update"``。customtkinter
+        的外观/缩放跟踪器、按钮点击动画都会留下这种定时器，所以退出前统一
+        清一遍。
+        """
+        try:
+            jobs = self.tk.call("after", "info")
+        except Exception:  # noqa: BLE001 - 解释器已经没了
+            return
+        if isinstance(jobs, str):
+            jobs = (jobs,)
+        for job in jobs:
+            # 直接走 Tcl 取消，不调用 after_cancel：后者会顺手 deletecommand，
+            # 而命令可能注册在子窗口上、不在 App 的命令表里，子窗口销毁时
+            # 再删一次就会报 "can't delete Tcl command"。
+            try:
+                self.tk.call("after", "cancel", job)
+            except Exception:  # noqa: BLE001 - 已经被别的路径取消
+                pass

@@ -117,16 +117,25 @@ class PageRebuilder:
         self._stale.discard(name)
         return page
 
-    def build_all(self, progress: Optional[Callable[[int, int, str], None]] = None) -> None:
-        """把所有页面都建出来（启动时用），可逐页汇报进度。
+    def build_all(
+        self,
+        progress: Optional[Callable[[int, int, str], None]] = None,
+        *,
+        names: Optional[Sequence[str]] = None,
+    ) -> None:
+        """预建页面（启动时用），可逐页汇报进度。
 
-        ``first_of(name) > 0`` 的页面会被跳过：这类页面自己把卡片分成
-        「前几张同步、其余分帧」，启动时建它反而会把遮罩拖住，等第一次
-        :meth:`show` 时再建。进度条只统计真正会建的页面。
+        默认把所有页面都建出来。``first_of(name) > 0`` 的页面会被跳过：这类
+        页面自己把卡片分成「前几张同步、其余分帧」，启动时建它反而会把遮罩
+        拖住，等第一次 :meth:`show` 时再建。
+
+        只想要启动时先建当前页、其余页等用户切过去再建，就传
+        ``names=[当前页]``——遮罩因此不用等十几页。
 
         参数:
             progress: 可选回调 ``progress(done, total, name)``；每建完一页
                 调用一次，用来驱动启动遮罩的进度条。
+            names: 只预建这些页面；不传则按上面的默认规则建全部。
         """
         def deferred(name: str) -> bool:
             """这页是否留到第一次显示时再建。"""
@@ -137,9 +146,14 @@ class PageRebuilder:
             except Exception:  # noqa: BLE001 - 读不到就当成普通页面
                 return False
 
-        names = [name for name in self._pages if not deferred(name)]
-        total = len(names)
-        for index, name in enumerate(names, start=1):
+        if names is None:
+            candidates = [name for name in self._pages if not deferred(name)]
+        else:
+            # 显式点名时不做 deferred 过滤：调用方要建就建
+            candidates = [name for name in names if name in self._pages]
+
+        total = len(candidates)
+        for index, name in enumerate(candidates, start=1):
             if name not in self._frames:
                 self._build(name)
             if progress is not None:

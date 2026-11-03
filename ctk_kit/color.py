@@ -24,6 +24,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .dialog import _round_corners
 from .fonts import get_font
+from .popup import scaled_geometry
 
 __all__ = ["ColorPicker"]
 
@@ -154,14 +155,16 @@ class ColorPicker(ctk.CTkFrame):
         except tk.TclError:
             pass
 
+        # 描边画在窗口上：整窗铺描边色，色板卡片四边各内缩 1px。
+        window.configure(fg_color=T.COLOR_BORDER)
         frame = ctk.CTkFrame(
             window,
             fg_color=T.COLOR_CARD,
-            border_width=1,
-            border_color=T.COLOR_BORDER,
-            corner_radius=T.RADIUS_MEDIUM,
+            border_width=0,
+            # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
+            corner_radius=T.RADIUS_SMALL,
         )
-        frame.pack(fill="both", expand=True)
+        frame.pack(fill="both", expand=True, padx=1, pady=1)
 
         columns = 4
         for index, color in enumerate(self._colors):
@@ -185,11 +188,12 @@ class ColorPicker(ctk.CTkFrame):
             )
 
         window.update_idletasks()
-        width = frame.winfo_reqwidth()
-        height = frame.winfo_reqheight()
+        width = frame.winfo_reqwidth() + 2
+        height = frame.winfo_reqheight() + 2
         x, y = self._place(width, height)
-        window.geometry(f"{width}x{height}+{x}+{y}")
-        _round_corners(window, T.RADIUS_MEDIUM)
+        # 宽高是物理像素，geometry 会再乘窗口缩放，交给 scaled_geometry 除回去。
+        window.geometry(scaled_geometry(window, width, height, x, y))
+        _round_corners(window, T.RADIUS_SMALL)
         window.deiconify()
         window.lift()
         window.focus_force()

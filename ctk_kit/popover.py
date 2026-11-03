@@ -24,6 +24,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .dialog import _round_corners
+from .popup import scaled_geometry
 
 __all__ = ["Popover"]
 
@@ -77,23 +78,42 @@ class Popover:
         except tk.TclError:
             pass
 
+        # 描边画在窗口上：整窗铺描边色，卡片四边各内缩 1px，四角跟着圆角
+        # 一起弯，不会像控件 border 那样在弧段上有粗细差。
+        window.configure(fg_color=T.COLOR_BORDER)
         frame = ctk.CTkFrame(
             window,
             fg_color=T.COLOR_CARD,
-            border_width=1,
-            border_color=T.COLOR_BORDER,
-            corner_radius=T.RADIUS_MEDIUM,
+            border_width=0,
+            # 圆角跟系统 DWM 圆角（8）对齐：卡片比窗口更圆时，四角会露出一
+            # 圈比 1px 粗的描边，看起来右边、下边比左边厚。
+            corner_radius=T.RADIUS_SMALL,
         )
-        frame.pack(fill="both", expand=True)
+        frame.pack(fill="both", expand=True, padx=1, pady=1)
         if self._content is not None:
             self._content(frame)
 
         window.update_idletasks()
-        width = self._width or frame.winfo_reqwidth()
+        if self._width:
+            # width 是逻辑像素，测量值是物理像素，统一成物理再交给 geometry。
+            try:
+                scaling = window._get_window_scaling()
+            except Exception:  # noqa: BLE001
+                scaling = 1.0
+            width = max(1, int(round(self._width * scaling)))
+        else:
+            width = frame.winfo_reqwidth()
         height = frame.winfo_reqheight()
+        # 几何尺寸按窗口算：左右各 1px 的描边也要算进去。
+        width += 2
+        height += 2
         x, y = self._place(width, height)
-        window.geometry(f"{width}x{height}+{x}+{y}")
-        _round_corners(window, T.RADIUS_MEDIUM)
+        # 宽高是物理像素，geometry 会再乘窗口缩放，交给 scaled_geometry 除回去；
+        # 不这么做的话 125% / 150% 缩放下窗口会被放大，描边看着右边、下边厚。
+        window.geometry(scaled_geometry(window, width, height, x, y))
+        # 窗口圆角跟卡片同半径：DWM 圆角半径由系统定，卡片比它更圆时，
+        # 四角会露出一圈比 1px 粗的描边。
+        _round_corners(window, T.RADIUS_SMALL)
         window.deiconify()
         window.lift()
         window.focus_force()

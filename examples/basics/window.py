@@ -90,7 +90,10 @@ class DemoApp(App):
         self.deiconify()
         self.update()
         try:
-            self.nav.rebuilder.build_all(progress=splash.set_progress)
+            # 启动时只等首页：其余页第一次切过去再建，遮罩不用陪着等十几页。
+            self.nav.rebuilder.build_all(
+                progress=splash.set_progress, names=[self.nav.current]
+            )
         finally:
             splash.finish()
 

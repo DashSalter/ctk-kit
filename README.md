@@ -18,8 +18,9 @@ import 这一个包就够了。
 pip install ctk-kit
 ```
 
-`pip` 会一并装上 Pillow：勾选/单选指示符、`Spinner` 箭头、`Progress` /
-`RingProgress` 的圆角与圆弧都靠它做抗锯齿绘制，`ImageViewer` 也需要它。
+`pip` 会一并装上 Pillow 与 conf_base：Pillow 负责勾选/单选指示符、`Spinner`
+箭头、`Progress` / `RingProgress` 的圆角与圆弧抗锯齿，`ImageViewer` 也需要它；
+conf_base 用来记住窗口大小和位置。
 
 ## 快速开始
 
@@ -68,9 +69,34 @@ CTkButton(bar, text="保存").pack()
 - `notifier=True`：自动建好提示层 `self.notifier`，可以直接 `app.notify(...)`
 - `icon=True`：窗口图标（标题栏左上角 + 任务栏），默认用内置 logo；
   传 `False` 不设，传字符串则用自定义的 `.ico` / `.png`
+- `remember_geometry=True`：关闭时记住窗口大小和位置，下次启动自动恢复；
+  传 `False` 关掉
+- `config_path=...`：记住几何用的配置文件，默认 `~/.ctk-kit/window.json`；
+  多个应用各记各的时传不同路径
 
 窗口标题栏颜色也会自动跟随外观（Windows 11 22H2+ 真正上色），不需要再手动调
 `set_titlebar_dark`。
+
+### 记住窗口大小和位置
+
+`App` 默认就会记：关闭时把宽高和屏幕坐标写进 `~/.ctk-kit/window.json`，
+下次 `App(...)` 构造时自动恢复，不需要额外代码。
+
+```python
+from ctk_kit import App
+
+app = App(title="备份", size=(880, 560))   # 上次拖过大小/挪过位置就按上次的来
+app.mainloop()
+```
+
+多个应用共用一个用户目录时，各传各的配置：
+
+```python
+app = App(title="备份", config_path="~/.ctk-kit/backup.json")
+```
+
+不想记就传 `remember_geometry=False`。最大化/最小化关闭时不会覆盖上次的普通
+几何；配置文件损坏或字段缺失时静默回退到 `size`。
 
 ### 内置 logo
 
@@ -125,6 +151,22 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 | `buttons` | `PrimaryButton` `SecondaryButton` `DangerButton` `FlatButton` `SoftButton` | |
 | `badge` | `Badge` `Tag` | 只读状态标签 / 计数徽标 / 状态点 |
 | `inputs` | `ToolbarEntry` `FormEntry` `Segmented` `Switch` `Checkbox` `radio_group` `Slider` `ProgressBar` `Spinner` `bind_focus_border` | |
+| `tabs` | `Tabs` | 页签视图，封装 `CTkTabview` |
+| `calendar` | `Calendar` `DatePicker` | 月历 / 日期选择，周一开始 |
+| `range` | `RangeSlider` | 双滑块区间选择 |
+| `search` | `SearchBox` | 带放大镜和清空按钮的搜索框 |
+| `steps` | `Steps` `Wizard` | 步骤条 / 分步向导 |
+| `avatar` | `Avatar` | 圆形头像 + 右下状态点 |
+| `breadcrumb` | `Breadcrumb` | 面包屑，中间层级可点 |
+| `carousel` | `Carousel` | 卡片轮播，可自动播放 |
+| `color` | `ColorPicker` | 预设色板选色 |
+| `menubar` | `MenuBar` | 顶部菜单栏，下拉复用 `ContextMenu` |
+| `popover` | `Popover` | 点击弹出的浮动卡片 |
+| `placeholder` | `Skeleton` | 加载占位条，默认呼吸 |
+| `splitter` | `Splitter` | 可拖动分栏 |
+| `statusbar` | `StatusBar` | 底部状态栏 |
+| `timeline` | `Timeline` | 纵向时间线 |
+| `treeview` | `TreeView` | 树形表格（基于 `ttk.Treeview`） |
 | `choices` | `Check` `Radio` | 勾选 / 单选的指示符，Pillow 抗锯齿绘制 |
 | `text` | `TextArea` | |
 | `dropdown` | `DropField` | 单选下拉 |
@@ -139,11 +181,12 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 | `code_panel` | `CodePanel` | 卡片底部的「查看实现」折叠代码块；`set_code` 换代码 |
 | `files` | `PathField` `DropZone` `pick_path` `has_dnd` | 拖放需要 `tkinterdnd2` |
 | `frames` | `Frame` | 默认透明底的布局容器 |
-| `table` | `Table` | `set_rows` / `add_row` / `remove_row` |
+| `table` | `Table` | `set_rows` / `add_row` / `remove_row` / `set_page` / `set_page_size` |
 | `image_view` | `ImageViewer` | 依赖 Pillow（已在必需依赖里） |
 | `pages` | `PageRebuilder` | 多页面窗口；`add_page` / `remove_page`，页面可写 `on_show` / `on_hide` |
 | `page` | `PageBase` | 页面基类：注入 `app`，子类建议实现 `bind_events`，可选 `on_show` / `on_hide` |
-| `pagination` | `Pagination` | 页码条，和 `Table` / `LazyList` 搭配 |
+| `loading` | `LoadingOverlay` | 启动遮罩：大 logo + 说明 + 进度条，`set_progress()` / `finish()` |
+| `pagination` | `Pagination` | 页码条；`Table(page_size=…)` 的底部分页也用它 |
 | `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，`add_page` / `remove_page`，见下 |
 | `tooltip` | `Tooltip` | 任意控件的悬停提示 |
 | `theme` / `tokens` | `apply_appearance` `color_of` 等 | 外观与设计令牌 |
@@ -299,7 +342,8 @@ Tag(card, "草稿", variant="outline")                # 描边标签
 - `FieldLabel(master, text, *, width=112)`：表单左侧字段名
 - `HintLabel(master, text)`：灰色说明文字
 - `empty_hint(master, title, detail="")`：空态
-- `Scrollable(master, **kwargs)`：透明底、滚动条已统一样式的滚动容器（参数同 `CTkScrollableFrame`）
+- `Scrollable(master, *, auto_hide=True, **kwargs)`：透明底、滚动条已统一样式的滚动容器；
+  `auto_hide=True` 时内容放得下自动隐藏滚动条，滚动条位置提前预留，显示/隐藏不会挤动内容
 - `style_scrollable(frame)` / `style_scrollbar(bar)`：把已有滚动控件的宽度与配色统一
 
 ### 浮层提示（`notify`）
@@ -430,6 +474,227 @@ def load_page(page):
   - `.set_page(page, notify=False)` / `.set_total(total)` / `.set_page_size(size)`
   - `.page` / `.pages` 读当前页和总页数
 
+### 页签（`tabs`）
+
+```python
+from ctk_kit import Tabs
+
+tabs = Tabs(card, values=["常规", "高级", "关于"], command=lambda name: print(name))
+tabs.pack(fill="both", expand=True)
+tabs.tab("常规")  # 这一页的容器
+```
+
+- `Tabs(master, *, values=(), command=None, width=420, height=260)`
+  - `command(name)`：用户切换页签时调用；`set()` / 构造时选第一页不触发
+  - `.add(name)` / `.tab(name)` / `.get()` / `.set(name)`
+  - 底色、描边、选中色和「分段」控件一致，选中页签白字
+
+### 日期（`calendar`）
+
+```python
+import datetime as dt
+
+from ctk_kit import Calendar, DatePicker
+
+cal = Calendar(card, value=dt.date(2026, 11, 3), command=lambda day: print(day))
+cal.pack(padx=16, pady=16)
+
+picker = DatePicker(card, value=dt.date(2026, 11, 3), placeholder="选择日期")
+picker.pack(fill="x", padx=16, pady=(0, 16))
+```
+
+- `Calendar(master, *, year=None, month=None, value=None, command=None, width=260)`
+  - 周一开始，今天描边、选中实心；`command(datetime.date)` 在点日期时调用
+  - `.get()` / `.set(dt.date(2026, 11, 3))` / `.prev_month()` / `.next_month()`
+- `DatePicker(master, *, value=None, placeholder="选择日期", command=None)`
+  - 点输入框弹月历，选完写回；`get()` 返回 `datetime.date`，面板贴边翻转，失焦收起
+  - `.get()` / `.set(value)` / `.open()` / `.close()`
+
+### 区间滑块与搜索框（`range` / `search`）
+
+```python
+from ctk_kit import RangeSlider, SearchBox
+
+RangeSlider(card, from_=0, to=100, values=(20, 80), command=lambda lo, hi: print(lo, hi))
+
+SearchBox(card, placeholder="搜索组件…", command=lambda text: print(text))
+```
+
+- `RangeSlider(master, *, from_=0, to=100, values=None, width=240, height=28, step=0, command=None)`
+  - 拖两个圆球选区间，松手才回调 `command(low, high)`；两个球不会交叉
+  - `.get()` / `.set(low, high, notify=False)`；`step` 不为 0 时按步长吸附
+- `SearchBox(master, *, placeholder="搜索", command=None, width=240, height=38, delay=300)`
+  - 输入停下 `delay` 毫秒后回调，回车立即回调；`×` 清空
+  - `.get()` / `.set(text)` / `.clear()` / `.search()`；`configure(command=...)` 换回调
+
+### 步骤与向导（`steps`）
+
+```python
+from ctk_kit import CTkLabel, PrimaryButton, Steps, Wizard
+
+Steps(card, steps=["选择文件", "设置参数", "开始备份"], current=2)
+
+
+def pick_page(parent, wizard):
+    PrimaryButton(parent, "选好了", command=lambda: wizard.next()).pack()
+
+
+def confirm_page(parent, wizard):
+    CTkLabel(parent, text="确认后开始。").pack()
+
+
+Wizard(card, steps=[("选择文件", pick_page), ("确认", confirm_page)], command=lambda w: print("完成"))
+```
+
+- `Steps(master, *, steps=(), current=1, command=None, clickable=False)`
+  - 完成对勾、当前数字、未开始描边；`clickable=True` 时点步骤跳转
+  - `.get()` / `.set_current(step, notify=False)`
+- `Wizard(master, *, steps=(), command=None)`
+  - `steps` 是 `(标题, 构建函数)`；构建函数签名 `(parent, wizard)`，往 `parent` 放这一页的内容
+  - 底部自动带「上一步 / 下一步」，最后一页按钮变「完成」并回调 `command(wizard)`
+  - `.go_to(step)` / `.next()` / `.back()` / `.get()`
+
+### 头像（`avatar`）
+
+圆形头像，文字或图片都行；右下角可以挂一个在线状态点。
+
+```python
+from ctk_kit import Avatar
+
+Avatar(card, text="ZK", size=44, status="online").pack(side="left")
+Avatar(card, text="李", size=44, color="success", status="busy").pack(
+    side="left", padx=12
+)
+```
+
+`set_text()` / `set_image()` / `set_status()` 直接改；状态点支持
+`online` / `away` / `busy` / `offline`。圆形底、状态点和图片裁圆都用
+Pillow 4 倍超采样，放大看边缘也是平的。
+
+### 面包屑与时间线（`breadcrumb` / `timeline`）
+
+```python
+from ctk_kit import Breadcrumb, Timeline
+
+Breadcrumb(
+    card,
+    items=["首页", ("文档", "docs"), ("组件", "docs/components")],
+    command=lambda value: print("跳到", value),
+)
+
+Timeline(card, items=[
+    {"title": "创建仓库", "time": "09:12", "description": "初始化 main"},
+    {"title": "发布 0.9.2", "time": "10:05", "active": True},
+])
+```
+
+面包屑最后一项是当前页，不可点；`Timeline` 也可以先用空列表建好，再
+`add()` 追加。默认分隔符 `›` 是 Pillow 画的折线图，时间线圆点同样用
+4 倍超采样，边缘没有锯齿。
+
+### 骨架屏（`placeholder`）
+
+```python
+from ctk_kit import Skeleton
+
+Skeleton(card, width=220, height=14).pack(anchor="w", pady=4)
+Skeleton(card, width=160, height=14).pack(anchor="w", pady=4)
+```
+
+默认在两种底色之间呼吸；`animated=False` 或 `stop()` 停住。
+
+### 分栏（`splitter`）
+
+```python
+from ctk_kit import Splitter
+
+split = Splitter(card, initial=0.32, min_size=100)
+split.pack(fill="both", expand=True)
+CTkLabel(split.first, text="目录").pack()
+CTkLabel(split.second, text="内容").pack()
+```
+
+拖动中间手柄改比例，`set_ratio()` / `get_ratio()` 读写。
+
+### 浮动卡片（`popover`）
+
+```python
+from ctk_kit import Popover, PrimaryButton
+
+def build(parent):
+    CTkLabel(parent, text="筛选条件").pack(padx=12, pady=(12, 4))
+    PrimaryButton(parent, "应用").pack(padx=12, pady=(4, 12))
+
+button = PrimaryButton(card, "筛选")
+Popover(button, content=build, width=200)
+```
+
+点控件打开，点外面关闭；和 `Tooltip` 的区别是能放按钮、输入框等任意控件。
+
+### 颜色（`color`）
+
+```python
+from ctk_kit import ColorPicker
+
+picker = ColorPicker(card, value="#2563eb", command=lambda c: print(c))
+picker.pack()
+picker.get()       # 当前颜色
+picker.set("#dc2626")
+```
+
+默认 12 个预设色，也可以用 `colors=` 换自己的色板。
+
+### 状态栏（`statusbar`）
+
+```python
+from ctk_kit import StatusBar
+
+bar = StatusBar(root, text="就绪", right="12 项")
+bar.pack(side="bottom", fill="x")
+bar.set_text("正在保存…", tone="warning")
+```
+
+`tone` 可选 `neutral` / `success` / `warning` / `danger`。
+
+### 轮播（`carousel`）
+
+```python
+from ctk_kit import Carousel
+
+Carousel(card, items=[
+    ("更快", "页面切换不再重建整个窗口"),
+    ("更轻", "组件按需创建"),
+], height=160, autoplay=3000)
+```
+
+`show(index)` / `next()` / `prev()`；`autoplay=0` 关闭自动播放。
+
+### 菜单栏（`menubar`）
+
+```python
+from ctk_kit import MenuBar
+
+MenuBar(root, items=[
+    ("文件", [("新建", new_file), ("打开", open_file), "-", ("退出", quit)]),
+    ("编辑", [("撤销", undo), ("重做", redo)]),
+]).pack(side="top", fill="x")
+```
+
+下拉复用 `ContextMenu`，圆角和悬停色跟右键菜单一致。
+
+### 树形表格（`treeview`）
+
+```python
+from ctk_kit import TreeView
+
+tree = TreeView(card, columns=("大小", "修改时间"), height=6)
+src = tree.insert("", "src", text="src", open=True)
+tree.insert(src, "main", text="main.py", values=("3.2 KB", "09:12"))
+tree.insert(src, "ui", text="ui.py", values=("8.4 KB", "09:30"))
+```
+
+基于 `ttk.Treeview`，配色按 tokens 调过；切主题后调 `refresh_style()`。
+
 ### 右键菜单（`context_menu`）
 
 - `attach_menu(widget, items=None, *, width=132, event="<Button-3>", deep=False)` → `ContextMenu`
@@ -488,15 +753,19 @@ FormEntry(frame, menu=[("只保留这一项", fn)])   # 完全自定义
 
 ### 表格（`table`）
 
-- `Table(master, columns, *, row_height=40, header_height=40, max_visible_rows=8, striped=True, empty_text="暂无数据")`
+- `Table(master, columns, *, row_height=40, header_height=40, max_visible_rows=8, striped=True, empty_text="暂无数据", page_size=0)`
   - `columns` 每项 `(标题, 宽度, 对齐)`：宽度是逻辑像素，`None` 表示吃掉剩余宽度；
     对齐取 `"w"` / `"center"` / `"e"`
   - `row_height` 行高；`header_height` 表头高
   - `max_visible_rows` 超过这个行数才出现滚动条，否则高度按行数自适应
   - `striped` 隔行底色
   - `empty_text` 没有数据时居中显示的文字
+  - `page_size` 每页行数；大于 0 时底部出现分页条，表格只画当前页，
+    `max_visible_rows` 不再生效；传 0 回到滚动模式
   - 方法：`set_rows(rows)` 整批替换、`add_row(row)` 追加一行、`remove_row(index)` 删除一行、
-    `rows()` 取当前数据（单元格按 `str()` 转文本）
+    `set_page(page)` / `set_page_size(size)` 翻页 / 改每页行数，
+    `rows()` 取数据（分页时也是全量，单元格按 `str()` 转文本）
+  - 属性：`pages` 总页数、`page` 当前页、`page_size` 每页行数
 
 ```python
 from ctk_kit import Table
@@ -504,6 +773,11 @@ from ctk_kit import Table
 table = Table(frame, [("名称", 220, "w"), ("状态", 90, "center"), ("大小", None, "e")])
 table.pack(fill="x")
 table.set_rows([["配置文件", "正常", "12 KB"]])
+
+# 分页：全量数据交给表格，内部只画当前页
+paged = Table(frame, COLUMNS, page_size=20)
+paged.set_rows(rows)
+paged.set_page(2)
 ```
 
 ### 图片（`image_view`，需要 Pillow）
@@ -585,6 +859,10 @@ app.mainloop()
   `pages={"任务": TaskPage, "设置": SettingsPage}`
 - `bottom_pages`：不放进导航列表、放在侧边栏底部的页面（例如「设置」）；
   底部按钮用次要样式，`bottom_width` 控制宽度（默认 176）
+- `hidden_pages`：只登记、不生成导航按钮的页面（例如从头像点进去的
+  「个人中心」），`show(name)` 仍然可以切过去
+- `footer`：底部按钮上方的自定义区域，回调接收底部容器；可以放账号行，
+  头像行排在 `bottom_pages` 按钮的上方
 - `width`：整数是固定逻辑像素（如 `200`）；`0` 到 `1` 之间的小数是宽度比例
   （如 `0.16`），窗口拉宽时侧边栏跟着变宽
 - `logo`：大标题左侧的图标，默认 `True` 用内置 logo；`False` 不显示，传字符串
@@ -593,24 +871,78 @@ app.mainloop()
   避免大页面在拖动过程中逐帧重画
 - 方法：`show(name)` 切页、`page(name)` 取/建某一页的容器、
   `add_page(name, builder, bottom=False)` / `remove_page(name)` 动态增删页面、
-  `set_appearance_mode(mode)` / `toggle_appearance()` 切外观（只重建当前页）
+  `set_appearance_mode(mode)` / `apply_theme(mode)` / `toggle_appearance()` 切外观
+  （外壳原地换色，只重建当前页）
 - 属性：`current`、`frames`、`names`、`rebuilder`（底层的 `PageRebuilder`）
 - `App` 也内置了同名转发：`app.set_appearance_mode("light")` /
   `app.toggle_appearance()`、`app.show_page(name)` / `app.current_page`。窗口上挂了
   `nav`（即 `app.nav` 是 `SidebarNav`）时自动转给它、只重建当前页；没有导航时
   直接切外观并重绘已有控件。中文 `"浅色"` / `"深色"` 也可以直接传。
+- 不在导航里的外壳控件（状态栏、独立卡片等）实现 `apply_theme(mode)` 后，
+  用 `app.register_themeable(widget)` 登记，切外观时会跟着换色、不重建。
 
 底层 `PageRebuilder` 也可以单独用：
 
-- `PageRebuilder(host, factory, pages, *, on_hide=None)`
+- `PageRebuilder(host, factory, pages, *, on_hide=None, first_of=None)`
   - `factory(name)` 返回该页的控件
   - `pages` 是页面名序列
   - `on_hide(name)` 页面切走时回调
+  - `first_of(name)` 返回页面的 `cards_first`；启动时 `build_all()` 会跳过
+    返回值 > 0 的页面，等第一次切过去再建
   - `add_page(name)` / `remove_page(name)` 动态增删页面
-  - 方法：`build_all()` 把所有页面都建出来（启动时用）、`show(name)` 切页、
-    `rebuild(name)` 重建某一页
+  - 方法：`build_all(progress=None)` 启动时逐页构建（跳过 `cards_first > 0`
+    的页面），可传回调 `progress(done, total, name)` 驱动进度条；
+    `show(name)` 切页、`rebuild(name)` 重建某一页
   - 页面切到前台时调用它的 `on_show()`；切走或重建销毁前调用 `on_hide()`
     （`PageBase` 已提供空实现，按需覆写）
+
+页面在启动时由 `build_all()` 逐页建。组件多、构建慢的页面可以声明
+`cards_first`，让它在启动时跳过、第一次切过去再建；页内前几张同步出现，
+其余按 12ms 时间片补：
+
+```python
+class ExtrasPage(PageBase):
+    cards_first = 3      # 0 = 整页同步建；3 = 前 3 张同步、其余分帧
+
+    def __init__(self, master):
+        super().__init__(master)
+        area = Scrollable(self)
+        area.pack(fill="both", expand=True)
+        self.build_cards(area, [
+            self._build_badges,
+            self._build_tooltip,
+            self._build_pagination,
+            ...
+        ])
+```
+
+`build_cards(area, builders, first=None)` 不传 `first` 时读 `self.cards_first`，
+0 表示全部同步。分帧队列清空后 `when_built(callback)` 回调一次，适合把
+`bind_events()` 放到那里。
+
+仓库示例用 `LoadingOverlay` 做启动遮罩：
+
+```python
+from ctk_kit import LoadingOverlay
+
+splash = LoadingOverlay(app, title="ctk-kit")
+app.update()
+try:
+    nav.rebuilder.build_all(progress=splash.set_progress)
+finally:
+    splash.finish()
+```
+
+- `LoadingOverlay(master, *, title="ctk-kit", message="正在加载…", logo_size=96)`：
+  铺满父容器的遮罩，内含大 logo、说明文字和 4px 进度条；
+  `set_progress(done, total, name)` 驱动进度，`finish()` 撤掉。
+- `build_all(progress=None)` 逐页构建，每建完一页调一次
+  `progress(done, total, name)`；`cards_first > 0` 的页面留到第一次显示。
+- 页面在 `__init__` 里直接 `bind_events()` 的页面要求启动时建完；用
+  `build_cards` 分帧的页面改成 `self.when_built(self.bind_events)`。
+
+示例窗口启动约 4.5 秒（「组件」页不预建），切到「组件」时先出前 3 张卡片、
+其余约 2 秒内补齐。
 
 ## 设计令牌与外观
 
@@ -631,6 +963,16 @@ color_of(COLOR_ACCENT)   # 深色下返回 "#2f6fed"
 - `recolor_tree(widget, bg, mode=None, *, deep=True)`：整棵子树按新外观重刷；
   `deep=False` 只刷直接子层
 - `set_titlebar_dark(window, dark)`：Windows 下把标题栏也切成深色
+- `set_window_brush(window, color=None)`：Windows 下把窗口类的擦除背景画刷换成
+  `color`（默认当前 `COLOR_BG`），消除启动、最大化、还原时系统先刷黑底再渲染的
+  闪黑块；`App` 构造、切主题、重建标题栏时自动调用
+- `style_of(name, state, mode=None)`：从 `ctk_kit.styles` 取外壳控件的样式表，
+  返回可直接解包给 `configure(**...)` 的颜色；`SidebarNav` / `Card` /
+  `StatusBar` 的 `apply_theme()` 就是用它
+- `paint.animate_color(widget, option, start, end, duration=150)`：把某个颜色
+  选项从 `start` 渐变到 `end`，返回可 `cancel()` 的句柄；同一控件同一选项
+  不会叠加多套定时器
+- `fonts.measure_text(text, font)`：按字体量一行文字的宽度，不触发几何重排
 
 字体、圆角、间距、滚动条宽度也都在 `ctk_kit/tokens.py` 里，各组件默认值直接引用它们，
 改一处全局生效。

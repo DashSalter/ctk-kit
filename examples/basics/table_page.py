@@ -20,6 +20,7 @@ from ctk_kit import (
     SecondaryButton,
     Table,
     TextArea,
+    TreeView,
     tokens as T,
     CodePanel,
 )
@@ -34,7 +35,7 @@ table = Table(
     [
         ("名称", 240, "w"),      # (标题, 宽度, 对齐)
         ("状态", 96, "center"),  # 宽度是逻辑像素
-        ("大小", None, "e"),     # None 表示吃掉剩余宽度
+        ("大小", 160, "center"),
     ],
     row_height=36,
     header_height=38,
@@ -58,12 +59,32 @@ table.set_rows(ROWS)
 table.rows()
 # 返回当前数据的浅拷贝；改完再 set_rows 回去才会重绘'''
 
+CODE_PAGED = '''table = Table(
+    frame,
+    [("名称", 240, "w"), ("状态", 96, "center")],
+    page_size=6,   # 每页 6 行；0 表示不分页
+)
+table.set_rows(ROWS)      # 全量数据交给表格，内部按页切
+table.pages               # 总页数
+table.page                # 当前页
+table.set_page(3)         # 代码里翻页
+table.set_page_size(10)   # 改每页行数，回到第 1 页
+table.set_page_size(0)    # 关闭分页，回到滚动模式
+
+# 分页时只画当前页，rows() 仍返回全量数据；翻页不重建控件'''
+
+TREEVIEW_CODE = '''from ctk_kit import TreeView
+
+tree = TreeView(card, columns=("大小", "修改时间"), height=6)
+root = tree.insert(text="项目", open=True)
+tree.insert(root, text="ctk_kit", values=("1.2 MB", "今天"))'''
+
 #: 主表格的列定义：(标题, 宽度, 对齐)；宽度为 None 的列吃掉剩余空间。
 COLUMNS = [
     ("名称", 240, "w"),
     ("状态", 96, "center"),
     ("更新时间", 170, "w"),
-    ("大小", None, "e"),
+    ("大小", 160, "center"),
 ]
 
 ROWS = [
@@ -94,6 +115,12 @@ EMPTY_ROWS = [
     ["写入缓存", "跳过", "缓存已存在"],
 ]
 
+#: 分页演示用的 23 行数据。
+PAGED_ROWS = [
+    [f"文件 {index:02d}.dat", "正常", "10-30 21:04", f"{index * 3} KB"]
+    for index in range(1, 24)
+]
+
 
 class TablePageUI(PageBase):
     """表格页 UI：只建控件，事件留给 TablePage。"""
@@ -113,6 +140,8 @@ class TablePageUI(PageBase):
 
         self._build_table(area)
         self._build_empty(area)
+        self._build_paged(area)
+        self._build_tree(area)
 
     def _build_table(self, area: tk.Misc) -> None:
         """固定表头 + 隔行底色 + 超行滚动。"""
@@ -201,6 +230,72 @@ class TablePageUI(PageBase):
             "空态由 empty_text 决定；少行时高度会缩到实际行数，不会留一大块空白。",
         )
 
+    def _build_paged(self, area: tk.Misc) -> None:
+        """分页：全量数据交给表格，只画当前页，底部出现分页条。"""
+        box = Card(area, title="分页表格")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(14, 8))
+        self.paged_clear = SecondaryButton(row, "清空")
+        self.paged_clear.pack(side="left")
+        self.paged_restore = SecondaryButton(row, "恢复 23 行")
+        self.paged_restore.pack(side="left", padx=(8, 0))
+        HintLabel(row, "page_size=6：只画当前页，翻页不重建控件。").pack(side="right")
+
+        table_row = Frame(box)
+        table_row.pack(fill="x", padx=16, pady=(0, 8))
+
+        self.paged_table = Table(
+            table_row,
+            COLUMNS,
+            row_height=36,
+            header_height=38,
+            page_size=6,
+            striped=True,
+            empty_text="暂无数据",
+        )
+        self.paged_table.pack(fill="x")
+        self.paged_table.set_rows(PAGED_ROWS)
+
+        HintLabel(
+            box,
+            "底部分页条显示总条数；点页码或上一页/下一页切页，当前页会夹在有效范围内。",
+        ).pack(fill="x", padx=16, pady=(0, 8))
+
+        CodePanel(box, CODE_PAGED, "page_size=0 关闭分页，回到滚动模式。")
+
+    def _build_tree(self, area: tk.Misc) -> None:
+        """树形表格：层级数据，点三角展开 / 收起。"""
+        box = Card(area, title="树形表格")
+        box.pack(fill="x", pady=(12, 0))
+
+        HintLabel(
+            box,
+            "TreeView 基于 ttk.Treeview，配色按 tokens 调过；点一行回显它的 values。",
+        ).pack(fill="x", padx=16, pady=(14, 8))
+
+        self.tree = TreeView(
+            box,
+            columns=("大小", "修改时间"),
+            height=6,
+            command=self._on_tree,
+        )
+        self.tree.pack(fill="x", padx=16, pady=(0, 10))
+
+        root = self.tree.insert(text="项目", values=("-", "-"), open=True)
+        lib = self.tree.insert(root, text="ctk_kit", values=("1.2 MB", "今天"), open=True)
+        self.tree.insert(lib, text="button.py", values=("18 KB", "今天"))
+        self.tree.insert(lib, text="dialog.py", values=("42 KB", "昨天"))
+        self.tree.insert(root, text="examples", values=("860 KB", "今天"))
+        self.tree.insert(text="README.md", values=("36 KB", "昨天"))
+
+        CodePanel(
+            box,
+            TREEVIEW_CODE,
+            "insert() 返回 iid，做子节点时把它当 parent 再插。",
+        )
+
     def _sync_info(self) -> None:
         """把当前行数写回页头右侧。"""
         self.header.info.configure(text=f"{len(self.table.rows())} 行 × {len(COLUMNS)} 列")
@@ -220,6 +315,8 @@ class TablePage(TablePageUI):
         self.restore_button.configure(command=self._restore)
         self.fill_button.configure(command=self._fill_empty)
         self.empty_clear_button.configure(command=self._clear_empty)
+        self.paged_clear.configure(command=self._clear_paged)
+        self.paged_restore.configure(command=self._restore_paged)
 
     def _add_row(self) -> None:
         """在主表格末尾追加一行，行数超过 8 就会长出滚动条。"""
@@ -250,6 +347,23 @@ class TablePage(TablePageUI):
         """把空态表格清回 empty_text。"""
         self.empty_table.set_rows([])
         self._show("空态表格已清空，内容区重新显示 empty_text")
+
+    def _clear_paged(self) -> None:
+        """清空分页表格：分页条回到 0 条 / 1 页。"""
+        self.paged_table.set_rows([])
+        self._show("分页表格已清空：共 0 条，分页条只剩第 1 页")
+
+    def _restore_paged(self) -> None:
+        """恢复分页表格的 23 行数据。"""
+        self.paged_table.set_rows(PAGED_ROWS)
+        self._show(
+            f"分页表格恢复到 {len(PAGED_ROWS)} 行，共 {self.paged_table.pages} 页"
+        )
+
+    def _on_tree(self, values: tuple) -> None:
+        """树形表格选中一行。"""
+        text = " / ".join(str(value) for value in values) or "（空行）"
+        self._show(f"选中一行：{text}")
 
     def _show(self, text: str) -> None:
         """把交互结果写回底部回显条。"""

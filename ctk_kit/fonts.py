@@ -42,3 +42,12 @@ def get_font(spec) -> ctk.CTkFont:
         font = ctk.CTkFont(family=family, size=size, weight=weight)
         _CACHE[key] = font
     return font
+
+
+def measure_text(text: str, font: ctk.CTkFont) -> int:
+    """量一行文字在当前字体下的宽度（逻辑像素）。
+
+    比 ``update_idletasks()`` + ``winfo_reqwidth()`` 便宜：不触发几何重排，
+    也不要求控件已经显示。按文字定宽的组件（徽标、标签）用它算宽度。
+    """
+    return font.measure(text)

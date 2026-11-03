@@ -26,6 +26,7 @@ from . import tokens as T
 from .choices import Check, Radio
 from .context_menu import attach_edit_menu
 from .fonts import get_font
+from .paint import cached
 from .theme import color_of
 
 try:  # Pillow 是可选依赖：装了就用抗锯齿的箭头图片
@@ -338,6 +339,7 @@ _SWITCH_GAP = 3
 _SWITCH_SCALE = 4
 
 
+@cached
 def _switch_image(track: str, knob: str, checked: bool):
     """画一张开关图：胶囊轨道 + 圆球，4 倍尺寸画完再交给 ``CTkImage`` 缩。"""
     width, height = _SWITCH_TRACK

@@ -15,6 +15,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .paint import cached
 from .theme import color_of
 
 try:  # Pillow 是可选依赖
@@ -41,6 +42,7 @@ def _bg_of(master: tk.Misc) -> str:
     return color_of(T.COLOR_CARD)
 
 
+@cached
 def _round_image(size: int, checked: bool, color: str, track: str, foreground: str):
     """圆点：未选中是描边圆环，选中是实心圆加一个浅色内点。"""
     scale = _SCALE
@@ -59,9 +61,10 @@ def _round_image(size: int, checked: bool, color: str, track: str, foreground: s
         )
     else:
         pen.ellipse(box, outline=track, width=2 * scale)
-    return ImageTk.PhotoImage(image.resize((size, size), Image.LANCZOS))
+    return image.resize((size, size), Image.LANCZOS)
 
 
+@cached
 def _square_image(
     size: int, checked: bool, color: str, track: str, foreground: str
 ):
@@ -88,7 +91,7 @@ def _square_image(
         )
     else:
         pen.rounded_rectangle(box, radius=radius, outline=track, width=2 * scale)
-    return ImageTk.PhotoImage(image.resize((size, size), Image.LANCZOS))
+    return image.resize((size, size), Image.LANCZOS)
 
 
 class _Mark(ctk.CTkFrame):
@@ -163,7 +166,9 @@ class _Mark(ctk.CTkFrame):
             self._draw_plain(checked, color, track, foreground)
             return
         make = _round_image if self._shape == "round" else _square_image
-        self._photo = make(self._size, checked, color, track, foreground)
+        self._photo = ImageTk.PhotoImage(
+            make(self._size, checked, color, track, foreground)
+        )
         self._canvas.create_image(self._size / 2, self._size / 2, image=self._photo)
 
     def _draw_plain(self, checked: bool, color: str, track: str, fg: str) -> None:

@@ -170,8 +170,11 @@ def repaint_window(window: tk.Misc, mode: str) -> None:
     finally:
         try:
             window._deactivate_windows_window_header_manipulation = saved
-        except Exception:  # noqa: BLE001
+        except Exception:  # noqa: BLE001 - 原生窗口没有这个属性
             pass
+    # 窗口底色可能变了，窗口类的擦除画刷也要跟着换，否则启动/还原时
+    # 系统仍按旧底色（通常是黑色）先擦一遍。
+    set_window_brush(window)
 
 
 def recolor_tree(
@@ -278,3 +281,73 @@ def apply_appearance_fast(mode: str, *, window: Optional[tk.Misc] = None) -> Non
     if window is not None:
         repaint_window(window, target)
         set_titlebar_dark(window, target == "Dark")
+
+
+#: 窗口类背景画刷：hwnd -> HBRUSH。换主题时替换，旧刷在这里删。
+_WINDOW_BRUSHES: dict = {}
+_GCLP_HBRBACKGROUND = -10
+
+
+def _colorref(color: str) -> int:
+    """``#RRGGBB`` -> Win32 ``COLORREF``（``0x00BBGGRR``）。"""
+    rgb = color.lstrip("#")
+    red, green, blue = int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)
+    return blue << 16 | green << 8 | red
+
+
+def set_window_brush(window: tk.Misc, color: Optional[str] = None) -> bool:
+    """把顶层窗口类的背景画刷换成 ``color``（默认当前窗口底色）。
+
+    Windows 在窗口启动、最大化、还原、焦点切换触发重绘时，会先用窗口类的
+    背景画刷擦一遍；Tk 的 ``TkTopLevel`` 类没有画刷，系统就按黑色擦，主题
+    内容还没画出来时会闪一块黑。换掉画刷后，系统擦的第一帧就是窗口底色。
+
+    参数:
+        window: 任意顶层窗口（``CTk`` / ``CTkToplevel`` / ``tk.Toplevel``）。
+        color: ``#RRGGBB``；不传就取 ``tokens.COLOR_BG`` 的当前外观值。
+
+    返回:
+        设置成功返回 ``True``；非 Windows 或 API 不可用返回 ``False``。
+
+    注意:
+        Windows 的窗口类是整个进程共享的，设置一次后所有 ``TkTopLevel``
+        窗口都会用这个底色；多个 App 用不同主题时以最后一次设置为准。
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        from ctypes import wintypes
+
+        from . import tokens as T
+
+        user32 = ctypes.WinDLL("user32", use_last_error=True)
+        gdi32 = ctypes.WinDLL("gdi32", use_last_error=True)
+
+        user32.GetParent.argtypes = [wintypes.HWND]
+        user32.GetParent.restype = wintypes.HWND
+        setter = getattr(user32, "SetClassLongPtrW", user32.SetClassLongW)
+        setter.argtypes = [wintypes.HWND, ctypes.c_int, ctypes.c_void_p]
+        setter.restype = ctypes.c_void_p
+        gdi32.CreateSolidBrush.argtypes = [wintypes.DWORD]
+        gdi32.CreateSolidBrush.restype = wintypes.HBRUSH
+        gdi32.DeleteObject.argtypes = [wintypes.HGDIOBJ]
+        gdi32.DeleteObject.restype = wintypes.BOOL
+
+        hwnd = user32.GetParent(window.winfo_id())
+        if not hwnd:
+            # 窗口还没建出 wrapper（例如 App 刚构造完还没映射）：先不设，
+            # 等 _refresh_titlebar 时窗口已经映射再补。
+            return False
+        if color is None:
+            color = color_of(T.COLOR_BG)
+        brush = gdi32.CreateSolidBrush(_colorref(color))
+        if not brush:
+            return False
+        previous = _WINDOW_BRUSHES.get(hwnd)
+        setter(hwnd, _GCLP_HBRBACKGROUND, brush)
+        _WINDOW_BRUSHES[hwnd] = brush
+        if previous:
+            gdi32.DeleteObject(previous)
+        return True
+    except Exception:  # noqa: BLE001 - 非 Windows、老系统或 Tk 窗口还没建好
+        return False

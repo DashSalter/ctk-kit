@@ -11,12 +11,13 @@
 from __future__ import annotations
 
 import tkinter as tk
-from typing import Any
+from typing import Any, Optional
 
 import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .styles import style_of
 
 
 class PageHeader(ctk.CTkFrame):
@@ -115,6 +116,17 @@ class Card(ctk.CTkFrame):
             Frame(box.body).pack(fill="x", padx=16, pady=12)
         """
         return self
+
+    def apply_theme(self, mode: Optional[str] = None) -> None:
+        """按当前（或指定）外观刷一遍卡片和标题的颜色，不重建控件。
+
+        参数:
+            mode: ``"light"`` / ``"dark"`` / ``"system"``；不传取当前外观。
+                通常由 ``App.set_appearance_mode()`` 在切全局外观后统一调用。
+        """
+        self.configure(**style_of("card", "shell", mode))
+        if self.title_label is not None:
+            self.title_label.configure(**style_of("card", "title", mode))
 
     def pack(self, cnf: Any = None, **kwargs: Any) -> None:
         """``pack`` 卡片时把 ``padx`` / 顶部 ``pady`` 同步给标题。
@@ -322,13 +334,88 @@ class Scrollable(ctk.CTkScrollableFrame):
 
     构造参数与 ``CTkScrollableFrame`` 一致（``fg_color`` 默认透明）；
     摆位由调用方决定，``pack`` / ``grid`` 都行。
+
+    参数:
+        auto_hide: 内容放得下时自动隐藏滚动条，默认 ``True``。滚动条的位置
+            会提前预留，显示/隐藏不会让内容宽度跳动；传 ``False`` 回到
+            CTkScrollableFrame 的常驻滚动条。
     """
 
-    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+    def __init__(self, master: tk.Misc, *, auto_hide: bool = True, **kwargs: Any) -> None:
         """建透明滚动容器，并套用库的滚动条样式。"""
         kwargs.setdefault("fg_color", "transparent")
         super().__init__(master, **kwargs)
         style_scrollable(self)
+        self._auto_hide = bool(auto_hide)
+        self._scrollbar_hidden = False
+        if self._auto_hide:
+            self._reserve_scrollbar_lane()
+            self.after_idle(self._reserve_scrollbar_lane)
+            self.bind("<Configure>", self._on_auto_hide_configure, add="+")
+            self._parent_canvas.bind(
+                "<Configure>", self._on_auto_hide_configure, add="+"
+            )
+            self.after_idle(self._sync_auto_hide)
+
+    def _reserve_scrollbar_lane(self) -> None:
+        """给滚动条留一条和它原本一样宽的 lane，隐藏时内容宽度不变。"""
+        lane = self._scrollbar.winfo_reqwidth()
+        if lane <= 1:
+            lane = int(round(self._apply_widget_scaling(T.SCROLLBAR_WIDTH)))
+        self._parent_frame.grid_columnconfigure(1, minsize=int(lane))
+
+    def _on_auto_hide_configure(self, _event: Any = None) -> None:
+        """内容尺寸变化后延迟判断一次，避免在布局过程中反复重排。"""
+        self.after_idle(self._sync_auto_hide)
+
+    def _sync_auto_hide(self) -> None:
+        """内容放得下就隐藏滚动条，放不下再显示。"""
+        if not self._auto_hide or not self.winfo_exists():
+            return
+        canvas = self._parent_canvas
+        bbox = canvas.bbox("all")
+        content = (bbox[3] - bbox[1]) if bbox else 0
+        view = max(1, canvas.winfo_height())
+        needed = content > view + 1
+        if needed and self._scrollbar_hidden:
+            self._scrollbar.grid()
+            self._scrollbar_hidden = False
+        elif not needed and not self._scrollbar_hidden:
+            self._scrollbar.grid_remove()
+            self._scrollbar_hidden = True
+
+    def suspend_scrollbar(self) -> None:
+        """构建期间冻结滚动条重绘。
+
+        分帧往滚动容器里加卡片时，每加一张都会触发一次滚动条 ``set``，
+        而 ``set`` 要重画整条滚动条，累积起来很慢。冻结后只记最后一次
+        参数，:meth:`resume_scrollbar` 时补画一次。
+        """
+        depth = getattr(self, "_scrollbar_suspend", 0)
+        self._scrollbar_suspend = depth + 1
+        if depth == 0:
+            self._scrollbar_set_saved = self._scrollbar.set
+            self._scrollbar_last = None
+            self._scrollbar.set = self._ignore_scrollbar_set
+
+    def _ignore_scrollbar_set(self, *args: Any, **kwargs: Any) -> None:
+        """冻结期间只记住最后一次调用参数。"""
+        self._scrollbar_last = (args, kwargs)
+
+    def resume_scrollbar(self) -> None:
+        """解除冻结，并按最后一次参数补画一次滚动条。"""
+        depth = getattr(self, "_scrollbar_suspend", 0)
+        if depth <= 0:
+            return
+        self._scrollbar_suspend = depth - 1
+        if self._scrollbar_suspend:
+            return
+        self._scrollbar.set = self._scrollbar_set_saved
+        if self._scrollbar_last is not None:
+            args, kwargs = self._scrollbar_last
+            self._scrollbar_last = None
+            if self.winfo_exists():
+                self._scrollbar.set(*args, **kwargs)
 
 
 def empty_hint(master: tk.Misc, title: str, detail: str = "") -> ctk.CTkFrame:

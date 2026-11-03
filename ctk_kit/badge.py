@@ -13,6 +13,9 @@
 
 颜色跟着当前外观走：``soft`` 用主色和卡片底混出来的淡底，``solid`` 用
 主色实底，``outline`` 只描边。文字一般是单行，太长会撑宽，不会自动换行。
+
+圆角背景和描边用 Pillow 以 4 倍尺寸画好再缩回来，边缘没有 canvas 圆角的
+锯齿；文字仍然交给 ``CTkLabel`` 渲染，保持系统字体的清晰度。
 """
 
 from __future__ import annotations
@@ -21,13 +24,18 @@ import tkinter as tk
 from typing import Any, Optional, Union
 
 import customtkinter as ctk
+from PIL import Image, ImageDraw
 
 from . import tokens as T
-from .fonts import get_font
+from .fonts import get_font, measure_text
+from .paint import cached
 
 __all__ = ["Badge", "Tag"]
 
 ColorSpec = Union[str, T.ColorPair]
+
+#: 背景图的超采样倍数：4 倍画、缩回逻辑尺寸，圆角边缘才平滑。
+_SCALE = 4
 
 #: 语义名到颜色令牌。
 _COLOR_TOKENS = {
@@ -112,63 +120,55 @@ class Badge(ctk.CTkFrame):
         """建一个徽标；``text`` 为空且 ``dot=False`` 时显示一个空块。"""
         height = 20 if size == "sm" else 24
         padding = 7 if size == "sm" else 9
-        font = T.FONT_TINY if size == "sm" else T.FONT_SMALL
+        font = get_font(T.FONT_TINY if size == "sm" else T.FONT_SMALL)
         palette = _resolve_color(color)
 
-        if dot:
-            kwargs.setdefault("width", height)
-            kwargs.setdefault("height", height)
-            kwargs.setdefault("corner_radius", 999)
-            kwargs.setdefault("fg_color", palette)
-            kwargs.setdefault("border_width", 0)
-        else:
-            if variant == "solid":
-                fg_color = palette
-                text_color = "#1f1300" if color == "warning" else "#ffffff"
-                border_width = 0
-                border_color = palette
-            elif variant == "outline":
-                fg_color = "transparent"
-                text_color = palette
-                border_width = 1
-                border_color = palette
-            else:
-                if all(_is_hex(part) for part in palette):
-                    fg_color = _pair_mix(palette, T.COLOR_CARD, 0.14)
-                else:
-                    fg_color = T.COLOR_SOFT
-                text_color = palette
-                border_width = 0
-                border_color = palette
-            kwargs.setdefault("width", 1)
-            kwargs.setdefault("height", height)
-            kwargs.setdefault("corner_radius", height // 2)
-            kwargs.setdefault("fg_color", fg_color)
-            kwargs.setdefault("border_width", border_width)
-            kwargs.setdefault("border_color", border_color)
-
-        super().__init__(master, **kwargs)
         self._dot = dot
+        self._variant = variant
+        self._color = color
+        self._palette = palette
+        self._height = height
         self._padding = padding
-        self._label: Optional[ctk.CTkLabel] = None
+        self._font = font
+        self._text = "" if dot else text
 
-        if not dot:
-            self._label = ctk.CTkLabel(
-                self,
-                text=text,
-                font=get_font(font),
-                text_color=text_color,
-                fg_color="transparent",
-            )
-            self._label.pack(padx=padding, pady=0)
-            self._fit_width()
+        # 圆点是一个正方形，文字标签按文字宽度加左右内边距
+        width = height if dot else max(height, measure_text(text, font) + padding * 2)
+        self._width = width
+
+        # 背景全部画在图片里，外层 frame 只当定位容器
+        kwargs.pop("fg_color", None)
+        kwargs.setdefault("width", width)
+        kwargs.setdefault("height", height)
+        super().__init__(master, fg_color="transparent", **kwargs)
+
+        self._label = ctk.CTkLabel(
+            self,
+            text=self._text,
+            image=self._image(width, height),
+            compound="center",
+            fg_color="transparent",
+            text_color=self._text_color(),
+            font=font,
+            width=width,
+            height=height,
+        )
+        self._label.place(x=0, y=0, relwidth=1, relheight=1)
 
     # --- 对外 ---
     def set_text(self, text: str) -> None:
         """换文字；圆点徽标没有文字，调用会被忽略。"""
-        if self._label is not None:
-            self._label.configure(text=text)
-            self._fit_width()
+        if self._dot:
+            return
+        self._text = text
+        width = max(self._height, measure_text(text, self._font) + self._padding * 2)
+        self._width = width
+        self.configure(width=width)
+        self._label.configure(
+            text=text,
+            width=width,
+            image=self._image(width, self._height),
+        )
 
     def configure(self, **kwargs: Any) -> None:
         """``text=`` 转发给内部文字，其余交给 ``CTkFrame``。"""
@@ -177,12 +177,56 @@ class Badge(ctk.CTkFrame):
         return super().configure(**kwargs)
 
     # --- 内部 ---
-    def _fit_width(self) -> None:
-        """按文字宽度把外层 frame 收到刚好包住文字。"""
-        if self._label is None:
-            return
-        self.update_idletasks()
-        self.configure(width=self._label.winfo_reqwidth() + self._padding * 2)
+    def _text_color(self) -> Union[str, T.ColorPair]:
+        """文字颜色：实底用白字（警告色用深字），其余用主色。"""
+        if self._dot:
+            return self._palette
+        if self._variant == "solid":
+            return "#1f1300" if self._color == "warning" else "#ffffff"
+        return self._palette
+
+    def _fill(self, mode: int) -> Optional[str]:
+        """按外观和形态取底色；``outline`` 返回 ``None``（只描边）。"""
+        if self._dot or self._variant == "solid":
+            return self._palette[mode]
+        if self._variant == "outline":
+            return None
+        if all(_is_hex(part) for part in self._palette):
+            return _mix(self._palette[mode], T.COLOR_CARD[mode], 0.14)
+        return T.COLOR_SOFT[mode]
+
+    def _render(self, width: int, height: int, mode: int) -> Image.Image:
+        """画一张 ``mode`` 外观的胶囊 / 圆点，尺寸是逻辑尺寸的 4 倍。"""
+        outline = None
+        if self._variant == "outline" and not self._dot:
+            outline = self._palette[mode]
+        return _badge_image(width, height, self._fill(mode), outline)
+
+    def _image(self, width: int, height: int) -> ctk.CTkImage:
+        """深浅两套背景图，交给 ``CTkImage`` 按 DPI 缩放。"""
+        return ctk.CTkImage(
+            light_image=self._render(width, height, 0),
+            dark_image=self._render(width, height, 1),
+            size=(width, height),
+        )
+
+
+@cached
+def _badge_image(
+    width: int, height: int, fill: Optional[str], outline: Optional[str]
+) -> Image.Image:
+    """画一张胶囊 / 圆点；``fill`` 为空表示只描边，``outline`` 为空表示不描边。"""
+    pixel_w = width * _SCALE
+    pixel_h = height * _SCALE
+    image = Image.new("RGBA", (pixel_w, pixel_h), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(image)
+    box = (0, 0, pixel_w - 1, pixel_h - 1)
+    radius = pixel_h // 2
+    if fill is not None:
+        pen.rounded_rectangle(box, radius=radius, fill=fill)
+    if outline is not None:
+        pen.rounded_rectangle(box, radius=radius, outline=outline, width=_SCALE)
+    return image
 
 
 #: ``Tag`` 与 ``Badge`` 是同一个类，只是语义上更适合分类标签。

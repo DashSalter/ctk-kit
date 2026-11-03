@@ -56,12 +56,20 @@ class PageRebuilder:
         pages: Sequence[str],
         *,
         on_hide: Optional[PageHook] = None,
+        first_of: Optional[Callable[[str], int]] = None,
     ) -> None:
-        """保存建页函数和页面名；页面容器在第一次显示时才建。"""
+        """保存建页函数和页面名；页面容器在第一次显示时才建。
+
+        参数:
+            first_of: 可选回调 ``first_of(name) -> int``：返回页面的
+                ``cards_first``。启动时 ``build_all`` 会跳过返回值 > 0 的页面，
+                等用户第一次切过去再建。不传就建全部页面。
+        """
         self._host = host
         self._factory = factory
         self._pages: list[str] = list(pages)
         self._on_hide = on_hide
+        self._first_of = first_of
         self._frames: Dict[str, ctk.CTkFrame] = {}
         self._stale: Set[str] = set()
         self._current: Optional[str] = None
@@ -109,11 +117,36 @@ class PageRebuilder:
         self._stale.discard(name)
         return page
 
-    def build_all(self) -> None:
-        """把所有页面都建出来（启动时用；页面多的话会有点慢）。"""
-        for name in self._pages:
+    def build_all(self, progress: Optional[Callable[[int, int, str], None]] = None) -> None:
+        """把所有页面都建出来（启动时用），可逐页汇报进度。
+
+        ``first_of(name) > 0`` 的页面会被跳过：这类页面自己把卡片分成
+        「前几张同步、其余分帧」，启动时建它反而会把遮罩拖住，等第一次
+        :meth:`show` 时再建。进度条只统计真正会建的页面。
+
+        参数:
+            progress: 可选回调 ``progress(done, total, name)``；每建完一页
+                调用一次，用来驱动启动遮罩的进度条。
+        """
+        def deferred(name: str) -> bool:
+            """这页是否留到第一次显示时再建。"""
+            if self._first_of is None:
+                return False
+            try:
+                return self._first_of(name) > 0
+            except Exception:  # noqa: BLE001 - 读不到就当成普通页面
+                return False
+
+        names = [name for name in self._pages if not deferred(name)]
+        total = len(names)
+        for index, name in enumerate(names, start=1):
             if name not in self._frames:
                 self._build(name)
+            if progress is not None:
+                # 先把这一页和进度条画出来，再建下一页；否则构建期间
+                # 事件循环被连续占用，遮罩会一直停在旧进度上。
+                self._host.update_idletasks()
+                progress(index, total, name)
 
     def add_page(self, name: str) -> None:
         """追加一个页面名；页面本身等第一次 :meth:`show` / :meth:`frame` 时再建。

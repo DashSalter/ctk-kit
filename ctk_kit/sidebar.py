@@ -44,7 +44,8 @@ from .branding import logo_path
 from .buttons import SecondaryButton
 from .fonts import get_font
 from .pages import PageRebuilder
-from .theme import apply_appearance_fast, color_of
+from .styles import style_of
+from .theme import apply_appearance_fast
 
 __all__ = ["SidebarNav"]
 
@@ -90,6 +91,10 @@ class SidebarNav(ctk.CTkFrame):
         padding: 页面区四周留白 ``(水平, 垂直)``，默认 ``(16, 16)``。
         bottom_pages: 不放进导航列表、而是放在侧边栏最下面的页面（例如
             「设置」）；值同样是建页函数，默认空。
+        hidden_pages: 只登记页面、不生成导航按钮（例如从头像点进去的
+            「个人中心」）；``show(name)`` 仍然可以切过去。
+        footer: 底部按钮上方的自定义区域，参数是底部容器；可以放头像、
+            账号行之类。头像行会排在 ``bottom_pages`` 按钮的上方。
         bottom_width: 底部按钮宽度（逻辑像素），默认 176。
         initial: 启动后直接显示的页面名；不传就显示 ``pages`` 的第一页。
         on_change: 每次切页后调用，参数是新的页面名。
@@ -118,6 +123,8 @@ class SidebarNav(ctk.CTkFrame):
         width: Union[int, float] = 200,
         padding: Tuple[int, int] = (16, 16),
         bottom_pages: Optional[Mapping[str, PageBuilder]] = None,
+        hidden_pages: Optional[Mapping[str, PageBuilder]] = None,
+        footer: Optional[Callable[[ctk.CTkFrame], None]] = None,
         bottom_width: int = 176,
         initial: Optional[str] = None,
         on_change: Optional[Callable[[str], None]] = None,
@@ -133,8 +140,15 @@ class SidebarNav(ctk.CTkFrame):
         super().__init__(master, **kwargs)
 
         bottom_pages = dict(bottom_pages or {})
-        self._builders: Dict[str, PageBuilder] = {**dict(pages), **bottom_pages}
-        self._names: list[str] = list(pages) + list(bottom_pages)
+        hidden_pages = dict(hidden_pages or {})
+        self._builders: Dict[str, PageBuilder] = {
+            **dict(pages),
+            **bottom_pages,
+            **hidden_pages,
+        }
+        self._names: list[str] = (
+            list(pages) + list(bottom_pages) + list(hidden_pages)
+        )
         self._nav_names: list[str] = list(pages)
         self._bottom_pages = bottom_pages
         self._bottom_width = bottom_width
@@ -214,9 +228,11 @@ class SidebarNav(ctk.CTkFrame):
         for name in self._nav_names:
             self._add_nav_button(name)
 
-        # 底部按钮：不在导航列表里的页面（如「设置」），放在侧边栏最下面。
-        if self._bottom_pages:
-            self._ensure_bottom()
+        # 底部：先放自定义区域（例如账号头像），再放「设置」这类按钮。
+        if self._bottom_pages or footer is not None:
+            bottom = self._ensure_bottom()
+            if footer is not None:
+                footer(bottom)
             for name in self._bottom_pages:
                 self._add_bottom_button(name)
 
@@ -230,7 +246,11 @@ class SidebarNav(ctk.CTkFrame):
         self._place_body()
 
         self.rebuilder = PageRebuilder(
-            self.body, self._create_page, self._names, on_hide=on_hide
+            self.body,
+            self._create_page,
+            self._names,
+            on_hide=on_hide,
+            first_of=self._first_of,
         )
         # 启动时不把所有页面一起建出来：先只建当前页，其余页交给
         # _prewarm_pages 在空闲时间逐帧补，窗口能更快显示出来。
@@ -429,9 +449,23 @@ class SidebarNav(ctk.CTkFrame):
             raise ValueError(f"未知页面：{name!r}；可选 {list(self._names)}") from None
         return builder(self.body)
 
+    def _first_of(self, name: str) -> int:
+        """页面声明的 ``cards_first``；启动构建据此决定跳不跳过。"""
+        builder = self._builders.get(name)
+        try:
+            return int(getattr(builder, "cards_first", 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+
     def show(self, name: str) -> None:
         """显示某一页并高亮对应的导航按钮。"""
         self.rebuilder.show(name)
+        # 页面刚 pack 上，先把已建好的部分画出来；分帧补建的卡片才有
+        # 中间的可见状态，而不是全部建完才一次性刷新。
+        try:
+            self.update_idletasks()
+        except tk.TclError:
+            pass
         self._paint_nav(name)
         if self._on_change is not None:
             self._on_change(name)
@@ -516,7 +550,9 @@ class SidebarNav(ctk.CTkFrame):
 
     # ------------------------------------------------------------------ 外观
 
-    def _paint_nav(self, active_name: str, *, force: bool = False) -> None:
+    def _paint_nav(
+        self, active_name: str, *, force: bool = False, mode: Optional[str] = None
+    ) -> None:
         """选中的按钮用主色实底 + 白字，其余透明底灰字。
 
         切页时只改「上一个选中」和「新的选中」两个按钮，其余不动——每次
@@ -527,22 +563,43 @@ class SidebarNav(ctk.CTkFrame):
             return
         previous = self._painted_name
         self._painted_name = active_name
-        accent = color_of(T.COLOR_ACCENT)
-        accent_text = color_of(T.COLOR_ACCENT_TEXT)
-        side = color_of(T.COLOR_SIDE)
-        muted = color_of(T.COLOR_MUTED)
+        active = style_of("sidebar", "nav_active", mode)
+        normal = style_of("sidebar", "nav_normal", mode)
         for key, button in self._buttons.items():
             if key == active_name:
-                button.configure(
-                    fg_color=accent, bg_color=side, text_color=accent_text
-                )
+                button.configure(**active)
             elif force or key == previous:
-                button.configure(
-                    fg_color="transparent", bg_color=side, text_color=muted
-                )
+                button.configure(**normal)
+
+    def apply_theme(self, mode: Optional[str] = None) -> None:
+        """只刷外壳颜色（侧边栏、标题、导航、底部按钮），不重建页面。
+
+        参数:
+            mode: ``"light"`` / ``"dark"`` / ``"system"``；不传取当前外观。
+                调用前要确保全局外观已经切好，否则 CTk 的自动色对仍按旧外观
+                取色。``set_appearance_mode()`` 会按正确顺序调用它。
+        """
+        shell = style_of("sidebar", "shell", mode)
+        side = style_of("sidebar", "side", mode)
+
+        self.configure(**shell)
+        self.content.configure(**style_of("sidebar", "content", mode))
+        self.body.configure(bg_color=shell["fg_color"])
+        self.sidebar.configure(**side)
+        self._head.configure(fg_color="transparent", bg_color=side["bg_color"])
+        self._title_box.configure(fg_color="transparent", bg_color=side["bg_color"])
+        if self._logo_image is not None:
+            self.logo_label.configure(bg_color=side["bg_color"])
+        self.title_label.configure(**style_of("sidebar", "title", mode))
+        self.subtitle_label.configure(**style_of("sidebar", "subtitle", mode))
+        self._paint_nav(self.rebuilder.current or "", force=True, mode=mode)
+
+        bottom = style_of("sidebar", "bottom", mode)
+        for button in self._bottom_buttons.values():
+            button.configure(**bottom)
 
     def set_appearance_mode(self, mode: str) -> None:
-        """切换外观：只重建当前页，侧边栏和标题跟着换色。
+        """切换外观：外壳原地换色，只重建当前页。
 
         ``mode`` 取 ``"light"`` / ``"dark"`` / ``"system"``，语义与
         ``customtkinter.set_appearance_mode`` 相同。
@@ -553,31 +610,8 @@ class SidebarNav(ctk.CTkFrame):
         """
         apply_appearance_fast(mode, window=self.winfo_toplevel())
 
-        bg = color_of(T.COLOR_BG)
-        side = color_of(T.COLOR_SIDE)
-        self.configure(fg_color=bg)
-        self.content.configure(fg_color=bg)
-        self.body.configure(bg_color=bg)
-        self.sidebar.configure(fg_color=side, bg_color=side)
-        self._head.configure(fg_color="transparent", bg_color=side)
-        self._title_box.configure(fg_color="transparent", bg_color=side)
-        if self._logo_image is not None:
-            self.logo_label.configure(bg_color=side)
-        self.title_label.configure(text_color=color_of(T.COLOR_TEXT), bg_color=side)
-        self.subtitle_label.configure(
-            text_color=color_of(T.COLOR_MUTED), bg_color=side
-        )
-        self._paint_nav(self.rebuilder.current or "", force=True)
-
-        soft = color_of(T.COLOR_SOFT)
-        soft_hover = color_of(T.COLOR_SOFT_HOVER)
-        text = color_of(T.COLOR_TEXT)
-        for button in self._bottom_buttons.values():
-            button.configure(
-                fg_color=soft,
-                hover_color=soft_hover,
-                text_color=text,
-            )
+        # 外壳控件只 configure 换色，不销毁重建；页面内容仍按需重建。
+        self.apply_theme(mode)
 
         # 其余页只标过期，切过去时再按新外观建；当前页立刻重建。
         self.rebuilder.mark_stale()

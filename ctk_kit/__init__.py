@@ -5,7 +5,7 @@
 - ``tokens``  设计令牌：颜色（深浅两套）、字体、圆角、间距
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
 - ``pages``   多页面窗口的页面管理：按需重建，切外观不卡
-- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``dialog`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page``
+- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``dialog`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page`` / ``tabs`` / ``calendar`` / ``range`` / ``search`` / ``steps`` / ``avatar`` / ``breadcrumb`` / ``placeholder`` / ``splitter`` / ``popover`` / ``color`` / ``statusbar`` / ``timeline`` / ``carousel`` / ``treeview`` / ``menubar``
 - 原生接口    CustomTkinter 的 ``CTk`` / ``CTkImage`` 等原样转出，
               ``App`` 是 ``CTk`` 的便捷子类（标题、尺寸、外观都能直接传参）；
               ``CTkEntry`` / ``CTkButton`` 默认套用库的样式，``Frame`` 默认透明底
@@ -69,7 +69,11 @@ from customtkinter import (
 )
 
 from . import tokens, theme
+from .avatar import Avatar
 from .badge import Badge, Tag
+from .breadcrumb import Breadcrumb
+from .calendar import Calendar, DatePicker
+from .carousel import Carousel
 from .branding import ICON_PATH, LOGO_PATH, load_logo, set_window_icon
 from .buttons import (
     CTkButton,
@@ -82,6 +86,7 @@ from .buttons import (
 from .choices import Check, Radio
 from .collapse import Collapsible
 from .code_panel import CodePanel
+from .color import ColorPicker
 from .context_menu import ContextMenu, attach_edit_menu, attach_menu
 from .dialog import Dialog, alert, confirm, prompt
 from .dropdown import DropField
@@ -113,16 +118,27 @@ from .layout import (
     style_scrollbar,
     vertical_divider,
 )
+from .loading import LoadingOverlay
+from .menubar import MenuBar
 from .misc import Progress, RingProgress
 from .notify import Notifier, notify
 from .page import PageBase
 from .pages import PageRebuilder
 from .pagination import Pagination
+from .popover import Popover
+from .range import RangeSlider
 from .scroll_list import LazyList
+from .search import SearchBox
 from .select import Stepper, TagSelectField, TreeSelectField
 from .sidebar import SidebarNav
+from .placeholder import Skeleton
+from .splitter import Splitter
+from .statusbar import StatusBar
+from .steps import Steps, Wizard
 from .table import Table
+from .tabs import Tabs
 from .text import TextArea
+from .timeline import Timeline
 from .theme import (
     apply_appearance,
     apply_appearance_fast,
@@ -131,13 +147,17 @@ from .theme import (
     recolor_tree,
     repaint_native,
     set_titlebar_dark,
+    set_window_brush,
 )
 from .tooltip import Tooltip
+from .treeview import TreeView
 from .window import App
 
 __all__ = [
     "App",
+    "Avatar",
     "Badge",
+    "Breadcrumb",
     "CTk",
     "CTkBaseClass",
     "CTkButton",
@@ -161,13 +181,17 @@ __all__ = [
     "CTkTabview",
     "CTkTextbox",
     "CTkToplevel",
+    "Calendar",
+    "Carousel",
     "Card",
     "Checkbox",
     "Check",
     "CodePanel",
     "Collapsible",
+    "ColorPicker",
     "ContextMenu",
     "DangerButton",
+    "DatePicker",
     "Dialog",
     "DropField",
     "TagSelectField",
@@ -183,30 +207,43 @@ __all__ = [
     "ImageViewer",
     "LOGO_PATH",
     "LazyList",
+    "LoadingOverlay",
+    "MenuBar",
     "Notifier",
     "PageBase",
     "PageHeader",
     "PageRebuilder",
     "Pagination",
     "PathField",
+    "Popover",
     "PrimaryButton",
     "ProgressBar",
     "Progress",
+    "RangeSlider",
     "RingProgress",
     "Scrollable",
+    "SearchBox",
     "SecondaryButton",
     "SectionTitle",
     "Segmented",
     "SidebarNav",
+    "Skeleton",
     "Slider",
     "Spinner",
+    "Splitter",
+    "StatusBar",
     "SoftButton",
+    "Steps",
     "Switch",
     "Table",
+    "Tabs",
     "Tag",
     "TextArea",
+    "Timeline",
     "ToolbarEntry",
     "Tooltip",
+    "TreeView",
+    "Wizard",
     "__version__",
     "alert",
     "apply_appearance",
@@ -233,6 +270,7 @@ __all__ = [
     "set_appearance_mode",
     "set_default_color_theme",
     "set_titlebar_dark",
+    "set_window_brush",
     "set_window_icon",
     "style_scrollable",
     "style_scrollbar",

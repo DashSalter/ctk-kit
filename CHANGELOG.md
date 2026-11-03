@@ -5,11 +5,73 @@
 
 ## 0.9.2 — 2026-11-02
 
+- `App` 新增 `remember_geometry=True` / `config_path`：关闭时用 conf_base 把
+  窗口大小和屏幕位置写进 `~/.ctk-kit/window.json`，下次启动自动恢复；
+  最大化/最小化关闭不覆盖上次的普通几何，配置损坏时回退到 `size`
+- 新增依赖 `conf_base>=0.5`（窗口几何持久化）
+- `PageRebuilder.build_all(progress=None)`：启动时逐页构建页面，可传
+  `progress(done, total, name)` 驱动进度条；`cards_first > 0` 的页面会跳过，
+  留到第一次切过去再建
+- `PageBase` 新增 `cards_first`（默认 0）：页面声明 `3` 时启动跳过，
+  `build_cards(area, builders)` 前 3 张同步、其余按 12ms 分帧；`when_built()`
+  在队列清空后回调，示例的「组件」页用它把 `bind_events()` 放到建完之后
+- 新增 `LoadingOverlay`：启动遮罩，大 logo + 说明文字 + 4px 进度条，
+  `set_progress()` 驱动、`finish()` 撤掉；示例窗口启动时先盖遮罩再逐页构建
+- 新增 `ctk_kit.styles`：把侧边栏、卡片、状态栏的颜色集中成样式表，
+  `style_of(name, state)` 按当前外观解析，切主题时只 `configure` 换色
+- `SidebarNav` / `Card` / `StatusBar` 新增 `apply_theme(mode)`：外壳控件原地
+  换色，不销毁重建；`App.register_themeable(widget)` 可登记不在导航里的外壳
+- `StatusBar.set_text(tone=...)` 的圆点颜色用 120ms 渐变过渡，级别切换不硬跳
+- 新增 `paint.animate_color()`：任意控件颜色逐帧渐变，可取消
+- 新增 `fonts.measure_text()`：按文字量宽，不触发几何重排；`Badge` 改用它
+- `Table` 表头支持鼠标悬停高亮当前列、显示列边界；拖动列宽只改当前列，
+  拖到表头右边缘就停、不再挤占其他列，数据区补列分隔线，列太窄时文字自动截断加省略号
+- `Table` 新增 `page_size` 分页：只画当前页，底部复用 `Pagination` 显示总条数与页码；
+  新增 `set_page()` / `set_page_size()` 与 `pages` / `page` 属性，`rows()` 仍返回全量
+- `Scrollable` 默认 `auto_hide=True`：内容放得下时自动隐藏滚动条，滚动条 lane 提前预留，
+  显示/隐藏不会挤动内容
+- Windows 启动 / 最大化 / 还原时不再闪黑块：`App` 自动把 `TkTopLevel` 窗口类的
+  擦除画刷换成 `COLOR_BG`，切主题时同步更新；新导出 `set_window_brush(window)`
+
+- 新增 `Avatar`：圆形头像（文字或图片），右下角可挂在线状态点；
+  圆形与状态点用 Pillow 4 倍超采样绘制，图片头像自动裁圆
+- 新增 `Breadcrumb`：面包屑，最后一项当前页不可点，中间项悬停变色、点击回值；
+  默认分隔符用 Pillow 画成折线图，边缘没有锯齿
+- 新增 `Timeline`：纵向时间线，圆点与竖线串联，支持 `active` 高亮；
+  圆点用 Pillow 4 倍超采样绘制
+- 新增 `Skeleton`：骨架屏占位条，默认 650ms 呼吸，`start()` / `stop()`
+- 新增 `Splitter`：可拖动分栏，左右 / 上下两种方向，夹最小尺寸
+- 新增 `Popover`：点击控件弹出的浮动卡片，可放任意控件，点外面关闭
+- 新增 `ColorPicker`：预设色板选色，带色块预览和 hex 显示
+- 新增 `StatusBar`：底部状态栏，左侧状态点 + 文字、右侧补充信息
+- 新增 `Carousel`：卡片轮播，左右箭头 / 圆点切换，可自动播放
+- 新增 `TreeView`：树形表格（`ttk.Treeview`），配色按 tokens 调整，支持展开 / 收起与选中回调；
+  展开三角用 Pillow 4 倍超采样画成实心三角，替换 clam 的细线空心三角
+- 新增 `MenuBar`：顶部菜单栏，下拉复用 `ContextMenu`
+- 示例窗「组件」页补第三档演示：头像、面包屑、时间线、骨架屏、分栏、浮动卡片、颜色、状态栏、轮播、菜单栏
+- 树形表格示例从「组件」页移到「表格」页，和 `Table` 放一起
+- 修 `Splitter` 拖动时手柄来回闪：拖动坐标误用了手柄自身坐标，改为相对分栏容器
+- 修 `ColorPicker` 点右侧三角形打开后立刻关闭；三角形字号加大，
+  指针还在控件上时不收起
+- `SearchBox` 的内部输入框补上右键菜单（复制 / 粘贴 / 剪切 / 清空）
+- `TreeView` 行高、字体、斑马纹与滚动条对齐 `Table`：表头 40 高、
+  `COLOR_SOFT` 底、隔行淡底色、滚动条用 `CTkScrollbar`
 - 新增 `Badge` / `Tag`：只读状态标签，`soft` / `solid` / `outline` 三种样式，
-  支持语义色、计数和纯圆点状态
+  支持语义色、计数和纯圆点状态；圆角背景用 Pillow 4 倍超采样绘制，边缘没有锯齿
+- 新增 `Tabs`：页签视图，封装 `CTkTabview`，统一卡片底、描边和选中色
+- 新增 `Calendar` / `DatePicker`：月历与日期选择；周一开始，今天描边、选中实心，
+  `DatePicker` 用无边框弹层，贴边翻转、失焦收起
+- 新增 `RangeSlider`：双滑块区间选择，两个圆球不会交叉，松手才回调
+- 新增 `SearchBox`：带放大镜和清空按钮的搜索框，输入防抖（默认 300ms），回车立即触发
+- 新增 `Steps` / `Wizard`：横向步骤条（完成对勾 / 当前数字 / 未开始描边）与分步向导，
+  `Wizard` 每步内容由构建函数现建，底部自动带上一步 / 下一步 / 完成
+- 示例窗「组件」页补第二档演示：页签、日期、区间滑块、搜索框、步骤与向导
 - 新增 `Tooltip`：任意控件的悬停提示，支持延迟、动态文字、贴边翻转
 - 新增 `Pagination`：页码条，自动折叠省略号、边界禁用、`command` 翻页回调
 - 示例窗新增「组件」页：徽标与标签、悬浮提示、分页条三张卡片，每张都带「查看实现」代码块
+- `SidebarNav` 新增 `hidden_pages`（只登记、不占导航位的页面）与 `footer`
+  （底部按钮上方的自定义区域）；示例窗底部加账号头像行，点头像进入
+  「个人中心」页（大圆头像 + 名称「加点盐」）
 - 输入框默认带右键菜单：`CTkEntry` / `ToolbarEntry` / `FormEntry` / `TextArea` / `DropField`
   不用写任何代码就有「复制 / 粘贴 / 剪切 / 清空」，右键落在内层 canvas、文字上也照常弹出
   - 菜单项跟着控件状态走：没选中文字时「剪切 / 复制」灰掉，剪贴板里没有文本时「粘贴」

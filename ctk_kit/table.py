@@ -6,7 +6,7 @@
 是同一套观感；表头固定在顶部，不随内容滚动。
 
 单元格只放文本，够用且快——几百行也不会卡，因为内容区只画一次，滚动交给
-canvas 的 ``yview``。
+canvas 的 ``yview``。行数上万时给 ``page_size`` 开分页，每次只画当前页。
 
 示例::
 
@@ -24,7 +24,9 @@ canvas 的 ``yview``。
 
 from __future__ import annotations
 
+import math
 import tkinter as tk
+from tkinter import font as tkfont
 from typing import Any, Optional, Sequence, Tuple
 
 import customtkinter as ctk
@@ -32,6 +34,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .fonts import get_font
 from .layout import style_scrollbar
+from .pagination import Pagination
 from .scrolling import find_scrollable, wheel_step
 from .theme import color_of
 
@@ -56,6 +59,25 @@ def _normalize_column(column: Sequence[Any]) -> Column:
     return (str(title), width, anchor)
 
 
+def _fit_text(text: str, max_width: float, measure: tkfont.Font) -> str:
+    """把文字截到列宽以内，超出部分用省略号，避免画到下一列上。"""
+    if max_width <= 0:
+        return ""
+    if measure.measure(text) <= max_width:
+        return text
+    ellipsis = "…"
+    if measure.measure(ellipsis) > max_width:
+        return ""
+    low, high = 0, len(text)
+    while low < high:
+        mid = (low + high + 1) // 2
+        if measure.measure(text[:mid] + ellipsis) <= max_width:
+            low = mid
+        else:
+            high = mid - 1
+    return text[:low] + ellipsis
+
+
 class Table(ctk.CTkFrame):
     """带固定表头的表格。
 
@@ -68,6 +90,8 @@ class Table(ctk.CTkFrame):
         max_visible_rows: 最多同时显示几行，超出后内容区出现滚动条，默认 8。
         striped: 是否给隔行加一层淡底色，默认 ``True``。
         empty_text: 没有数据时内容区居中显示的提示。
+        page_size: 每页行数；大于 0 时底部出现分页条，表格只画当前页，
+            默认 0（不分页，滚轮滚动全部数据）。
 
     返回:
         尚未摆位的 ``Table``；用 :meth:`set_rows` 填数据。
@@ -83,6 +107,7 @@ class Table(ctk.CTkFrame):
         max_visible_rows: int = 8,
         striped: bool = True,
         empty_text: str = "暂无数据",
+        page_size: int = 0,
     ) -> None:
         """建表头与内容区；列宽、行高、最多可见行数在这里定下来。"""
         super().__init__(
@@ -100,8 +125,12 @@ class Table(ctk.CTkFrame):
         self._max_visible_rows = max(1, max_visible_rows)
         self._striped = striped
         self._empty_text = empty_text
+        self._all_rows: list[list[str]] = []
         self._rows: list[list[str]] = []
         self._widths: list[float] = []
+        self._page_size = max(0, int(page_size))
+        self._page = 1
+        self._pager: Optional[Pagination] = None
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -139,6 +168,18 @@ class Table(ctk.CTkFrame):
 
         self._canvas.configure(yscrollcommand=self._on_scroll)
 
+        self._drag_index: Optional[int] = None
+        self._drag_start = 0
+        self._drag_width = 0.0
+        self._drag_rest = 0.0
+        self._hover_index: Optional[int] = None
+        self._hover_edge: Optional[int] = None
+        self._header_canvas.bind("<Button-1>", self._on_header_press)
+        self._header_canvas.bind("<B1-Motion>", self._on_header_drag)
+        self._header_canvas.bind("<ButtonRelease-1>", self._on_header_release)
+        self._header_canvas.bind("<Motion>", self._on_header_motion)
+        self._header_canvas.bind("<Leave>", self._on_header_leave)
+
         self._canvas.bind("<Configure>", lambda _e: self._redraw())
         self._header_canvas.bind("<Configure>", lambda _e: self._redraw())
         for canvas in (self._canvas, self._header_canvas):
@@ -146,23 +187,78 @@ class Table(ctk.CTkFrame):
             canvas.bind("<Button-4>", self._on_wheel_linux)
             canvas.bind("<Button-5>", self._on_wheel_linux)
 
+        self._sync_pager()
         self._sync_height()
         self._redraw()
 
     # ------------------------------------------------------------------ #
+    @property
+    def pages(self) -> int:
+        """总页数；不分页时固定为 1。"""
+        if self._page_size <= 0:
+            return 1
+        return max(1, math.ceil(len(self._all_rows) / self._page_size))
+
+    @property
+    def page(self) -> int:
+        """当前页码，从 1 开始；不分页时固定为 1。"""
+        return self._page
+
+    @property
+    def page_size(self) -> int:
+        """每页行数；0 表示不分页。"""
+        return self._page_size
+
     def set_rows(self, rows: Sequence[Sequence[Any]]) -> None:
         """整批替换数据。
 
         参数:
             rows: 每行一个序列，元素按列顺序排列；会被 ``str()`` 转成文本。
         """
-        self._rows = [[str(cell) for cell in row] for row in rows]
+        self._all_rows = [[str(cell) for cell in row] for row in rows]
+        self._page = 1
+        self._sync_page()
+        self._sync_pager()
         self._sync_height()
         self._redraw()
 
     def rows(self) -> list[list[str]]:
-        """当前数据的浅拷贝。"""
-        return [list(row) for row in self._rows]
+        """全部数据的浅拷贝（分页时也是全量，不是当前页）。"""
+        return [list(row) for row in self._all_rows]
+
+    def set_page(self, page: int) -> None:
+        """跳到指定页；不分页时什么也不做。
+
+        参数:
+            page: 页码，从 1 开始；超出范围会夹到第一页/最后一页。
+        """
+        if self._page_size <= 0:
+            return
+        self._page = max(1, min(int(page), self.pages))
+        self._sync_page()
+        if self._pager is not None:
+            self._pager.set_page(self._page)
+        self._sync_height()
+        self._redraw()
+
+    def set_page_size(self, size: int) -> None:
+        """改每页行数；传 0 关闭分页。
+
+        参数:
+            size: 每页行数，0 表示不分页；改完会回到第一页。
+        """
+        size = max(0, int(size))
+        if size == self._page_size:
+            return
+        self._page_size = size
+        self._page = 1
+        if size <= 0 and self._pager is not None:
+            self._pager.destroy()
+            self._pager = None
+        self._sync_page()
+        self._sync_pager()
+        self._sync_height()
+        self._redraw()
 
     def add_row(self, row: Sequence[Any]) -> None:
         """在末尾追加一行。
@@ -170,7 +266,7 @@ class Table(ctk.CTkFrame):
         参数:
             row: 按列顺序排列的单元格；会被 ``str()`` 转成文本。
         """
-        self.set_rows([*self._rows, list(row)])
+        self.set_rows([*self._all_rows, list(row)])
 
     def remove_row(self, index: int) -> None:
         """删除指定下标的行。
@@ -181,9 +277,56 @@ class Table(ctk.CTkFrame):
         异常:
             IndexError: 下标越界。
         """
-        rows = [list(row) for row in self._rows]
-        rows.pop(index)
-        self.set_rows(rows)
+        self._all_rows.pop(index)
+        self._page = min(self._page, self.pages)
+        self._sync_page()
+        self._sync_pager()
+        self._sync_height()
+        self._redraw()
+
+    def _sync_page(self) -> None:
+        """按当前页从全量数据里切出要画的那一段。"""
+        if self._page_size <= 0:
+            self._rows = list(self._all_rows)
+            return
+        start = (self._page - 1) * self._page_size
+        self._rows = list(self._all_rows[start : start + self._page_size])
+
+    def _sync_pager(self) -> None:
+        """建/更新底部分页条；不分页时销毁它。"""
+        if self._page_size <= 0:
+            return
+        total = len(self._all_rows)
+        if self._pager is None:
+            self._pager = Pagination(
+                self,
+                total=total,
+                page_size=self._page_size,
+                current=self._page,
+                command=self._on_pager,
+                show_total=True,
+            )
+            self._pager.grid(
+                row=2,
+                column=0,
+                columnspan=2,
+                sticky="ew",
+                padx=self._px(10),
+                pady=(self._px(6), self._px(8)),
+            )
+        else:
+            self._pager.set_total(total)
+            self._pager.set_page_size(self._page_size)
+            self._pager.set_page(self._page)
+
+    def _on_pager(self, page: int) -> None:
+        """分页条点击回调：只切当前页，不重复改分页条自身状态。"""
+        if self._page_size <= 0:
+            return
+        self._page = max(1, min(int(page), self.pages))
+        self._sync_page()
+        self._sync_height()
+        self._redraw()
 
     # ------------------------------------------------------------------ #
     def _px(self, value: float) -> int:
@@ -196,15 +339,21 @@ class Table(ctk.CTkFrame):
 
     def _sync_height(self) -> None:
         """按行数调整内容区高度，并同步滚动条显隐。"""
-        rows = len(self._rows)
-        # 没数据时留两行高，空态提示才不会挤在边框上
-        visible = min(rows, self._max_visible_rows) if rows else 2
+        if self._page_size > 0:
+            # 分页时高度固定为一页，翻到最后一页也不缩，表格不会跳
+            visible = self._page_size
+        else:
+            rows = len(self._rows)
+            # 没数据时留两行高，空态提示才不会挤在边框上
+            visible = min(rows, self._max_visible_rows) if rows else 2
         self._canvas.configure(height=self._px(visible * self._row_height))
         self._sync_scrollbar()
 
     def _sync_scrollbar(self) -> None:
-        """行数超过可见上限才显示滚动条。"""
-        if len(self._rows) <= self._max_visible_rows:
+        """行数超过可见上限才显示滚动条；分页时一页放得下，常隐。"""
+        if self._page_size > 0:
+            self._scrollbar.grid_remove()
+        elif len(self._rows) <= self._max_visible_rows:
             self._scrollbar.grid_remove()
         else:
             self._scrollbar.grid()
@@ -237,73 +386,208 @@ class Table(ctk.CTkFrame):
         return find_scrollable(self)
 
     # ------------------------------------------------------------------ #
+    def _header_edge_at(self, x: float) -> Optional[int]:
+        """表头 x 靠近某列右边界时，返回左边那列的下标。"""
+        if not self._widths:
+            return None
+        pad = self._px(_CELL_PAD)
+        edge = 0.0
+        for index, width in enumerate(self._widths):
+            edge += width + pad * 2
+            if abs(x - edge) <= self._px(6):
+                return index
+        return None
+
+    def _column_at(self, x: float) -> Optional[int]:
+        """表头 x 落在哪一列里。"""
+        if not self._widths:
+            return None
+        pad = self._px(_CELL_PAD)
+        left = 0.0
+        for index, width in enumerate(self._widths):
+            right = left + width + pad * 2
+            if left <= x < right:
+                return index
+            left = right
+        return len(self._widths) - 1 if x >= left else None
+
+    def _on_header_press(self, event: tk.Event) -> Optional[str]:
+        """按住列边界，进入拖动改宽。"""
+        index = self._header_edge_at(event.x)
+        if index is None:
+            return None
+        self._drag_index = index
+        self._drag_start = event.x
+        self._drag_width = self._widths[index]
+        # 最后一列默认吸收表头剩余宽度；拖它时要把这部分刨掉，
+        # 否则写回的宽度会连同剩余一起算，下一帧再吸收一次就膨胀了。
+        self._drag_rest = 0.0
+        if index == len(self._columns) - 1:
+            logical = self._columns[index][1]
+            if logical is not None:
+                self._drag_rest = max(0.0, self._drag_width - self._px(logical))
+        self._hover_edge = index
+        self._hover_index = self._column_at(event.x)
+        self._draw_header()
+        self._header_canvas.configure(cursor="sb_h_double_arrow")
+        return "break"
+
+    def _on_header_drag(self, event: tk.Event) -> Optional[str]:
+        """拖动时只改当前列的宽度，其他列不跟着动。"""
+        if self._drag_index is None:
+            return None
+        delta = event.x - self._drag_start
+        width = max(self._px(40), self._drag_width + delta)
+        # 拖到表头右边缘就停：给其他列留够空间，别把当前列的数据挤出去
+        full = self._header_canvas.winfo_width()
+        pad = self._px(_CELL_PAD)
+        others = sum(self._widths) - self._widths[self._drag_index]
+        max_width = full - pad * 2 * len(self._widths) - others
+        if max_width > 0:
+            width = min(width, max_width)
+        title, _width, anchor = self._columns[self._drag_index]
+        scale = self._apply_widget_scaling(1.0)
+        logical = max(1.0, (width - self._drag_rest) / scale)
+        self._columns[self._drag_index] = (title, logical, anchor)
+        self._redraw()
+        return "break"
+
+    def _on_header_release(self, _event: tk.Event) -> None:
+        """松手结束拖动。"""
+        self._drag_index = None
+        self._header_canvas.configure(cursor="")
+        self._redraw()
+
+    def _on_header_motion(self, event: tk.Event) -> None:
+        """悬停时高亮所在列，靠近边界时换成左右箭头。"""
+        if self._drag_index is not None:
+            return
+        edge = self._header_edge_at(event.x)
+        column = self._column_at(event.x)
+        if edge != self._hover_edge or column != self._hover_index:
+            self._hover_edge = edge
+            self._hover_index = column
+            self._draw_header()
+        cursor = "sb_h_double_arrow" if edge is not None else ""
+        self._header_canvas.configure(cursor=cursor)
+
+    def _on_header_leave(self, _event: tk.Event) -> None:
+        """指针离开表头时清掉高亮。"""
+        if self._drag_index is not None:
+            return
+        if self._hover_index is None and self._hover_edge is None:
+            return
+        self._hover_index = None
+        self._hover_edge = None
+        self._draw_header()
+        self._header_canvas.configure(cursor="")
+
+    def _draw_header(self) -> None:
+        """重画表头：悬停列淡底色、列分隔线、拖动边界高亮。"""
+        canvas = self._header_canvas
+        canvas.delete("all")
+        full = canvas.winfo_width()
+        if full <= 1:
+            return
+        self._widths = self._resolve_widths(full)
+        pad = self._px(_CELL_PAD)
+        header_h = self._px(self._header_height)
+        font = self._font(T.FONT_TABLE_HEAD)
+        measure = tkfont.Font(font=font)
+
+        if self._hover_index is not None and self._hover_index < len(self._widths):
+            left = 0.0
+            for i in range(self._hover_index):
+                left += self._widths[i] + pad * 2
+            right = left + self._widths[self._hover_index] + pad * 2
+            canvas.create_rectangle(
+                left,
+                0,
+                right,
+                header_h,
+                fill=color_of(T.COLOR_SOFT_HOVER),
+                outline="",
+            )
+
+        x = 0.0
+        for index, (title, _width, anchor) in enumerate(self._columns):
+            width = self._widths[index]
+            if anchor == "w":
+                tx, text_anchor = x + pad, "w"
+            elif anchor == "e":
+                tx, text_anchor = x + width - pad, "e"
+            else:
+                tx, text_anchor = x + width / 2, "center"
+            canvas.create_text(
+                tx,
+                header_h / 2,
+                text=_fit_text(title, max(0, width), measure),
+                anchor=text_anchor,
+                font=font,
+                fill=color_of(T.COLOR_MUTED),
+            )
+            right = x + width + pad * 2
+            # 每列都画右边界，最后一列也要有，否则不知道拖哪里改宽
+            canvas.create_line(
+                min(right, full) - 0.5, 0, min(right, full) - 0.5, header_h,
+                fill=color_of(T.COLOR_BORDER),
+            )
+            if self._hover_edge == index:
+                canvas.create_line(
+                    min(right, full) - 1, 0, min(right, full) - 1, header_h,
+                    fill=color_of(T.COLOR_ACTIVE),
+                    width=2,
+                )
+            x = right
+
+        canvas.create_line(
+            0, header_h - 1, full, header_h - 1,
+            fill=color_of(T.COLOR_BORDER),
+        )
+
     def _resolve_widths(self, total: float) -> list[float]:
-        """按当前可用宽度算出每列的实际宽度。"""
+        """按当前可用宽度算出每列的实际宽度。
+
+        固定宽度之外的空间留白，不再塞给最后一列——否则拖前面的列时
+        最后一列会跟着伸缩，看起来像「拖一列、动两列」。
+        """
         column_count = len(self._columns)
         pad = self._px(_CELL_PAD)
         fixed = [column[1] for column in self._columns]
-        available = total - pad * 2 * column_count
-        fixed_sum = sum(self._px(width) for width in fixed if width is not None)
+        available = max(1.0, total - pad * 2 * column_count)
         flexible = [index for index, width in enumerate(fixed) if width is None]
         widths: list[float] = []
         if flexible:
+            fixed_sum = sum(self._px(width) for width in fixed if width is not None)
             rest = max(self._px(60), available - fixed_sum)
             share = rest / len(flexible)
             for width in fixed:
                 widths.append(share if width is None else self._px(width))
         else:
-            rest = available - fixed_sum
-            if rest > 0:
-                widths = [self._px(width) + rest / column_count for width in fixed]
-            else:
-                # 容器太窄：按比例压缩，至少留 40px，避免文字挤成一条
-                scale = max(0.2, available / max(1.0, fixed_sum))
-                widths = [max(self._px(40), self._px(width) * scale) for width in fixed]
+            widths = [self._px(width) for width in fixed]
+            total_fixed = sum(widths)
+            if total_fixed > available:
+                # 容器太窄：按比例压缩，保证不越过内容区（文字会截断）
+                scale = available / total_fixed
+                widths = [max(1, int(round(width * scale))) for width in widths]
         return widths
 
     def _redraw(self) -> None:
         """整体重画表头与内容区（列宽、单元格、斑马纹）。"""
-        for canvas in (self._header_canvas, self._canvas):
-            canvas.delete("all")
-
+        self._draw_header()
+        canvas = self._canvas
+        canvas.delete("all")
         full = self._header_canvas.winfo_width()
         if full <= 1:
             return
         font = self._font()
-        head_font = self._font(T.FONT_TABLE_HEAD)
-        self._widths = self._resolve_widths(full)
+        measure = tkfont.Font(font=font)
         pad = self._px(_CELL_PAD)
         row_h = self._px(self._row_height)
-        header_h = self._px(self._header_height)
-
-        # ---- 表头 ----
-        x = 0.0
-        for index, (title, _width, anchor) in enumerate(self._columns):
-            width = self._widths[index]
-            if anchor == "w":
-                self._header_canvas.create_text(
-                    x + pad, header_h / 2, text=title, anchor="w",
-                    font=head_font, fill=color_of(T.COLOR_MUTED),
-                )
-            elif anchor == "e":
-                self._header_canvas.create_text(
-                    x + width - pad, header_h / 2, text=title, anchor="e",
-                    font=head_font, fill=color_of(T.COLOR_MUTED),
-                )
-            else:
-                self._header_canvas.create_text(
-                    x + width / 2, header_h / 2, text=title, anchor="center",
-                    font=head_font, fill=color_of(T.COLOR_MUTED),
-                )
-            x += width + pad * 2
-        self._header_canvas.create_line(
-            0, header_h - 1, full, header_h - 1,
-            fill=color_of(T.COLOR_BORDER),
-        )
 
         # ---- 数据区 ----
         if not self._rows:
-            self._canvas.create_text(
+            canvas.create_text(
                 full / 2,
                 row_h,
                 text=self._empty_text,
@@ -311,7 +595,9 @@ class Table(ctk.CTkFrame):
                 font=font,
                 fill=color_of(T.COLOR_FAINT),
             )
-            self._canvas.configure(scrollregion=(0, 0, full, row_h * 2))
+            canvas.configure(
+                scrollregion=(0, 0, full, row_h * (self._page_size or 2))
+            )
             return
 
         stripe = color_of(T.COLOR_HOVER_FAINT)
@@ -319,34 +605,43 @@ class Table(ctk.CTkFrame):
         for row_index, row in enumerate(self._rows):
             top = row_index * row_h
             if self._striped and row_index % 2 == 1:
-                self._canvas.create_rectangle(
+                canvas.create_rectangle(
                     0, top, full, top + row_h, fill=stripe, outline=""
                 )
             x = 0.0
-            for column_index, cell in enumerate(row[: len(self._columns)]):
-                anchor = self._columns[column_index][2]
+            for column_index, column in enumerate(self._columns):
+                cell = row[column_index] if column_index < len(row) else ""
+                anchor = column[2]
                 width = self._widths[column_index]
+                text = _fit_text(cell, max(0, width), measure)
                 if anchor == "w":
-                    self._canvas.create_text(
-                        x + pad, top + row_h / 2, text=cell, anchor="w",
+                    canvas.create_text(
+                        x + pad, top + row_h / 2, text=text, anchor="w",
                         font=font, fill=color_of(T.COLOR_TEXT_SOFT),
                     )
                 elif anchor == "e":
-                    self._canvas.create_text(
-                        x + width - pad, top + row_h / 2, text=cell, anchor="e",
+                    canvas.create_text(
+                        x + width - pad, top + row_h / 2, text=text, anchor="e",
                         font=font, fill=color_of(T.COLOR_TEXT_SOFT),
                     )
                 else:
-                    self._canvas.create_text(
-                        x + width / 2, top + row_h / 2, text=cell, anchor="center",
+                    canvas.create_text(
+                        x + width / 2, top + row_h / 2, text=text, anchor="center",
                         font=font, fill=color_of(T.COLOR_TEXT_SOFT),
                     )
                 x += width + pad * 2
-            self._canvas.create_line(
+                # 数据区也画列分隔线，拖列宽时能直接看到边界移动
+                canvas.create_line(
+                    min(x, full) - 0.5, top, min(x, full) - 0.5, top + row_h,
+                    fill=color_of(T.COLOR_BORDER),
+                )
+            canvas.create_line(
                 0, top + row_h - 1, full, top + row_h - 1,
                 fill=color_of(T.COLOR_BORDER),
             )
 
         height = len(self._rows) * row_h
-        self._canvas.configure(scrollregion=(0, 0, full, height))
-        self._canvas.configure(bg=body_color)
+        if self._page_size > 0:
+            height = self._page_size * row_h
+        canvas.configure(scrollregion=(0, 0, full, height))
+        canvas.configure(bg=body_color)

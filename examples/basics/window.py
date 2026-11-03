@@ -7,7 +7,18 @@
 
 from __future__ import annotations
 
-from ctk_kit import App, SidebarNav
+import tkinter as tk
+
+from ctk_kit import (
+    App,
+    Avatar,
+    CTkLabel,
+    Frame,
+    LoadingOverlay,
+    SidebarNav,
+    tokens as T,
+)
+from ctk_kit.fonts import get_font
 
 from button_page import ButtonPage
 from choices_page import ChoicesPage
@@ -21,6 +32,7 @@ from menu_page import MenuPage
 from misc_page import MiscPage
 from notify_page import NotifyPage
 from overview_page import OverviewPage
+from profile_page import ProfilePage
 from select_page import SelectPage
 from settings_page import SettingsPage
 from table_page import TablePage
@@ -29,11 +41,13 @@ from table_page import TablePage
 class DemoApp(App):
     def __init__(self) -> None:
         super().__init__(
-            title="欢迎使用CTkKit",
+            title="ctk-kit 组件总栏",
             size=(1200, 800),
             min_size=(380, 220),
             center=True,
         )
+        # 先藏起来：建页面、盖遮罩期间不要让用户看到半成品的第一帧。
+        self.withdraw()
 
         # 页面类本身就是构建器：SidebarNav 需要「给一个父容器、返回页面」的
         # 可调用对象，类正好满足。页面内部从控件树拿根窗口（App）。
@@ -60,11 +74,53 @@ class DemoApp(App):
             bottom_pages={
                 "设置": SettingsPage,
             },
+            hidden_pages={
+                "个人中心": ProfilePage,
+            },
+            footer=self._build_account,
             width=200,   # 侧边栏固定宽度（逻辑像素），窗口拉宽时不跟着变
             initial="总览",
             padding=(40, 16),
         )
         self.nav.pack(fill="both", expand=True)
+
+        # 启动流程：窗口先保持隐藏，遮罩盖好之后再一次显示出来，
+        # 所以用户看到的第一帧就是带 logo 和进度条的启动屏。
+        splash = LoadingOverlay(self)
+        self.deiconify()
+        self.update()
+        try:
+            self.nav.rebuilder.build_all(progress=splash.set_progress)
+        finally:
+            splash.finish()
+
+    def _build_account(self, parent: tk.Misc) -> None:
+        """侧边栏底部、设置按钮上方的一行：头像 + 名字，点头像进个人中心。"""
+        row = Frame(parent)
+        row.pack(fill="x", pady=(0, 8))
+
+        Avatar(
+            row,
+            text="加点盐",
+            size=32,
+            status="online",
+            command=self._open_profile,
+        ).pack(side="left")
+
+        name = CTkLabel(
+            row,
+            text="加点盐",
+            font=get_font((T.FONT_NAME, 13, "bold")),
+            text_color=T.COLOR_TEXT,
+            anchor="w",
+            cursor="hand2",
+        )
+        name.pack(side="left", fill="x", expand=True, padx=(8, 0))
+        name.bind("<Button-1>", lambda _event: self._open_profile())
+
+    def _open_profile(self) -> None:
+        """切到个人中心页。"""
+        self.nav.show("个人中心")
 
 
 def main() -> None:

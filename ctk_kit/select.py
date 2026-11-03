@@ -36,6 +36,14 @@ _ROW_HEIGHT = 32
 _SELECTED_ROW_BG = ("#eef8fa", "#1b262b")
 #: 上面那行的悬停底色，比它稍亮一格。
 _SELECTED_ROW_HOVER = ("#e2f1f5", "#223036")
+#: 面板展开：淡入 + 从下方滑入（毫秒 / 帧间隔 / 滑入距离逻辑像素）。
+_OPEN_ANIM_MS = 130
+_ANIM_STEP = 16
+_OPEN_SLIDE = 6
+#: 面板收起：淡出 + 向下滑回，比展开短。
+_CLOSE_ANIM_MS = 100
+#: 树形节点展开/收起时面板高度的补间时长。
+_ROWS_ANIM_MS = 150
 
 
 class _PopupList(tk.Frame):
@@ -126,6 +134,11 @@ class _PopupPanel:
         self._resize_bind_id: Optional[str] = None
         self._follow_job: Optional[str] = None
         self._place_job: Optional[str] = None
+        self._anim_job: Optional[str] = None
+        self._anim_started: float = 0.0
+        self._popup_box: Optional[tuple] = None
+        self._closing: Optional[ctk.CTkToplevel] = None
+        self._close_job: Optional[str] = None
         self._last_key: Optional[tuple] = None
         self._resize_quiet_until: float = 0.0
         self._last_root_size: tuple = ()
@@ -141,6 +154,9 @@ class _PopupPanel:
         if self.visible:
             self.close()
             return False
+
+        # 上一块还在淡出：立刻收掉，免得两块面板叠在一起
+        self._finish_closing()
 
         popup = ctk.CTkToplevel(self._owner)
         popup.withdraw()
@@ -169,6 +185,9 @@ class _PopupPanel:
         if not self._place_popup():
             self.close()
             return False
+        # 先透明再显示，避免第一帧整块不透明地闪出来
+        with contextlib.suppress(tk.TclError):
+            popup.attributes("-alpha", 0.0)
         popup.deiconify()
         popup.bind("<Escape>", self.close)
         # 鼠标进到面板上时再确认一次前台状态：切窗口的瞬间 FocusOut 可能没来
@@ -184,6 +203,7 @@ class _PopupPanel:
         self._resize_bind_id = self._owner.winfo_toplevel().bind(
             "<Configure>", self._on_root_configure, add="+"
         )
+        self._start_open_anim()
         self._schedule_follow()
         return True
 
@@ -209,12 +229,61 @@ class _PopupPanel:
         """
         if not self.visible:
             return
+        old_height = self._popup_box[1] if self._popup_box is not None else None
         self._rows = max(0, int(count))
         if not self._place_popup():
             self.close()
+            return
+        box = self._popup_box
+        if old_height is None or box is None or box[1] == old_height:
+            return
+        # 展开/收起过程中面板高度瞬间跳变会显得生硬，补一段高度渐变；
+        # 已经有一段动画在跑（刚打开面板）时不掺和，等它跑完再说。
+        if self._anim_job is not None:
+            return
+        with contextlib.suppress(tk.TclError):
+            if self._popup is not None:
+                self._popup.geometry(
+                    f"{box[0]}x{max(1, old_height)}+{box[2]}+{box[3]}"
+                )
+        self._animate_rows(old_height, box[1], box)
 
-    def close(self, _event: Optional[tk.Event] = None) -> None:
-        """收起面板并清理绑定；重复调用安全。"""
+    def _animate_rows(self, from_height: int, to_height: int, box: tuple) -> None:
+        """把面板高度从 ``from_height`` 补到 ``to_height``（逻辑像素）。"""
+        popup = self._popup
+        if popup is None:
+            return
+        width, _height, left, top, _slide = box
+        started = time.perf_counter()
+
+        def step() -> None:
+            self._anim_job = None
+            window = self._popup
+            if window is None:
+                return
+            try:
+                if not window.winfo_exists():
+                    return
+            except tk.TclError:
+                return
+            ratio = (time.perf_counter() - started) / (_ROWS_ANIM_MS / 1000.0)
+            done = ratio >= 1.0
+            eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+            height = max(1, int(round(from_height + (to_height - from_height) * eased)))
+            with contextlib.suppress(tk.TclError):
+                window.geometry(f"{width}x{height}+{left}+{top}")
+            if not done:
+                self._anim_job = self._owner.after(_ANIM_STEP, step)
+
+        step()
+
+    def close(
+        self, _event: Optional[tk.Event] = None, *, animate: bool = True
+    ) -> None:
+        """收起面板并清理绑定；重复调用安全。
+
+        ``animate=False`` 时直接销毁浮窗（宿主控件自己销毁时用）。
+        """
         if self._root_bind_id is not None:
             with contextlib.suppress(Exception):
                 self._owner.winfo_toplevel().unbind("<Button-1>", self._root_bind_id)
@@ -235,13 +304,114 @@ class _PopupPanel:
             with contextlib.suppress(Exception):
                 self._owner.after_cancel(self._place_job)
             self._place_job = None
-        if self._popup is not None:
+        if self._anim_job is not None:
             with contextlib.suppress(Exception):
-                if self._popup.winfo_exists():
-                    self._popup.destroy()
-            self._popup = None
+                self._owner.after_cancel(self._anim_job)
+            self._anim_job = None
+        popup = self._popup
+        box = self._popup_box
+        self._popup = None
+        self._popup_box = None
         self._listing = None
         self._last_key = None
+        if popup is None:
+            # 已经关过（或正在淡出），不要再打断它
+            return
+        # 更早的一块还没淡完，先收掉
+        self._finish_closing()
+        if animate and box is not None:
+            with contextlib.suppress(tk.TclError):
+                if popup.winfo_exists():
+                    self._start_close_anim(popup, box)
+                    return
+        with contextlib.suppress(Exception):
+            if popup.winfo_exists():
+                popup.destroy()
+
+    # ------------------------------------------------------------ 展开/收起动画
+    def _start_open_anim(self) -> None:
+        """面板显示后开始淡入 + 下滑；窗口不支持 alpha 时只做下滑。"""
+        if self._popup is None or self._popup_box is None:
+            return
+        self._anim_started = time.perf_counter()
+        self._anim_job = self._owner.after(1, self._open_step)
+
+    def _open_step(self) -> None:
+        self._anim_job = None
+        popup = self._popup
+        if popup is None or self._popup_box is None:
+            return
+        try:
+            alive = bool(popup.winfo_exists())
+        except tk.TclError:
+            return
+        if not alive:
+            return
+        width, height, left, top, slide = self._popup_box
+        ratio = (time.perf_counter() - self._anim_started) / (_OPEN_ANIM_MS / 1000.0)
+        done = ratio >= 1.0
+        eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+        offset = 0 if done else int(round((1.0 - eased) * slide))
+        with contextlib.suppress(tk.TclError):
+            popup.geometry(f"{width}x{height}+{left}+{top + offset}")
+            popup.attributes("-alpha", 1.0 if done else round(eased, 3))
+        if done:
+            self._schedule_follow()
+            return
+        self._anim_job = self._owner.after(_ANIM_STEP, self._open_step)
+
+    def _finish_closing(self) -> None:
+        """立刻结束上一块正在淡出的面板。"""
+        if self._close_job is not None:
+            with contextlib.suppress(Exception):
+                self._owner.after_cancel(self._close_job)
+            self._close_job = None
+        popup = self._closing
+        self._closing = None
+        if popup is not None:
+            with contextlib.suppress(Exception):
+                if popup.winfo_exists():
+                    popup.destroy()
+
+    def _start_close_anim(self, popup: ctk.CTkToplevel, box: tuple) -> None:
+        """淡出 + 向下滑回，动画结束再销毁窗口。"""
+        width, height, left, top, slide = box
+        started = time.perf_counter()
+        self._closing = popup
+
+        def step() -> None:
+            self._close_job = None
+            if self._closing is not popup:
+                return
+            try:
+                alive = bool(popup.winfo_exists())
+            except tk.TclError:
+                alive = False
+            if not alive:
+                self._closing = None
+                return
+            ratio = (time.perf_counter() - started) / (_CLOSE_ANIM_MS / 1000.0)
+            done = ratio >= 1.0
+            eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+            offset = int(round(eased * slide))
+            with contextlib.suppress(tk.TclError):
+                popup.attributes("-alpha", 0.0 if done else round(1.0 - eased, 3))
+                popup.geometry(f"{width}x{height}+{left}+{top + offset}")
+            if done:
+                self._closing = None
+                with contextlib.suppress(Exception):
+                    popup.destroy()
+                return
+            with contextlib.suppress(tk.TclError):
+                self._close_job = self._owner.after(_ANIM_STEP, step)
+
+        with contextlib.suppress(tk.TclError):
+            self._close_job = self._owner.after(1, step)
+
+    def dispose(self) -> None:
+        """宿主控件销毁时用：立刻收面板，正在淡出的也一起收掉。"""
+        self.close(animate=False)
+        self._finish_closing()
 
     # ------------------------------------------------------------ 定位
     def _anchor_key(self) -> tuple:
@@ -313,6 +483,15 @@ class _PopupPanel:
             f"+{left_px}+{top_px}"
         )
 
+        # 展开动画要用的最终位置；窗口尺寸用逻辑像素（geometry 自己会乘缩放）
+        self._popup_box = (
+            max(1, int(width_px / scaling)),
+            max(1, int(height_px / scaling)),
+            left_px,
+            top_px,
+            int(_OPEN_SLIDE * scaling),
+        )
+
         if self._listing is not None:
             content_px = self._rows * row_px + pad_px
             self._listing.set_scrollable(content_px > height_px)
@@ -349,6 +528,9 @@ class _PopupPanel:
 
     def _schedule_follow(self) -> None:
         """安排下一次跟随检查。"""
+        # 展开动画期间位置由动画控制，别让跟随逻辑把面板拽回去
+        if self._anim_job is not None:
+            return
         self._follow_job = self._owner.after(_FOLLOW_MS, self._follow_tick)
 
     def _on_root_configure(self, event: tk.Event) -> None:
@@ -774,11 +956,11 @@ class TagSelectField(ctk.CTkFrame):
     def _on_destroy(self, event: tk.Event) -> None:
         """销毁时收面板，避免浮窗残留。"""
         if event.widget is self:
-            self._panel.close()
+            self._panel.dispose()
 
     def destroy(self) -> None:
         """销毁前先收起面板。"""
-        self._panel.close()
+        self._panel.dispose()
         with contextlib.suppress(tk.TclError):
             self.tk.call("font", "delete", self._measure_font.name)
         super().destroy()
@@ -1088,11 +1270,11 @@ class TreeSelectField(ctk.CTkFrame):
     def _on_destroy(self, event: tk.Event) -> None:
         """销毁时收面板，避免浮窗残留。"""
         if event.widget is self:
-            self._panel.close()
+            self._panel.dispose()
 
     def destroy(self) -> None:
         """销毁前先收起面板。"""
-        self._panel.close()
+        self._panel.dispose()
         super().destroy()
 
 
@@ -1352,11 +1534,11 @@ class Stepper(ctk.CTkFrame):
     def _on_destroy(self, event: tk.Event) -> None:
         """销毁时收面板，避免浮窗残留。"""
         if event.widget is self:
-            self._panel.close()
+            self._panel.dispose()
 
     def destroy(self) -> None:
         """销毁前先收起面板。"""
-        self._panel.close()
+        self._panel.dispose()
         super().destroy()
 
 

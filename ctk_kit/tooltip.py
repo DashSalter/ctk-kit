@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import time
 import tkinter as tk
 from typing import Any, Callable, Optional, Union
 
@@ -30,6 +31,10 @@ from .theme import color_of
 __all__ = ["Tooltip"]
 
 TextSource = Union[str, Callable[[], str]]
+
+# 提示只做淡入：鼠标移开时它得立刻让路，再做淡出反而挡视线
+_FADE_MS = 120
+_FADE_STEP = 16
 
 
 def _round_corners(window: tk.Misc, radius: int = 6) -> None:
@@ -80,6 +85,8 @@ class Tooltip:
         self._after_id: Optional[str] = None
         self._tip: Optional[tk.Toplevel] = None
         self._label: Optional[tk.Label] = None
+        self._fade_job: Optional[str] = None
+        self._fade_started: float = 0.0
         self._shown = False
         self._alive = True
 
@@ -131,14 +138,18 @@ class Tooltip:
         self._tip.update_idletasks()
         self._place()
         _round_corners(self._tip)
+        with contextlib.suppress(tk.TclError):
+            self._tip.attributes("-alpha", 0.0)
         self._tip.deiconify()
         self._tip.lift()
         self._tip.attributes("-topmost", True)
         self._shown = True
+        self._start_fade_in()
 
     def hide(self) -> None:
         """收起提示；没有显示时什么也不做。"""
         self._cancel()
+        self._cancel_fade()
         self._shown = False
         if self._tip is not None:
             with contextlib.suppress(tk.TclError):
@@ -148,6 +159,7 @@ class Tooltip:
         """解绑事件并销毁提示窗口。"""
         self._alive = False
         self._cancel()
+        self._cancel_fade()
         self._shown = False
         if self._tip is not None:
             with contextlib.suppress(tk.TclError):
@@ -205,6 +217,41 @@ class Tooltip:
             with contextlib.suppress(tk.TclError):
                 self._widget.after_cancel(self._after_id)
             self._after_id = None
+
+    def _cancel_fade(self) -> None:
+        """取消还没跑完的淡入。"""
+        if self._fade_job is not None:
+            with contextlib.suppress(Exception):
+                self._widget.after_cancel(self._fade_job)
+            self._fade_job = None
+
+    def _start_fade_in(self) -> None:
+        """从透明淡到不透明；窗口不支持 alpha 就直接全亮。"""
+        tip = self._tip
+        if tip is None:
+            return
+        self._cancel_fade()
+        self._fade_started = time.perf_counter()
+        self._fade_job = self._widget.after(1, self._fade_step)
+
+    def _fade_step(self) -> None:
+        self._fade_job = None
+        tip = self._tip
+        if tip is None:
+            return
+        try:
+            alive = bool(tip.winfo_exists())
+        except tk.TclError:
+            return
+        if not alive or not self._shown:
+            return
+        ratio = (time.perf_counter() - self._fade_started) / (_FADE_MS / 1000.0)
+        done = ratio >= 1.0
+        eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+        with contextlib.suppress(tk.TclError):
+            tip.attributes("-alpha", 1.0 if done else round(eased, 3))
+        if not done:
+            self._fade_job = self._widget.after(_FADE_STEP, self._fade_step)
 
     def _ensure_window(self) -> None:
         """第一次显示时建窗口，之后复用。"""

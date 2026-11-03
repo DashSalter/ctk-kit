@@ -16,6 +16,7 @@ from __future__ import annotations
 import contextlib
 import inspect
 import sys
+import time
 import tkinter as tk
 import weakref
 from typing import Callable, Optional, Union
@@ -32,6 +33,11 @@ Enabled = Optional[Union[bool, Callable[[tk.Misc], bool]]]
 
 _ITEM_HEIGHT = 30  # 每一项的高度（逻辑像素）
 _PAD = 4  # 面板内边距
+# 展开：淡入 + 从下方滑入；收起只做淡出（毫秒 / 帧间隔 / 滑入距离逻辑像素）
+_OPEN_ANIM_MS = 120
+_ANIM_STEP = 16
+_OPEN_SLIDE = 4
+_CLOSE_ANIM_MS = 90
 
 # 挂在控件上的属性名：记着这块控件上挂的是哪个菜单，重复挂载时先解掉旧的
 _MENU_ATTR = "_ctk_kit_menu"
@@ -72,6 +78,11 @@ class ContextMenu:
         self._origin: tuple[int, int] = (0, 0)
         self._size: tuple[int, int] = (0, 0)
         self._scaling = 1.0
+        # 展开/收起动画：淡入淡出期间 _popup 先摘掉，避免和关闭逻辑打架
+        self._anim_job: Optional[str] = None
+        self._anim_started: float = 0.0
+        self._closing: Optional[ctk.CTkToplevel] = None
+        self._close_job: Optional[str] = None
         # 唤起这次菜单的控件；回调的第一个参数就是它
         self._source: Optional[tk.Misc] = None
 
@@ -148,6 +159,8 @@ class ContextMenu:
             source: 唤起菜单的控件；菜单项回调会把它作为第一个参数传进去。
         """
         self.close()
+        # 上一块还在淡出：立刻收掉，免得两块菜单叠在一起
+        self._finish_closing()
         self._source = source
         if not self._items:
             return
@@ -214,6 +227,9 @@ class ContextMenu:
         x, y = self._fit_on_screen(x, y, width, height, scaling)
 
         popup.geometry(f"{width}x{height}+{x}+{y}")
+        # 先透明再显示，避免第一帧整块不透明地闪出来
+        with contextlib.suppress(tk.TclError):
+            popup.attributes("-alpha", 0.0)
         popup.deiconify()
         popup.update_idletasks()
         popup.lift()
@@ -230,8 +246,9 @@ class ContextMenu:
         self._focus_bind = root.bind("<FocusOut>", self._on_root_focus_out, add="+")
         # 窗口移动/缩放时菜单跟着走，不然它会留在屏幕上原来的地方
         self._follow_bind = root.bind("<Configure>", self._follow_root, add="+")
+        self._start_open_anim()
 
-    def close(self) -> None:
+    def close(self, *, animate: bool = True) -> None:
         """收起菜单；重复调用安全。"""
         _OPEN_MENUS.discard(self)
         root = self._master.winfo_toplevel()
@@ -247,11 +264,102 @@ class ContextMenu:
             with contextlib.suppress(Exception):
                 root.unbind("<Configure>", self._follow_bind)
             self._follow_bind = None
-        if self._popup is not None:
+        if self._anim_job is not None:
             with contextlib.suppress(Exception):
-                if self._popup.winfo_exists():
-                    self._popup.destroy()
-            self._popup = None
+                self._master.after_cancel(self._anim_job)
+            self._anim_job = None
+        popup = self._popup
+        self._popup = None
+        if popup is None:
+            return
+        # 更早的一块还没淡完，先收掉
+        self._finish_closing()
+        if animate:
+            with contextlib.suppress(tk.TclError):
+                if popup.winfo_exists():
+                    self._start_close_anim(popup)
+                    return
+        with contextlib.suppress(Exception):
+            if popup.winfo_exists():
+                popup.destroy()
+
+    # ------------------------------------------------------------ 展开/收起动画
+    def _start_open_anim(self) -> None:
+        """菜单显示后开始淡入 + 下滑；窗口不支持 alpha 时只做下滑。"""
+        if self._popup is None:
+            return
+        self._anim_started = time.perf_counter()
+        self._anim_job = self._master.after(1, self._open_step)
+
+    def _open_step(self) -> None:
+        self._anim_job = None
+        popup = self._popup
+        if popup is None:
+            return
+        try:
+            alive = bool(popup.winfo_exists())
+        except tk.TclError:
+            return
+        if not alive:
+            return
+        width, height = self._size
+        x, y = self._anchor
+        slide = int(_OPEN_SLIDE * self._scaling)
+        ratio = (time.perf_counter() - self._anim_started) / (_OPEN_ANIM_MS / 1000.0)
+        done = ratio >= 1.0
+        eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+        offset = 0 if done else int(round((1.0 - eased) * slide))
+        with contextlib.suppress(tk.TclError):
+            popup.geometry(f"{width}x{height}+{x}+{y + offset}")
+            popup.attributes("-alpha", 1.0 if done else round(eased, 3))
+        if done:
+            return
+        self._anim_job = self._master.after(_ANIM_STEP, self._open_step)
+
+    def _finish_closing(self) -> None:
+        """立刻结束上一块正在淡出的菜单。"""
+        if self._close_job is not None:
+            with contextlib.suppress(Exception):
+                self._master.after_cancel(self._close_job)
+            self._close_job = None
+        popup = self._closing
+        self._closing = None
+        if popup is not None:
+            with contextlib.suppress(Exception):
+                if popup.winfo_exists():
+                    popup.destroy()
+
+    def _start_close_anim(self, popup: ctk.CTkToplevel) -> None:
+        """淡出后销毁；菜单收起不做位移，淡完就没了。"""
+        started = time.perf_counter()
+        self._closing = popup
+
+        def step() -> None:
+            self._close_job = None
+            if self._closing is not popup:
+                return
+            try:
+                alive = bool(popup.winfo_exists())
+            except tk.TclError:
+                alive = False
+            if not alive:
+                self._closing = None
+                return
+            ratio = (time.perf_counter() - started) / (_CLOSE_ANIM_MS / 1000.0)
+            done = ratio >= 1.0
+            eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+            with contextlib.suppress(tk.TclError):
+                popup.attributes("-alpha", 0.0 if done else round(1.0 - eased, 3))
+            if done:
+                self._closing = None
+                with contextlib.suppress(Exception):
+                    popup.destroy()
+                return
+            with contextlib.suppress(tk.TclError):
+                self._close_job = self._master.after(_ANIM_STEP, step)
+
+        with contextlib.suppress(tk.TclError):
+            self._close_job = self._master.after(1, step)
 
     @property
     def visible(self) -> bool:
@@ -281,7 +389,8 @@ class ContextMenu:
     def _run(self, command: Command) -> None:
         """收起菜单再执行命令；命令接受一个参数时把触发控件传进去。"""
         # 先收起窗口再执行命令：回调里可能要弹对话框，菜单不该压在它下面
-        self.close()
+        # 点完立即消失，不播收起动画，免得淡出的菜单浮在随后的对话框上
+        self.close(animate=False)
         if command is None:
             return
         source = self._source
@@ -325,6 +434,9 @@ class ContextMenu:
         """主窗口移动或缩放时，让菜单跟着同样的位移。"""
         popup = self._popup
         if popup is None or not popup.winfo_exists():
+            return
+        # 展开动画期间位置由动画控制，等它跑完再跟随
+        if self._anim_job is not None:
             return
         root = self._master.winfo_toplevel()
         if event.widget is not root:

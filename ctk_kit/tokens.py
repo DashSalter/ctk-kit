@@ -64,8 +64,9 @@ COLOR_ACTIVE: ColorPair = ("#17a6bd", "#4fb6cc")
 COLOR_ACTIVE_HOVER: ColorPair = ("#13899d", "#6acbdd")
 # 开关的圆球：要和青色轨道拉开明度差，拨到右边时圆球才看得清
 COLOR_BUTTON_KNOB: ColorPair = ("#559FE8", "#47F6FF")
-# 鼠标移到开关上时的圆球色（悬停）；想关掉悬停变色，把 switch 的 hover 传 False
-COLOR_BUTTON_KNOB_HOVER: ColorPair = ("#3DD3DB", "#3ACAD1")
+# 鼠标移到开关上时的圆球色（悬停）。浅色主题的轨道是浅灰 / 中青，球要往深里走；
+# 深色主题轨道偏暗，球要往亮里走。不能用同色系的中调（会糊在轨道里）。
+COLOR_BUTTON_KNOB_HOVER: ColorPair = ("#1d4ed8", "#eaffff")
 
 COLOR_SOFT: ColorPair = ("#f0f2f5", "#22242c")          # 次要按钮底色
 COLOR_SOFT_HOVER: ColorPair = ("#e4e8ee", "#2c2f38")

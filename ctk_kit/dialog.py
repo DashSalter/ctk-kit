@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import contextlib
 import sys
+import time
 import tkinter as tk
 from typing import Any, Optional, Sequence
 
@@ -110,6 +111,12 @@ def _round_corners(window: tk.Misc, radius: int = 12) -> None:
     round_window_corners(window, radius)
 
 
+# 展开：淡入 + 从下往上浮；对话框是模态，收起不做动画，点完就走
+_OPEN_ANIM_MS = 150
+_ANIM_STEP = 16
+_OPEN_SLIDE = 6
+
+
 class Dialog(ctk.CTkToplevel):
     """一个等待用户操作的卡片窗口。
 
@@ -161,6 +168,10 @@ class Dialog(ctk.CTkToplevel):
             size=(34, 34),
         )
         self._width = max(300, int(width))
+        # 展开动画：淡入 + 从下方轻轻浮上来
+        self._anim_job: Optional[str] = None
+        self._anim_started: float = 0.0
+        self._frame_pos: tuple[int, int] = (0, 0)
 
         body = ctk.CTkFrame(
             self,
@@ -294,6 +305,7 @@ class Dialog(ctk.CTkToplevel):
         screen_h = self.winfo_screenheight()
         left = min(max(0, left), max(0, screen_w - width))
         top = min(max(0, top), max(0, screen_h - height))
+        self._frame_pos = (left, top)
         self.geometry(scaled_geometry(self, width, height, left, top))
 
     # ------------------------------------------------------------ 结果
@@ -328,6 +340,9 @@ class Dialog(ctk.CTkToplevel):
         位置会被夹在屏幕内，父窗口拖到屏幕外时对话框仍然可见。
         """
         parent = self._parent_window
+        # 先透明再显示：不然第一帧会整块不透明地闪一下
+        with contextlib.suppress(tk.TclError):
+            self.attributes("-alpha", 0.0)
         self.deiconify()
         self.wait_visibility()
         _round_corners(self, T.RADIUS_SMALL)
@@ -349,6 +364,7 @@ class Dialog(ctk.CTkToplevel):
             self._entry._entry.icursor("end")
         else:
             self.focus_force()
+        self._start_open_anim()
         try:
             self.wait_window(self)
         finally:
@@ -395,6 +411,9 @@ class Dialog(ctk.CTkToplevel):
         """
         if not self.winfo_exists():
             return
+        # 展开动画期间位置由动画控制，跟手逻辑等它跑完再说
+        if self._anim_job is not None:
+            return
         parent = self._parent_window.winfo_toplevel()
         width, height = getattr(
             self, "_frame_size", (self._width, max(120, self.winfo_reqheight()))
@@ -407,6 +426,40 @@ class Dialog(ctk.CTkToplevel):
         top = min(max(0, top), max(0, screen_h - height))
         with contextlib.suppress(tk.TclError):
             self.geometry(scaled_geometry(self, width, height, left, top))
+
+    # ------------------------------------------------------------ 展开动画
+    def _start_open_anim(self) -> None:
+        """淡入 + 从下方浮上来；跑动画时 ``_reposition`` 让位。"""
+        self._anim_started = time.perf_counter()
+        self._anim_job = self.after(1, self._open_step)
+
+    def _open_step(self) -> None:
+        self._anim_job = None
+        try:
+            if not self.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        width, height = self._frame_size
+        left, top = self._frame_pos
+        slide = int(round(_OPEN_SLIDE * self._get_window_scaling()))
+        ratio = (time.perf_counter() - self._anim_started) / (_OPEN_ANIM_MS / 1000.0)
+        done = ratio >= 1.0
+        eased = 1.0 if done else 1.0 - (1.0 - ratio) ** 3
+        offset = 0 if done else int(round((1.0 - eased) * slide))
+        with contextlib.suppress(tk.TclError):
+            self.geometry(scaled_geometry(self, width, height, left, top + offset))
+            self.attributes("-alpha", 1.0 if done else round(eased, 3))
+        if not done:
+            self._anim_job = self.after(_ANIM_STEP, self._open_step)
+
+    def destroy(self) -> None:
+        """销毁前取消动画，避免窗口没了 after 还在跑。"""
+        if self._anim_job is not None:
+            with contextlib.suppress(Exception):
+                self.after_cancel(self._anim_job)
+            self._anim_job = None
+        super().destroy()
 
 
 def alert(

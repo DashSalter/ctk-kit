@@ -139,7 +139,7 @@ class ChoicesPageUI(PageBase):
         self.empty_segment.pack(side="left")
 
         HintLabel(
-            box, "values=[] 时不预设选中项；dynamic_resizing=False 宽度恒定。"
+            box, "values=[] 时不预设选中项；宽度恒定，切换不会挤动右侧元素。"
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, SEGMENTED_CODE, "command 收到的是选中项的文字。")

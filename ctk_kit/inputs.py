@@ -1,12 +1,7 @@
 """输入与选择控件：搜索框、表单输入、分段选择、开关、勾选、单选、滑块、进度条。
 
-分段选择（CTkSegmentedButton）有几个必须显式指定的参数，否则深浅色的观感
-会不一致：
-
-- ``fg_color`` / ``unselected_color`` 用输入框底色，否则默认是灰色
-- ``selected_color`` 用淡强调色，避免整块高饱和蓝
-- ``dynamic_resizing=False`` 否则切换选项会改控件宽度，把右边的元素挤动
-- 不能传 ``border_width`` / ``border_color``，CTk 会直接抛 ValueError
+分段选择是一块自绘控件：容器铺 ``COLOR_SOFT``，选中块（``COLOR_ACTIVE`` 的
+圆角条）在段之间平移，切换时带缓动；用整块按钮改色做不出「滑过去」的效果。
 
 选择类控件（勾选、单选、开关、滑块）只把「选中/填充」部分交给主色，未选中态
 一律用 ``COLOR_BORDER_STRONG`` 描边、``COLOR_SOFT`` 做轨道，避免深色主题下
@@ -17,6 +12,8 @@
 
 from __future__ import annotations
 
+import contextlib
+import time
 import tkinter as tk
 from typing import Any, Callable, Optional, Sequence, Tuple
 
@@ -26,7 +23,7 @@ from . import tokens as T
 from .choices import Check, Radio
 from .context_menu import attach_edit_menu
 from .fonts import get_font
-from .paint import cached
+from .paint import blend_hex, cached
 from .theme import color_of
 
 try:  # Pillow 是可选依赖：装了就用抗锯齿的箭头图片
@@ -232,101 +229,320 @@ def FormEntry(
     )
 
 
-def Segmented(
-        master: tk.Misc,
-        values: Sequence[str],
-        command: SegmentCommand = None,
-        *,
-        width: int = 300,
-        height: int = 34,
-        font: T.FontSpec = T.FONT_SMALL,
-) -> ctk.CTkSegmentedButton:
-    """统一样式的分段选择：浅一档的容器底，选中段用主色高亮。
+#: 分段选择滑块的内缩（逻辑像素）：留一圈容器底色当描边。
+_SEGMENT_INSET = 2
+#: 滑块滑动时长（毫秒）。
+_SEGMENT_ANIM_MS = 170
+#: 滑块动画帧间隔（毫秒）。
+_SEGMENT_ANIM_STEP = 16
+
+
+@cached
+def _segment_slider(width: int, height: int, radius: int, color: str):
+    """画选中块的圆角矩形；超采样后缩回，边缘才有抗锯齿。"""
+    scale = 4
+    image = Image.new("RGBA", (width * scale, height * scale), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(image)
+    pen.rounded_rectangle(
+        (0, 0, width * scale - 1, height * scale - 1),
+        radius=radius * scale,
+        fill=color,
+    )
+    return image.resize((width, height), Image.LANCZOS)
+
+
+class Segmented(ctk.CTkFrame):
+    """统一样式的分段选择：浅一档的容器底，选中块滑到目标段。
 
     容器底用 ``COLOR_SOFT``（次要按钮那一档）：分段控件是「一组按钮」，
     和输入框的 ``COLOR_INPUT`` 底色区分开，两种控件挨在一起时不会糊成一块。
 
-    选中段用 :data:`tokens.COLOR_ACTIVE`（偏青的激活色），和开关、勾选、单选、
-    滑块的填充色一致，不再是主按钮那种高饱和蓝。
-    ``CTkSegmentedButton`` 只有一份 ``text_color``，青底和浅底不可能共用同一种
-    文字色，所以这里在选中项变化时把选中段的文字改成 ``COLOR_ACCENT_TEXT``、
-    其余段改回 ``COLOR_TEXT``（``set()`` 也走同一条路径）。
+    选中块用 :data:`tokens.COLOR_ACTIVE`（偏青的激活色），和开关、勾选、单选、
+    滑块的填充色一致。选中块的文字用 ``COLOR_ACCENT_TEXT``，其余段用
+    ``COLOR_TEXT``；切换时滑块平移、文字颜色同步过渡。
+
+    和 ``CTkSegmentedButton`` 的实现不同：它靠每个段按钮自己变色，没有可移动的
+    选中块；这里用一块 canvas 画滑块和文字，才能做「滑过去」的动画。
 
     参数:
         master: 父容器。
         values: 各段文字，按显示顺序排列；非空时默认选中第一项。
         command: 切换回调，参数是被选中的那一段文字。
-        width: 整体宽度（像素），默认 300；``dynamic_resizing=False`` 保证
-            切换选项时宽度不变。
+        width: 整体宽度（像素），默认 300。
         height: 高度（像素），默认 34。
         font: 字体规格，默认 :data:`tokens.FONT_SMALL`。
-
-    返回:
-        尚未摆位的 ``CTkSegmentedButton``。
     """
-    button = ctk.CTkSegmentedButton(
-        master,
-        values=values,
-        width=width,
-        height=height,
-        corner_radius=T.RADIUS_SMALL,
-        fg_color=T.COLOR_SOFT,
-        unselected_color=T.COLOR_SOFT,
-        selected_color=T.COLOR_ACTIVE,
-        unselected_hover_color=T.COLOR_SOFT_HOVER,
-        selected_hover_color=T.COLOR_ACTIVE_HOVER,
-        text_color=T.COLOR_TEXT,
-        font=get_font(font) if not isinstance(font, ctk.CTkFont) else font,
-        dynamic_resizing=False,
-    )
 
-    segments = getattr(button, "_buttons_dict", {})
+    def __init__(
+        self,
+        master: tk.Misc,
+        values: Sequence[str] = (),
+        command: SegmentCommand = None,
+        *,
+        width: int = 300,
+        height: int = 34,
+        font: T.FontSpec = T.FONT_SMALL,
+        corner_radius: int = T.RADIUS_SMALL,
+    ) -> None:
+        super().__init__(
+            master,
+            width=width,
+            height=height,
+            fg_color=T.COLOR_SOFT,
+            corner_radius=corner_radius,
+        )
+        self._values = [str(value) for value in values]
+        self._command = command
+        self._font = get_font(font) if not isinstance(font, ctk.CTkFont) else font
+        self._radius = corner_radius
+        self._index = 0 if self._values else -1
+        self._hover = -1
+        # 浮点段索引：动画期间落在两段之间
+        self._progress = float(self._index) if self._index >= 0 else 0.0
+        self._anim_job: Optional[str] = None
+        self._anim_from = self._progress
+        self._anim_to = self._progress
+        self._anim_started = 0.0
+        self._seg_w = 0.0
+        self._slider: Optional[int] = None
+        self._slider_photo = None
+        self._texts: list[int] = []
+        self._inset = max(1, int(round(_SEGMENT_INSET * self._get_widget_scaling())))
 
-    def alive(widget: Any) -> bool:
-        """控件是否还活着；已经销毁时返回 ``False``。"""
+        self._canvas = tk.Canvas(
+            self,
+            highlightthickness=0,
+            borderwidth=0,
+            bg=color_of(T.COLOR_SOFT),
+        )
+        # 内缩一个圆角：canvas 是方形，贴着圆角矩形的最外沿会把四角露出来。
+        margin = max(1, int(round(self._radius * self._get_widget_scaling())))
+        self._canvas.place(x=margin, y=0, relwidth=1, relheight=1, width=-2 * margin)
+        self._canvas.bind("<Button-1>", self._on_click)
+        self._canvas.bind("<Motion>", self._on_motion)
+        self._canvas.bind("<Leave>", self._on_leave)
+        self._canvas.bind("<Configure>", self._on_configure)
+
+    # ------------------------------------------------------------ 公共 API
+    def get(self) -> str:
+        """当前选中段文字；没有段时返回空字符串。"""
+        if 0 <= self._index < len(self._values):
+            return self._values[self._index]
+        return ""
+
+    def set(self, value: str, **kwargs: Any) -> None:
+        """选中 ``value``；和 ``CTkSegmentedButton`` 一样会触发 ``command``。"""
         try:
-            return bool(widget.winfo_exists())
-        except Exception:  # noqa: BLE001 - 控件可能已经销毁
-            return False
+            index = self._values.index(value)
+        except ValueError:
+            return
+        if index == self._index and not kwargs.get("from_button_callback"):
+            return
+        self._index = index
+        self._animate_to(float(index))
+        if self._command is not None:
+            self._command(value)
 
-    def paint(value: str) -> None:
-        """给选中的段上亮色文字，其余段用普通文字色。"""
-        for name, segment in segments.items():
-            if not alive(segment):
-                continue
-            try:
-                segment.configure(
-                    text_color=T.COLOR_ACCENT_TEXT if name == value else T.COLOR_TEXT
+    def configure(self, require_redraw: bool = False, **kwargs: Any) -> Any:
+        """支持 ``values=`` / ``command=``，其余参数转给 ``CTkFrame``。"""
+        if "values" in kwargs:
+            self._set_values(list(kwargs.pop("values")))
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        if kwargs:
+            return super().configure(require_redraw=require_redraw, **kwargs)
+        return self
+
+    def cget(self, attribute_name: str) -> Any:
+        """读回 ``values`` / ``command``，与 ``CTkSegmentedButton`` 对齐。"""
+        if attribute_name == "values":
+            return list(self._values)
+        if attribute_name == "command":
+            return self._command
+        return super().cget(attribute_name)
+
+    # ------------------------------------------------------------ 布局
+    def _set_values(self, values: Sequence[str]) -> None:
+        """换一组段；原选中项还在就保留，否则回到第一段。"""
+        current = self.get()
+        self._values = [str(value) for value in values]
+        if not self._values:
+            self._index = -1
+        elif current in self._values:
+            self._index = self._values.index(current)
+        else:
+            self._index = 0
+        self._progress = float(self._index) if self._index >= 0 else 0.0
+        self._hover = -1
+        self._layout()
+
+    def _on_configure(self, _event: tk.Event) -> None:
+        self._layout()
+
+    def _layout(self) -> None:
+        """按 canvas 实际尺寸重排滑块与文字。"""
+        width = self._canvas.winfo_width()
+        height = self._canvas.winfo_height()
+        if width <= 1 or height <= 1:
+            return
+        if not self._values:
+            self._canvas.delete("all")
+            self._slider = None
+            self._texts = []
+            return
+        self._seg_w = width / len(self._values)
+        self._draw_sliders(height)
+        self._draw_texts(height)
+
+    def _draw_sliders(self, height: int) -> None:
+        """滑块只有一块，尺寸随段宽变；位置由 ``_place_slider`` 更新。"""
+        inset = self._inset
+        slider_w = max(2, int(round(self._seg_w)) - 2 * inset)
+        slider_h = max(2, height - 2 * inset)
+        radius = max(1, min(slider_h // 2, int(round(self._radius))))
+        source = _segment_slider(
+            slider_w, slider_h, radius, color_of(T.COLOR_ACTIVE)
+        )
+        # 只有 Pillow 在时才画得出抗锯齿滑块；没有就退回纯色矩形。
+        if _HAS_PIL:
+            photo = ImageTk.PhotoImage(source)
+        else:
+            photo = None
+        self._slider_photo = photo
+        if self._slider is None or not self._canvas.winfo_exists():
+            self._canvas.delete("slider")
+            if photo is not None:
+                self._slider = self._canvas.create_image(
+                    0, inset, anchor="nw", image=photo, tags="slider"
                 )
-            except Exception:  # noqa: BLE001
-                continue
+            else:
+                self._slider = None
+                self._canvas.create_rectangle(
+                    0, inset, slider_w, inset + slider_h,
+                    fill=color_of(T.COLOR_ACTIVE), width=0, tags="slider",
+                )
+        else:
+            if photo is not None:
+                self._canvas.itemconfig(self._slider, image=photo)
+            self._canvas.coords(
+                self._slider,
+                self._progress * self._seg_w + inset,
+                inset,
+            )
+        self._place_slider()
 
-    original_set = button.set
+    def _place_slider(self) -> None:
+        if self._slider is None:
+            return
+        x = self._progress * self._seg_w + self._inset
+        self._canvas.coords(self._slider, x, self._inset)
 
-    def select(value: str, **kwargs) -> None:
-        """先上色再 ``set``：避免调用方 command 重建页面后按钮已销毁。"""
-        # CTkSegmentedButton 内部点按钮时会调 set(value, from_button_callback=True)，
-        # 所以这里必须把多余的关键字参数原样转回去，不能只声明一个 value。
-        #
-        # 先上色再 set：set 里会触发调用方的 command，而 command 很可能正是
-        # 「切换主题 → 重建整个页面」，一旦重建，这些段按钮就被销毁了，
-        # 之后再 configure 会抛 invalid command name。
-        paint(value)
-        original_set(value, **kwargs)
+    def _draw_texts(self, height: int) -> None:
+        for item in self._texts:
+            self._canvas.delete(item)
+        self._texts = []
+        for index, value in enumerate(self._values):
+            center = (index + 0.5) * self._seg_w
+            item = self._canvas.create_text(
+                center,
+                height / 2,
+                text=value,
+                font=self._font,
+                fill=self._text_color(index),
+                tags="seg-text",
+            )
+            self._texts.append(item)
 
-    def on_click(value: str) -> None:
-        """点击段按钮：先上色，再回调调用方的 ``command``。"""
-        paint(value)
-        if command is not None:
-            command(value)
+    def _text_color(self, index: int) -> str:
+        """选中度：滑块覆盖到的段用浅色文字，其余用普通文字色。"""
+        ratio = max(0.0, 1.0 - abs(self._progress - index))
+        if self._anim_job is None:
+            ratio = 1.0 if index == self._index else 0.0
+        if index == self._hover and self._anim_job is None and index != self._index:
+            ratio = 0.25
+        return blend_hex(
+            color_of(T.COLOR_TEXT), color_of(T.COLOR_ACCENT_TEXT), ratio
+        )
 
-    button.set = select  # type: ignore[method-assign]
-    button.configure(command=on_click)
+    def _paint_texts(self) -> None:
+        for index, item in enumerate(self._texts):
+            self._canvas.itemconfig(item, fill=self._text_color(index))
 
-    if values:
-        # 不留「一段都没选中」的中间态
-        select(values[0])
-    return button
+    # ------------------------------------------------------------ 交互
+    def _segment_at(self, x: int) -> int:
+        if not self._values or self._seg_w <= 0:
+            return -1
+        index = int(x // self._seg_w)
+        return max(0, min(len(self._values) - 1, index))
+
+    def _on_click(self, event: tk.Event) -> None:
+        index = self._segment_at(event.x)
+        if index < 0:
+            return
+        self._index = index
+        self._animate_to(float(index))
+        if self._command is not None:
+            self._command(self._values[index])
+
+    def _on_motion(self, event: tk.Event) -> None:
+        index = self._segment_at(event.x)
+        if index != self._hover:
+            self._hover = index
+            self._paint_texts()
+            self._canvas.configure(cursor="hand2")
+        elif event.widget is self._canvas:
+            self._canvas.configure(cursor="hand2")
+
+    def _on_leave(self, _event: tk.Event) -> None:
+        if self._hover != -1:
+            self._hover = -1
+            self._paint_texts()
+        self._canvas.configure(cursor="")
+
+    # ------------------------------------------------------------ 动画
+    def _animate_to(self, target: float) -> None:
+        """滑块从当前位置滑到 ``target`` 段。"""
+        self._anim_from = self._progress
+        self._anim_to = target
+        if abs(self._anim_from - target) < 0.001:
+            self._progress = target
+            if self._anim_job is not None:
+                with contextlib.suppress(tk.TclError):
+                    self.after_cancel(self._anim_job)
+                self._anim_job = None
+            self._place_slider()
+            self._paint_texts()
+            return
+        self._anim_started = time.perf_counter()
+        if self._anim_job is None:
+            self._anim_job = self.after(_SEGMENT_ANIM_STEP, self._anim_step)
+
+    def _anim_step(self) -> None:
+        self._anim_job = None
+        try:
+            if not self.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        elapsed = (time.perf_counter() - self._anim_started) * 1000
+        ratio = min(1.0, elapsed / _SEGMENT_ANIM_MS)
+        if ratio >= 1.0:
+            self._progress = self._anim_to
+            self._place_slider()
+            self._paint_texts()
+            return
+        eased = 1.0 - (1.0 - ratio) ** 3
+        self._progress = self._anim_from + (self._anim_to - self._anim_from) * eased
+        self._place_slider()
+        self._paint_texts()
+        self._anim_job = self.after(_SEGMENT_ANIM_STEP, self._anim_step)
+
+    def destroy(self) -> None:
+        if self._anim_job is not None:
+            with contextlib.suppress(tk.TclError):
+                self.after_cancel(self._anim_job)
+            self._anim_job = None
+        super().destroy()
 
 
 # ---------------------------------------------------------------- 开关
@@ -337,11 +553,14 @@ _SWITCH_TRACK = (36, 18)
 _SWITCH_GAP = 3
 #: 画开关时的超采样倍数。
 _SWITCH_SCALE = 4
+#: 拨动动画时长（毫秒）；太短看不出缓冲，太长显得拖沓。
+_SWITCH_ANIM_MS = 170
+#: 动画帧间隔（毫秒）；Tk 定时器实际会落到 16–31ms，按经过时间插值即可。
+_SWITCH_ANIM_STEP = 16
 
 
-@cached
-def _switch_image(track: str, knob: str, checked: bool):
-    """画一张开关图：胶囊轨道 + 圆球，4 倍尺寸画完再交给 ``CTkImage`` 缩。"""
+def _draw_switch(track: str, knob: str, progress: float):
+    """按 ``progress``（0=关、1=开）画开关图，圆心位置连续插值。"""
     width, height = _SWITCH_TRACK
     scale = _SWITCH_SCALE
     total_w = width * scale
@@ -357,7 +576,9 @@ def _switch_image(track: str, knob: str, checked: bool):
     gap = _SWITCH_GAP * scale
     radius = total_h / 2 - gap
     center_y = total_h / 2
-    center_x = total_w - gap - radius if checked else gap + radius
+    left = gap + radius
+    right = total_w - gap - radius
+    center_x = left + (right - left) * progress
     pen.ellipse(
         (center_x - radius, center_y - radius, center_x + radius, center_y + radius),
         fill=knob,
@@ -365,13 +586,30 @@ def _switch_image(track: str, knob: str, checked: bool):
     return image
 
 
-def _switch_picture(checked: bool, hover: bool):
-    """开关的深浅两张图：CTkImage 会按当前外观挑一张。"""
-    track = T.COLOR_ACTIVE if checked else T.COLOR_BORDER_STRONG
+@cached
+def _switch_image(track: str, knob: str, checked: bool):
+    """画一张终态开关图：胶囊轨道 + 圆球，4 倍尺寸画完再交给 ``CTkImage`` 缩。"""
+    return _draw_switch(track, knob, 1.0 if checked else 0.0)
+
+
+def _switch_picture(checked: bool, hover: bool, progress: Optional[float] = None):
+    """开关的深浅两张图：``CTkImage`` 会按当前外观挑一张。
+
+    ``progress`` 给定时按中间态画（0=关、1=开），动画用；不传则取终态，
+    走 :func:`_switch_image` 的缓存。
+    """
+    ratio = (1.0 if checked else 0.0) if progress is None else progress
     knob = T.COLOR_BUTTON_KNOB_HOVER if hover else T.COLOR_BUTTON_KNOB
+    light_track = blend_hex(T.COLOR_BORDER_STRONG[0], T.COLOR_ACTIVE[0], ratio)
+    dark_track = blend_hex(T.COLOR_BORDER_STRONG[1], T.COLOR_ACTIVE[1], ratio)
+    if progress is None:
+        return (
+            _switch_image(light_track, knob[0], checked),
+            _switch_image(dark_track, knob[1], checked),
+        )
     return (
-        _switch_image(track[0], knob[0], checked),
-        _switch_image(track[1], knob[1], checked),
+        _draw_switch(light_track, knob[0], ratio),
+        _draw_switch(dark_track, knob[1], ratio),
     )
 
 
@@ -384,7 +622,9 @@ class Switch(ctk.CTkFrame):
 
     轨道用 ``COLOR_BORDER_STRONG`` 而不是 ``COLOR_SOFT``：后者在深色主题下
     （``#22242c``）和卡片底几乎同色，整个开关看起来就是一团黑；把手则取
-    ``COLOR_BUTTON_KNOB``，深色下比轨道亮、浅色下比轨道暗，两个主题都分得清。
+    ``COLOR_BUTTON_KNOB``，深色下比轨道亮、浅色下比轨道深，两个主题都分得清。
+    悬停时换成 ``COLOR_BUTTON_KNOB_HOVER``，同样按「浅色走深、深色走亮」取色，
+    不会糊进轨道里。
     拨到右边时轨道用 ``COLOR_ACTIVE``（偏青），和勾选、单选、滑块同一个颜色。
 
     参数:
@@ -411,6 +651,12 @@ class Switch(ctk.CTkFrame):
         self._hover = False
         self._photos: dict = {}
         self._photo = None
+        # 视觉进度（0=关、1=开），动画期间与 _checked 不同步
+        self._progress = 0.0
+        self._anim_job: Optional[str] = None
+        self._anim_from = 0.0
+        self._anim_to = 0.0
+        self._anim_started = 0.0
 
         self._track = ctk.CTkLabel(
             self,
@@ -446,6 +692,11 @@ class Switch(ctk.CTkFrame):
         if not _HAS_PIL:
             self._track.configure(text="开" if self._checked else "关")
             return
+        if self._anim_job is not None:
+            # 动画中的 hover 变化只换圆球颜色，不跳回终态
+            self._paint(self._progress)
+            return
+        self._progress = 1.0 if self._checked else 0.0
         key = (self._checked, self._hover)
         photo = self._photos.get(key)
         if photo is None:
@@ -456,6 +707,56 @@ class Switch(ctk.CTkFrame):
             self._photos[key] = photo
         self._photo = photo
         self._track.configure(image=self._photo, text="")
+
+    def _paint(self, progress: float) -> None:
+        """画一帧中间态；不走缓存，动画帧的键会无限增长。"""
+        if not _HAS_PIL:
+            return
+        light, dark = _switch_picture(self._checked, self._hover, progress)
+        photo = ctk.CTkImage(light_image=light, dark_image=dark, size=_SWITCH_TRACK)
+        self._photo = photo
+        self._track.configure(image=photo, text="")
+
+    # ------------------------------------------------------------ 动画
+    def _animate_to(self, target: float) -> None:
+        """从当前进度补间到 ``target``；正在动的动画直接改目标，不重启动。"""
+        if not _HAS_PIL:
+            self._refresh()
+            return
+        self._anim_from = self._progress
+        self._anim_to = target
+        if abs(self._anim_from - target) < 0.001:
+            self._progress = target
+            if self._anim_job is not None:
+                try:
+                    self.after_cancel(self._anim_job)
+                except tk.TclError:
+                    pass
+                self._anim_job = None
+            self._refresh()
+            return
+        self._anim_started = time.perf_counter()
+        if self._anim_job is None:
+            self._anim_job = self.after(_SWITCH_ANIM_STEP, self._anim_step)
+
+    def _anim_step(self) -> None:
+        """按真实经过时间插值；Tk 的 after 会抖到 30ms，不能按帧数累加。"""
+        self._anim_job = None
+        try:
+            if not self.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        elapsed = (time.perf_counter() - self._anim_started) * 1000
+        ratio = min(1.0, elapsed / _SWITCH_ANIM_MS)
+        eased = 1.0 - (1.0 - ratio) ** 3  # ease_out_cubic
+        if ratio >= 1.0:
+            self._progress = self._anim_to
+            self._refresh()
+            return
+        self._progress = self._anim_from + (self._anim_to - self._anim_from) * eased
+        self._paint(self._progress)
+        self._anim_job = self.after(_SWITCH_ANIM_STEP, self._anim_step)
 
     # ------------------------------------------------------------ 交互
     def _on_click(self, _event: Optional[tk.Event] = None) -> None:
@@ -475,23 +776,33 @@ class Switch(ctk.CTkFrame):
     def toggle(self, _event: Optional[tk.Event] = None) -> None:
         """拨动一次并触发 ``command``。"""
         self._checked = not self._checked
-        self._refresh()
+        self._animate_to(1.0 if self._checked else 0.0)
         if self._command is not None:
             self._command()
 
     def select(self) -> None:
         """拨到右边（不触发 ``command``）。"""
         self._checked = True
-        self._refresh()
+        self._animate_to(1.0)
 
     def deselect(self) -> None:
         """拨回左边（不触发 ``command``）。"""
         self._checked = False
-        self._refresh()
+        self._animate_to(0.0)
 
     def get(self) -> int:
         """0 / 1。"""
         return 1 if self._checked else 0
+
+    def destroy(self) -> None:
+        """销毁前取消动画帧；页面重建时不留 ``after`` 残留。"""
+        if self._anim_job is not None:
+            try:
+                self.after_cancel(self._anim_job)
+            except tk.TclError:
+                pass
+            self._anim_job = None
+        super().destroy()
 
     def configure(self, **kwargs) -> None:
         """支持 ``configure(command=...)``，和 CTk 控件的用法一致。"""

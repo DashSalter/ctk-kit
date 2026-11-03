@@ -69,10 +69,20 @@ def _hex_to_rgb(value: str):
 
 def _blend(start, end, ratio: float) -> str:
     """两个 RGB 三元组按比例混合，返回 ``#rrggbb``。"""
+    ratio = min(1.0, max(0.0, ratio))
     red, green, blue = (
         round(start[i] + (end[i] - start[i]) * ratio) for i in range(3)
     )
     return f"#{red:02x}{green:02x}{blue:02x}"
+
+
+def blend_hex(start: str, end: str, ratio: float) -> str:
+    """两个 ``#rrggbb`` 按 ``ratio``（0–1）混合，返回 ``#rrggbb``。
+
+    颜色不是 6 位十六进制时抛 ``ValueError``，由调用方决定是否退回纯色。
+    ``ratio`` 超出 0–1 会截断。
+    """
+    return _blend(_hex_to_rgb(start), _hex_to_rgb(end), ratio)
 
 
 def _set_color(widget: Any, option: str, color: str) -> None:

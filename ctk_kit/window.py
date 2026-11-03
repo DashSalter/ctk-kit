@@ -27,7 +27,14 @@ from customtkinter import (
 
 from .branding import set_window_icon
 from .notify import Notifier
-from .preferences import read_geometry, write_geometry
+from .preferences import (
+    read_appearance,
+    read_color_theme,
+    read_geometry,
+    write_appearance,
+    write_color_theme,
+    write_geometry,
+)
 from .theme import apply_appearance, set_titlebar_dark, set_window_brush
 
 __all__ = ["App"]
@@ -52,8 +59,8 @@ class App(CTk):
             传字符串则当成自定义 ``.ico`` / ``.png`` 路径。
         remember_geometry: 默认 ``True``，关闭时把窗口大小和位置写进配置，
             下次启动自动恢复；传 ``False`` 关掉。
-        config_path: 记住几何用的配置文件；不传用
-            ``~/.ctk-kit/window.json``。多个应用各记各的时传不同路径。
+        remember_theme: 默认 ``True``，记住上次选择的外观和颜色主题，
+            下次启动自动恢复；传 ``False`` 关掉。
         **kwargs: 其余参数原样交给 ``CTk``，例如 ``fg_color`` / ``bg_color``。
 
     注意:
@@ -80,10 +87,16 @@ class App(CTk):
         notifier: bool = True,
         icon: Any = True,
         remember_geometry: bool = True,
-        config_path: Optional[str] = None,
+        remember_theme: bool = True,
         **kwargs: Any,
     ) -> None:
         """建根窗口：先应用外观/主题，再交给 ``CTk`` 完成其余初始化。"""
+        # 没显式指定就沿用上次的选择；remember_theme=False 时保持 CTk 默认。
+        if remember_theme:
+            if appearance is None:
+                appearance = read_appearance()
+            if theme is None:
+                theme = read_color_theme() or None
         if appearance is not None:
             set_appearance_mode(appearance)
         if theme is not None:
@@ -92,7 +105,7 @@ class App(CTk):
         super().__init__(**kwargs)
 
         self._remember_geometry = remember_geometry
-        self._config_path = config_path
+        self._remember_theme = remember_theme
         self._geometry_written = False
 
         # 窗口还未显示时先把 TkTopLevel 的擦除画刷换成窗口底色：系统在启动、
@@ -158,7 +171,7 @@ class App(CTk):
         if widget not in self._themeables:
             self._themeables.append(widget)
 
-    def set_appearance_mode(self, mode: str) -> None:
+    def set_appearance_mode(self, mode: str, *, save: bool = True) -> None:
         """切换外观。
 
         窗口里挂了 ``SidebarNav``（``self.nav``）时交给它处理——外壳原地
@@ -169,6 +182,8 @@ class App(CTk):
         参数:
             mode: ``"light"`` / ``"dark"`` / ``"system"``；也接受中文的
                 ``"浅色"`` / ``"深色"``（分段按钮的值可以直接传进来）。
+            save: 默认 ``True``，把选择写进配置，下次启动沿用；
+                临时切换不想影响下次启动时传 ``False``。
         """
         if mode == "浅色":
             mode = "light"
@@ -189,6 +204,30 @@ class App(CTk):
 
         # 窗口类的擦除画刷跟着新底色换，避免切主题后还原窗口闪旧色。
         set_window_brush(self)
+
+        if save and getattr(self, "_remember_theme", False):
+            try:
+                write_appearance(mode)
+            except Exception:  # noqa: BLE001 - 写失败不影响本次切换
+                pass
+
+    def set_color_theme(self, theme: str, *, save: bool = True) -> None:
+        """切换颜色主题（内置主题名或主题文件路径）。
+
+        颜色主题只影响之后创建的控件；窗口里已有的控件不会自动换色，
+        需要重建页面或重新创建窗口才能看到效果。
+
+        参数:
+            theme: ``"blue"`` / ``"dark-blue"`` / ``"green"``，或主题文件
+                路径；等价于 :func:`set_default_color_theme`。
+            save: 默认 ``True``，把选择写进配置，下次启动沿用。
+        """
+        set_default_color_theme(theme)
+        if save and getattr(self, "_remember_theme", False):
+            try:
+                write_color_theme(theme)
+            except Exception:  # noqa: BLE001 - 写失败不影响本次切换
+                pass
 
     def toggle_appearance(self) -> None:
         """在深浅两套外观之间切换。"""
@@ -267,7 +306,7 @@ class App(CTk):
         返回是否真的恢复了；调用方据此决定还要不要居中——用户上次把窗口
         放在某个位置，就不该被 ``center=True`` 又挪回屏幕中间。
         """
-        state = read_geometry(self._config_path)
+        state = read_geometry()
         if state is None:
             return False
 
@@ -276,17 +315,19 @@ class App(CTk):
             width = max(width, int(min_size[0]))
             height = max(height, int(min_size[1]))
 
-        # 没有保存过位置（-1）时只恢复大小，位置交给 CTk 的默认行为。
-        if x < 0 or y < 0:
+        # -1,-1 是「没保存过位置」的哨兵；其余负坐标是合法的
+        # （Windows 边缘吸附时客户区会略微跑到屏幕外），不能当成未保存。
+        if x == -1 and y == -1:
             self.geometry(f"{width}x{height}")
             return False
 
         # 位置是物理像素；宽高是逻辑像素，夹到屏幕内之前先换回物理尺寸。
+        # 只夹右边和下边：左边/上边允许为负，窗口部分贴出屏幕是正常状态。
         scale = float(getattr(self, "_window_scaling", 1.0) or 1.0)
         max_x = max(0, self.winfo_screenwidth() - int(round(width * scale)))
         max_y = max(0, self.winfo_screenheight() - int(round(height * scale)))
-        x = max(0, min(x, max_x))
-        y = max(0, min(y, max_y))
+        x = min(x, max_x)
+        y = min(y, max_y)
         self.geometry(f"{width}x{height}+{x}+{y}")
         return True
 
@@ -301,7 +342,16 @@ class App(CTk):
             height = int(getattr(self, "_current_height", 0) or self.winfo_height())
             if width <= 0 or height <= 0:
                 return
-            write_geometry(width, height, self.winfo_x(), self.winfo_y(), self._config_path)
+            # winfo_x/y 是客户区坐标，和 geometry("+x+y") 的外框坐标差一圈
+            # Windows 边框；保存和恢复都用 geometry() 的 +x+y，位置才不偏。
+            x, y = self.winfo_x(), self.winfo_y()
+            try:
+                parts = self.geometry().split("+")
+                if len(parts) >= 3:
+                    x, y = int(parts[1]), int(parts[2])
+            except (ValueError, IndexError):
+                pass
+            write_geometry(width, height, x, y)
         except Exception:  # noqa: BLE001 - 关闭时写失败不该拦住退出
             pass
 

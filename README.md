@@ -71,8 +71,8 @@ CTkButton(bar, text="保存").pack()
   传 `False` 不设，传字符串则用自定义的 `.ico` / `.png`
 - `remember_geometry=True`：关闭时记住窗口大小和位置，下次启动自动恢复；
   传 `False` 关掉
-- `config_path=...`：记住几何用的配置文件，默认 `~/.ctk-kit/window.json`；
-  多个应用各记各的时传不同路径
+- `remember_theme=True`：记住上次选择的外观和颜色主题，下次启动自动恢复；
+  传 `False` 关掉
 
 窗口标题栏颜色也会自动跟随外观（Windows 11 22H2+ 真正上色），不需要再手动调
 `set_titlebar_dark`。
@@ -89,14 +89,27 @@ app = App(title="备份", size=(880, 560))   # 上次拖过大小/挪过位置�
 app.mainloop()
 ```
 
-多个应用共用一个用户目录时，各传各的配置：
-
-```python
-app = App(title="备份", config_path="~/.ctk-kit/backup.json")
-```
-
 不想记就传 `remember_geometry=False`。最大化/最小化关闭时不会覆盖上次的普通
 几何；配置文件损坏或字段缺失时静默回退到 `size`。
+
+### 记住外观和颜色主题
+
+`App` 默认也会记：调用 `app.set_appearance_mode(...)` 或
+`app.set_color_theme(...)` 时，把选择写进同一个配置文件，下次启动自动恢复。
+
+```python
+app = App(title="备份")            # 启动时沿用上次的浅色/深色和主题
+app.set_appearance_mode("light")   # 同时写进配置
+app.set_color_theme("green")       # 只影响之后创建的控件
+```
+
+临时切换不想影响下次启动，传 `save=False`：
+
+```python
+app.set_appearance_mode("dark", save=False)
+```
+
+不想要这个行为就传 `remember_theme=False`。
 
 ### 内置 logo
 

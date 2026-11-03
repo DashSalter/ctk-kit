@@ -104,16 +104,16 @@ class PageRebuilder:
 
     # ------------------------------------------------------------------ 建页
 
-    def _stack(self, page: ctk.CTkFrame) -> None:
-        """把页面铺满父容器并压到最底层。"""
-        page.place(relx=0, rely=0, relwidth=1, relheight=1)
-        page.lower()
-
     def _build(self, name: str) -> ctk.CTkFrame:
-        """建一页并压到最底层，同时清掉它的过期标记。"""
+        """建一页（不摆放），同时清掉它的过期标记。
+
+        启动时 ``build_all`` 会把所有页都建出来，但只应该显示当前页；
+        如果这里顺手 ``place``，其余十几页虽然在底层看不见，窗口一改尺寸
+        仍会跟着重排——启动后第一次拖动因此要好几秒。摆放留给
+        :meth:`show` / :meth:`rebuild`。
+        """
         page = self._factory(name)
         self._frames[name] = page
-        self._stack(page)
         self._stale.discard(name)
         return page
 

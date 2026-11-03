@@ -5,10 +5,13 @@
 
 ## 0.9.2 — 2026-11-02
 
-- `App` 新增 `remember_geometry=True` / `config_path`：关闭时用 conf_base 把
-  窗口大小和屏幕位置写进 `~/.ctk-kit/window.json`，下次启动自动恢复；
-  最大化/最小化关闭不覆盖上次的普通几何，配置损坏时回退到 `size`
-- 新增依赖 `conf_base>=0.5`（窗口几何持久化）
+- `App` 新增 `remember_geometry=True`：关闭时用 conf_base 把窗口大小和屏幕
+  位置写进 `~/.ctk-kit/window.json`，下次启动自动恢复；最大化/最小化关闭
+  不覆盖上次的普通几何，配置损坏时回退到 `size`
+- `App` 新增 `remember_theme=True`：记住上次选择的深浅外观与颜色主题，
+  下次启动自动恢复；`set_appearance_mode()` / `set_color_theme()` 切换时
+  写入配置，传 `save=False` 可临时切换
+- 新增依赖 `conf_base>=0.5`（窗口几何与主题持久化）
 - `PageRebuilder.build_all(progress=None)`：启动时逐页构建页面，可传
   `progress(done, total, name)` 驱动进度条；`cards_first > 0` 的页面会跳过，
   留到第一次切过去再建

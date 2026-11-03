@@ -59,11 +59,26 @@ def _normalize_column(column: Sequence[Any]) -> Column:
     return (str(title), width, anchor)
 
 
-def _fit_text(text: str, max_width: float, measure: tkfont.Font) -> str:
-    """把文字截到列宽以内，超出部分用省略号，避免画到下一列上。"""
+def _fit_text(
+    text: str,
+    max_width: float,
+    measure: tkfont.Font,
+    cache: Optional[dict] = None,
+) -> str:
+    """把文字截到列宽以内，超出部分用省略号，避免画到下一列上。
+
+    ``cache`` 用来记住每个字符串的完整宽度：拖动窗口时列宽连续变化，
+    但文本本身没变，没必要每帧对每个单元格重跑一次 Tk 的 ``measure``。
+    """
     if max_width <= 0:
         return ""
-    if measure.measure(text) <= max_width:
+    if cache is not None:
+        full_width = cache.get(text)
+        if full_width is None:
+            full_width = cache[text] = measure.measure(text)
+    else:
+        full_width = measure.measure(text)
+    if full_width <= max_width:
         return text
     ellipsis = "…"
     if measure.measure(ellipsis) > max_width:
@@ -174,14 +189,18 @@ class Table(ctk.CTkFrame):
         self._drag_rest = 0.0
         self._hover_index: Optional[int] = None
         self._hover_edge: Optional[int] = None
+        self._redraw_job: Optional[str] = None
+        self._scroll_job: Optional[str] = None
+        self._scroll_pending: Optional[tuple] = None
+        self._text_widths: dict = {}
         self._header_canvas.bind("<Button-1>", self._on_header_press)
         self._header_canvas.bind("<B1-Motion>", self._on_header_drag)
         self._header_canvas.bind("<ButtonRelease-1>", self._on_header_release)
         self._header_canvas.bind("<Motion>", self._on_header_motion)
         self._header_canvas.bind("<Leave>", self._on_header_leave)
 
-        self._canvas.bind("<Configure>", lambda _e: self._redraw())
-        self._header_canvas.bind("<Configure>", lambda _e: self._redraw())
+        self._canvas.bind("<Configure>", self._schedule_redraw)
+        self._header_canvas.bind("<Configure>", self._schedule_redraw)
         for canvas in (self._canvas, self._header_canvas):
             canvas.bind("<MouseWheel>", self._on_wheel)
             canvas.bind("<Button-4>", self._on_wheel_linux)
@@ -359,7 +378,22 @@ class Table(ctk.CTkFrame):
             self._scrollbar.grid()
 
     def _on_scroll(self, first: str, last: str) -> None:
-        """canvas 滚动时同步滚动条滑块的位置。"""
+        """canvas 滚动时同步滚动条滑块的位置。
+
+        CTkScrollbar.set() 内部会 ``update_idletasks()``；窗口拖动时 canvas
+        尺寸每帧变化都会触发这里，如果同步执行就会在每次重绘里嵌套一次
+        整窗布局。攒到 idle 里，一帧最多更新一次。
+        """
+        self._scroll_pending = (first, last)
+        if self._scroll_job is None:
+            self._scroll_job = self.after_idle(self._flush_scroll)
+
+    def _flush_scroll(self) -> None:
+        self._scroll_job = None
+        if not self.winfo_exists() or self._scroll_pending is None:
+            return
+        first, last = self._scroll_pending
+        self._scroll_pending = None
         self._scrollbar.set(first, last)
 
     def _on_wheel(self, event: tk.Event) -> str:
@@ -521,7 +555,7 @@ class Table(ctk.CTkFrame):
             canvas.create_text(
                 tx,
                 header_h / 2,
-                text=_fit_text(title, max(0, width), measure),
+                text=_fit_text(title, max(0, width), measure, self._text_widths),
                 anchor=text_anchor,
                 font=font,
                 fill=color_of(T.COLOR_MUTED),
@@ -572,8 +606,40 @@ class Table(ctk.CTkFrame):
                 widths = [max(1, int(round(width * scale))) for width in widths]
         return widths
 
+    def _schedule_redraw(self, _event: Any = None) -> None:
+        """把连续尺寸变化合并成一次重绘。
+
+        拖动窗口边框时两个 canvas 各触发一次 ``<Configure>``，直接重绘
+        会让每帧画两遍；排到 idle 里既合并了重复事件，也不会在拖动最忙
+        的时候插队。
+        """
+        if self._redraw_job is None:
+            self._redraw_job = self.after_idle(self._flush_redraw)
+
+    def _flush_redraw(self) -> None:
+        self._redraw_job = None
+        if self.winfo_exists():
+            self._redraw()
+
+    def destroy(self) -> None:
+        for job in (self._redraw_job, self._scroll_job):
+            if job is not None:
+                try:
+                    self.after_cancel(job)
+                except tk.TclError:
+                    pass
+        self._redraw_job = None
+        self._scroll_job = None
+        super().destroy()
+
     def _redraw(self) -> None:
         """整体重画表头与内容区（列宽、单元格、斑马纹）。"""
+        if self._redraw_job is not None:
+            try:
+                self.after_cancel(self._redraw_job)
+            except tk.TclError:
+                pass
+            self._redraw_job = None
         self._draw_header()
         canvas = self._canvas
         canvas.delete("all")
@@ -613,7 +679,7 @@ class Table(ctk.CTkFrame):
                 cell = row[column_index] if column_index < len(row) else ""
                 anchor = column[2]
                 width = self._widths[column_index]
-                text = _fit_text(cell, max(0, width), measure)
+                text = _fit_text(cell, max(0, width), measure, self._text_widths)
                 if anchor == "w":
                     canvas.create_text(
                         x + pad, top + row_h / 2, text=text, anchor="w",

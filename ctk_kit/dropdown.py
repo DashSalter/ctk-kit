@@ -18,6 +18,7 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
+from .popup import round_window_corners
 from .fonts import get_font
 from .inputs import CTkEntry
 from .theme import color_of
@@ -538,35 +539,8 @@ class DropField(ctk.CTkFrame):
             self._close_menu()
 
     def _round_window_corners(self, popup: ctk.CTkToplevel) -> None:
-        """把窗口本身裁成圆角。
-
-        优先让 Win11 的 DWM 画圆角（边缘抗锯齿、没有阶梯）；旧系统退回
-        ``SetWindowRgn`` 硬裁剪——那圈锯齿是 GDI 区域的固有代价。
-        非 Windows 平台什么都不做。
-        """
-        if sys.platform != "win32":
-            return
-        with contextlib.suppress(Exception):
-            import ctypes
-
-            popup.update_idletasks()
-            hwnd = ctypes.windll.user32.GetParent(popup.winfo_id()) or popup.winfo_id()
-            # DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2
-            preference = ctypes.c_int(2)
-            result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
-            )
-            if result == 0:
-                return
-            scaling = self.winfo_toplevel()._get_window_scaling()
-            # CreateRoundRectRgn 收的是椭圆宽高（直径）
-            radius = int(T.RADIUS_MEDIUM * 2 * scaling)
-            width = popup.winfo_width()
-            height = popup.winfo_height()
-            region = ctypes.windll.gdi32.CreateRoundRectRgn(
-                0, 0, width + 1, height + 1, radius, radius
-            )
-            ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+        """把窗口本身裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
+        round_window_corners(popup, T.RADIUS_MEDIUM)
 
     def _maybe_close_menu(self, event: tk.Event) -> None:
         """顶层窗口上的点击：点在面板外就收起。"""

@@ -17,6 +17,7 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
+from .popup import round_window_corners
 from .inputs import CTkEntry
 from .layout import style_scrollbar
 from .theme import color_of
@@ -47,7 +48,7 @@ class _PopupList(tk.Frame):
         self.scrollbar = style_scrollbar(
             ctk.CTkScrollbar(self, orientation="vertical", command=self._yview)
         )
-        self.scrollbar.pack(side="right", fill="y", padx=(0, 2), pady=2)
+        self.scrollbar.pack(side="right", fill="y", padx=(0, 3), pady=2)
         self.scrollbar.pack_forget()
 
         self.canvas = tk.Canvas(
@@ -69,7 +70,7 @@ class _PopupList(tk.Frame):
             return
         self.scrollable = flag
         if flag:
-            self.scrollbar.pack(side="right", fill="y", padx=(0, 2), pady=2)
+            self.scrollbar.pack(side="right", fill="y", padx=(0, 3), pady=2)
         else:
             self.scrollbar.pack_forget()
 
@@ -464,28 +465,8 @@ class _PopupPanel:
 
 
 def _round_window_corners(owner: tk.Misc, popup: ctk.CTkToplevel) -> None:
-    """把面板窗口裁成圆角（Windows）；其它平台什么都不做。"""
-    if sys.platform != "win32":
-        return
-    with contextlib.suppress(Exception):
-        import ctypes
-
-        popup.update_idletasks()
-        hwnd = ctypes.windll.user32.GetParent(popup.winfo_id()) or popup.winfo_id()
-        preference = ctypes.c_int(2)
-        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
-        )
-        if result == 0:
-            return
-        scaling = owner.winfo_toplevel()._get_window_scaling()
-        radius = int(T.RADIUS_MEDIUM * 2 * scaling)
-        width = popup.winfo_width()
-        height = popup.winfo_height()
-        region = ctypes.windll.gdi32.CreateRoundRectRgn(
-            0, 0, width + 1, height + 1, radius, radius
-        )
-        ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+    """把面板窗口裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
+    round_window_corners(popup, T.RADIUS_MEDIUM)
 
 
 class TagSelectField(ctk.CTkFrame):

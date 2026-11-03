@@ -48,6 +48,7 @@ from typing import Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .popup import round_window_corners
 from .fonts import get_font
 
 #: 允许的提示级别。
@@ -460,45 +461,8 @@ class Notifier:
         return int(round(_MARGIN * self._scaling()))
 
     def _round_window_corners(self, window) -> None:
-        """把窗口裁成圆角，让四角之外不绘制。
-
-        跟下拉面板用同一套做法：先让 Win11 的 DWM 画系统圆角，边缘由系统
-        抗锯齿，没有阶梯。DWM 不可用（旧系统）时才退回 ``SetWindowRgn``
-        硬裁剪，那个是像素级的，圆角会有台阶。
-
-        关键点：设 DWM 之前必须先用 ``SetWindowRgn(hwnd, None, True)`` 清掉
-        上一次留下的 region——控件重排会反复走这里，残留的 region 会把
-        DWM 的圆角整个挡住，看起来就是四角又变直了。
-
-        裁剪区域的右下角传 ``width + 1`` / ``height + 1``：``CreateRoundRectRgn``
-        的矩形是**开区间**，少算这一像素会把右边和下边那一条描边切掉。
-        非 Windows 平台不处理，那边窗口是直角的。
-        """
-        if sys.platform != "win32":
-            return
-        with contextlib.suppress(Exception):
-            import ctypes
-
-            window.update_idletasks()
-            hwnd = ctypes.windll.user32.GetParent(window.winfo_id()) or window.winfo_id()
-            # 先清掉旧 region，否则 DWM 圆角会被它盖住。
-            ctypes.windll.user32.SetWindowRgn(hwnd, None, True)
-            # DWMWA_WINDOW_CORNER_PREFERENCE = 33, DWMWCP_ROUND = 2
-            preference = ctypes.c_int(2)
-            result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-                hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
-            )
-            if result == 0:
-                return
-            width = window.winfo_width()
-            height = window.winfo_height()
-            if width <= 2 or height <= 2:
-                return
-            radius = max(2, int(T.RADIUS_SMALL * 2 * self._scaling()))
-            region = ctypes.windll.gdi32.CreateRoundRectRgn(
-                0, 0, width + 1, height + 1, radius, radius
-            )
-            ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+        """把窗口裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
+        round_window_corners(window, T.RADIUS_SMALL, self._scaling())
 
     def _remove(self, notice, notify=True, relayout=True) -> None:
         """从位置列表摘掉一条提示，淡出后销毁；可选触发关闭回调。

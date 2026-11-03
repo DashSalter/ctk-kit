@@ -23,6 +23,7 @@ import tkinter as tk
 from typing import Any, Callable, Optional, Union
 
 from . import tokens as T
+from .popup import round_window_corners
 from .fonts import get_font
 from .theme import color_of
 
@@ -32,26 +33,8 @@ TextSource = Union[str, Callable[[], str]]
 
 
 def _round_corners(window: tk.Misc, radius: int = 6) -> None:
-    """把无边框窗口裁成圆角（Windows）；其他平台不做处理。"""
-    with contextlib.suppress(Exception):
-        if sys.platform != "win32":
-            return
-        import ctypes
-
-        window.update_idletasks()
-        hwnd = ctypes.windll.user32.GetParent(window.winfo_id()) or window.winfo_id()
-        preference = ctypes.c_int(2)
-        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
-        )
-        if result == 0:
-            return
-        scaling = window.winfo_fpixels("1i") / 96.0
-        r = int(radius * 2 * scaling)
-        region = ctypes.windll.gdi32.CreateRoundRectRgn(
-            0, 0, window.winfo_width() + 1, window.winfo_height() + 1, r, r
-        )
-        ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+    """把无边框窗口裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
+    round_window_corners(window, radius)
 
 
 class Tooltip:

@@ -33,6 +33,7 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw
 
 from . import tokens as T
+from .popup import round_window_corners
 from .buttons import CTkButton
 from .fonts import get_font
 from .inputs import FormEntry
@@ -105,26 +106,8 @@ def _badge(level: str, size: int = 34):
 
 
 def _round_corners(window: tk.Misc, radius: int = 12) -> None:
-    """把无边框窗口裁成圆角（Windows）；别的平台什么都不做。"""
-    with contextlib.suppress(Exception):
-        if sys.platform != "win32":
-            return
-        import ctypes
-
-        window.update_idletasks()
-        hwnd = ctypes.windll.user32.GetParent(window.winfo_id()) or window.winfo_id()
-        preference = ctypes.c_int(2)
-        result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
-            hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
-        )
-        if result == 0:
-            return
-        scaling = window.winfo_toplevel()._get_window_scaling()
-        r = int(radius * 2 * scaling)
-        region = ctypes.windll.gdi32.CreateRoundRectRgn(
-            0, 0, window.winfo_width() + 1, window.winfo_height() + 1, r, r
-        )
-        ctypes.windll.user32.SetWindowRgn(hwnd, region, True)
+    """把无边框窗口裁成圆角，公共逻辑在 :mod:`ctk_kit.popup`。"""
+    round_window_corners(window, radius)
 
 
 class Dialog(ctk.CTkToplevel):

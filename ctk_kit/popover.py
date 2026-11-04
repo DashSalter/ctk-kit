@@ -25,7 +25,8 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .dialog import _round_corners
-from .glass import backdrop_image
+from .glass import backdrop_image, excluding_from_capture
+from .win32 import acrylic_window
 from .popup import scaled_geometry
 
 __all__ = ["Popover"]
@@ -43,6 +44,9 @@ class Popover:
         placement: ``bottom``（默认）或 ``top``。
         padding: 预留，暂未使用。
         glass: 是否给卡片铺一张「背后屏幕模糊图」，默认开；截图失败自动退回纯色。
+        glass_refresh_ms: 背景重截间隔（毫秒）；0 表示每帧连轴刷新。
+        glass_blur / glass_upscale / glass_blur_scale:
+            模糊半径（逻辑像素）、升采样倍数、模糊范围系数。
 
     方法:
         show() / hide() / toggle(): 手动控制。
@@ -58,6 +62,12 @@ class Popover:
         placement: str = "bottom",
         padding: int = 12,
         glass: bool = True,
+        glass_refresh_ms: int = 300,
+        glass_blur: int = 20,
+        glass_upscale: float = 2.0,
+        glass_blur_scale: float = 0.7,
+        acrylic: bool = False,
+        acrylic_tint: Optional[int] = 0xCC201A18,
     ) -> None:
         """给 ``widget`` 挂上点击切换弹层的行为。"""
         self._widget = widget
@@ -66,9 +76,17 @@ class Popover:
         self._placement = placement
         self._padding = padding
         self._glass = glass
+        self._glass_refresh_ms = max(0, int(glass_refresh_ms))
+        self._glass_blur = max(1, int(glass_blur))
+        self._glass_upscale = max(1.0, float(glass_upscale))
+        self._glass_blur_scale = max(0.05, min(2.0, float(glass_blur_scale)))
+        self._acrylic = bool(acrylic)
+        self._acrylic_tint = acrylic_tint
         self._window: Optional[ctk.CTkToplevel] = None
         self._backdrop: Optional[ctk.CTkLabel] = None
         self._photo: Optional[ctk.CTkImage] = None
+        self._refresh_job: Optional[str] = None
+        self._geom: Optional[Tuple[int, int, int, int, float]] = None
         self._bind_id = widget.bind("<Button-1>", self._on_click, add="+")
 
     # --- 对外 ---
@@ -87,10 +105,11 @@ class Popover:
 
         # 描边画在窗口上：整窗铺描边色，卡片四边各内缩 1px，四角跟着圆角
         # 一起弯，不会像控件 border 那样在弧段上有粗细差。
-        window.configure(fg_color=T.COLOR_BORDER)
+        # acrylic 模式例外：窗口和卡片都必须是纯黑，DWM 才会把空白当玻璃。
+        window.configure(fg_color="#000000" if self._acrylic else T.COLOR_BORDER)
         frame = ctk.CTkFrame(
             window,
-            fg_color=T.COLOR_CARD,
+            fg_color="#000000" if self._acrylic else T.COLOR_CARD,
             border_width=0,
             # 圆角跟系统 DWM 圆角（8）对齐：卡片比窗口更圆时，四角会露出一
             # 圈比 1px 粗的描边，看起来右边、下边比左边厚。
@@ -98,8 +117,9 @@ class Popover:
         )
         frame.pack(fill="both", expand=True, padx=1, pady=1)
         # 背景先建、放在底层；图等内容排好、量出尺寸后再补上
-        self._backdrop = ctk.CTkLabel(frame, text="", fg_color="transparent")
-        self._backdrop.place(x=0, y=0, relwidth=1, relheight=1)
+        if not self._acrylic:
+            self._backdrop = ctk.CTkLabel(frame, text="", fg_color="transparent")
+            self._backdrop.place(x=0, y=0, relwidth=1, relheight=1)
         if self._content is not None:
             self._content(frame)
 
@@ -122,18 +142,29 @@ class Popover:
         # 不这么做的话 125% / 150% 缩放下窗口会被放大，描边看着右边、下边厚。
         window.geometry(scaled_geometry(window, width, height, x, y))
         # 截图必须在 deiconify 之前：这时屏幕上还是浮层背后的真实内容
-        self._apply_backdrop(x, y, width, height, scaling)
-        # 窗口圆角跟卡片同半径：DWM 圆角半径由系统定，卡片比它更圆时，
-        # 四角会露出一圈比 1px 粗的描边。
-        _round_corners(window, T.RADIUS_SMALL)
-        window.deiconify()
-        window.lift()
-        window.focus_force()
+        self._geom = (x, y, width, height, scaling)
+        if self._acrylic:
+            # 系统玻璃不截图：窗口显示出来之后调 DWM，让 DWM 自己去模糊背后内容
+            window.deiconify()
+            window.lift()
+            window.update_idletasks()
+            window.update()
+            acrylic_window(window, tint=self._acrylic_tint)
+        else:
+            self._apply_backdrop(x, y, width, height, scaling)
+            # 窗口圆角跟卡片同半径：DWM 圆角半径由系统定，卡片比它更圆时，
+            # 四角会露出一圈比 1px 粗的描边。
+            _round_corners(window, T.RADIUS_SMALL)
+            window.deiconify()
+            window.lift()
+            window.focus_force()
         window.bind("<FocusOut>", lambda _e: window.after(60, self._maybe_hide))
         self._window = window
+        self._start_refresh()
 
     def hide(self) -> None:
         """关掉弹层。"""
+        self._cancel_refresh()
         window = self._window
         self._window = None
         self._backdrop = None
@@ -186,19 +217,25 @@ class Popover:
         width: int,
         height: int,
         scaling: float,
+        *,
+        exclude: bool = False,
     ) -> None:
         """把截下来的模糊图塞进背景标签；截图失败就保持纯色卡片。"""
         if not self._glass or self._backdrop is None:
             return
         with contextlib.suppress(Exception):
-            image = backdrop_image(
-                x,
-                y,
-                width,
-                height,
+            kwargs = dict(
                 scaling=scaling,
                 radius=T.RADIUS_SMALL,
+                blur=self._glass_blur,
+                upscale=self._glass_upscale,
+                blur_scale=self._glass_blur_scale,
             )
+            if exclude and self._window is not None:
+                with excluding_from_capture(self._window):
+                    image = backdrop_image(x, y, width, height, **kwargs)
+            else:
+                image = backdrop_image(x, y, width, height, **kwargs)
             if image is None:
                 return
             photo = ctk.CTkImage(
@@ -211,6 +248,35 @@ class Popover:
             )
             self._photo = photo
             self._backdrop.configure(image=photo)
+
+    def _start_refresh(self) -> None:
+        """持续重截背景：背后滚动或动画时，毛玻璃能跟上。"""
+        self._cancel_refresh()
+        if self._acrylic or not self._glass:
+            return
+        self._refresh_job = self._widget.after(
+            self._refresh_delay(), self._refresh_backdrop
+        )
+
+    def _refresh_delay(self) -> int:
+        return 1 if self._glass_refresh_ms <= 0 else self._glass_refresh_ms
+
+    def _refresh_backdrop(self) -> None:
+        """定时重截一帧；弹层没了就停。"""
+        self._refresh_job = None
+        if self._window is None or not self._window.winfo_exists():
+            return
+        if self._geom is not None:
+            self._apply_backdrop(*self._geom, exclude=True)
+        self._refresh_job = self._widget.after(
+            self._refresh_delay(), self._refresh_backdrop
+        )
+
+    def _cancel_refresh(self) -> None:
+        if self._refresh_job is not None:
+            with contextlib.suppress(tk.TclError):
+                self._widget.after_cancel(self._refresh_job)
+            self._refresh_job = None
 
     def _maybe_hide(self) -> None:
         """焦点离开后，指针也不在弹层或触发控件上才关。"""

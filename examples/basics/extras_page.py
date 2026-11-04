@@ -17,13 +17,11 @@ from ctk_kit import (
     Avatar,
     Badge,
     Breadcrumb,
-    Calendar,
     Card,
     Carousel,
     CodePanel,
     ColorPicker,
     CTkLabel,
-    DatePicker,
     FormEntry,
     Frame,
     HintLabel,
@@ -79,13 +77,6 @@ tabs.pack(fill="both", expand=True)
 def on_tab(name):
     print("切到", name)'''
 
-DATE_CODE = '''import datetime as dt
-
-from ctk_kit import Calendar, DatePicker
-
-Calendar(card, value=dt.date(2026, 11, 3), command=lambda d: print(d))
-DatePicker(card, placeholder="选择日期", command=lambda d: print(d))'''
-
 RANGE_SEARCH_CODE = '''from ctk_kit import RangeSlider, SearchBox
 
 RangeSlider(card, from_=0, to=100, values=(20, 80),
@@ -130,6 +121,12 @@ def build_form(parent):
 
 popover = Popover(button, content=build_form)   # 点按钮切换
 ColorPicker(card, value="#2563eb", command=lambda color: print(color))'''
+
+ACRYLIC_POPOVER_CODE = '''from ctk_kit import Popover
+
+popover = Popover(button, acrylic=True, content=build_form)
+# 窗口本身走系统 DWM 亚克力：整块直接透出背后内容，不截图、不用刷新
+# 需要窗口拿到焦点才模糊，失焦会变成系统灰（Windows 自身行为）'''
 
 STATUS_CAROUSEL_CODE = '''from ctk_kit import Carousel, StatusBar
 
@@ -185,7 +182,6 @@ class ExtrasPageUI(PageBase):
                 self._build_tooltip,
                 self._build_pagination,
                 self._build_tabs,
-                self._build_date,
                 self._build_range_search,
                 self._build_steps,
                 self._build_avatar_path,
@@ -336,30 +332,6 @@ class ExtrasPageUI(PageBase):
             )
 
         CodePanel(box, TABS_CODE, "tab(name) 拿到这一页的容器，往里放控件。")
-
-    def _build_date(self, area: tk.Misc) -> None:
-        """日期：月视图 + 弹层选择。"""
-        box = Card(area, title="日期")
-        box.pack(fill="x", pady=(12, 0))
-
-        HintLabel(
-            box,
-            "Calendar 是月视图，DatePicker 把它装进弹层；周一开头。",
-        ).pack(fill="x", padx=16, pady=(14, 8))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        self.calendar = Calendar(row, value=dt.date(2026, 11, 3))
-        self.calendar.pack(side="left")
-
-        right = Frame(row)
-        right.pack(side="left", fill="x", expand=True, padx=(12, 0))
-        self.picker = DatePicker(right, placeholder="选择日期")
-        self.picker.pack(fill="x")
-        self.date_hint = HintLabel(right, "选中日期会显示在这里")
-        self.date_hint.pack(fill="x", pady=(8, 0))
-
-        CodePanel(box, DATE_CODE, "get() 返回 datetime.date；set() 不弹层、不回调。")
 
     def _build_range_search(self, area: tk.Misc) -> None:
         """区间滑块 + 搜索框。"""
@@ -512,6 +484,8 @@ class ExtrasPageUI(PageBase):
         row.pack(fill="x", padx=16, pady=(0, 10))
         self.filter_button = SoftButton(row, "筛选条件")
         self.filter_button.pack(side="left")
+        self.acrylic_button = SoftButton(row, "系统玻璃")
+        self.acrylic_button.pack(side="left", padx=(10, 0))
         self.color_picker = ColorPicker(row, value="#2563eb", command=self._on_color)
         self.color_picker.pack(side="left", padx=(12, 0))
         self.color_hint = HintLabel(row, "#2563eb")
@@ -522,11 +496,24 @@ class ExtrasPageUI(PageBase):
             content=self._build_filter_popover,
             width=220,
         )
+        self.acrylic_popover = Popover(
+            self.acrylic_button,
+            content=self._build_acrylic_popover,
+            width=240,
+            acrylic=True,
+        )
 
         CodePanel(
             box,
             POPOVER_COLOR_CODE,
             "content 是一个「往父容器里建控件」的函数，弹层每次打开都会重跑。",
+        )
+
+        CodePanel(
+            box,
+            ACRYLIC_POPOVER_CODE,
+            "acrylic=True 用系统亚克力：窗口本身是玻璃，透出的是真实背后内容；"
+            "窗口失焦会变灰，这是 Windows 的行为。",
         )
 
     def _build_status_carousel(self, area: tk.Misc) -> None:
@@ -624,8 +611,6 @@ class ExtrasPage(ExtrasPageUI):
         self.size20.configure(command=lambda: self._set_size(20))
         self.size50.configure(command=lambda: self._set_size(50))
         self.tabs.configure(command=self._on_tab)
-        self.calendar.configure(command=self._on_calendar)
-        self.picker.configure(command=self._on_picker)
         self.range.configure(command=self._on_range)
         self.search.configure(command=self._on_search)
         self.steps.configure(command=self._on_step)
@@ -696,14 +681,6 @@ class ExtrasPage(ExtrasPageUI):
         """切换页签。"""
         self.feedback.configure(text=f"切到「{name}」页签")
 
-    def _on_calendar(self, day: dt.date) -> None:
-        """月视图里点了一天。"""
-        self.date_hint.configure(text=f"选中 {day:%Y-%m-%d}")
-
-    def _on_picker(self, day: dt.date) -> None:
-        """弹层里选完日期。"""
-        self.feedback.configure(text=f"DatePicker 选中 {day:%Y-%m-%d}")
-
     def _on_range(self, low: float, high: float) -> None:
         """区间滑块松手。"""
         self.range_hint.configure(text=f"{low:g} – {high:g}")
@@ -773,3 +750,16 @@ class ExtrasPage(ExtrasPageUI):
         text = self.filter_entry.get().strip()
         self.feedback.configure(text=f"筛选：{text or '（空）'}")
         self.popover.hide()
+
+    def _build_acrylic_popover(self, parent: tk.Misc) -> None:
+        """系统玻璃弹层的内容。"""
+        CTkLabel(parent, text="系统玻璃").pack(anchor="w")
+        HintLabel(
+            parent,
+            "整块直接透出背后内容；窗口拿到焦点才模糊。",
+        ).pack(fill="x", pady=(6, 10))
+        PrimaryButton(parent, "知道了", command=self._close_acrylic).pack(anchor="e")
+
+    def _close_acrylic(self) -> None:
+        self.acrylic_popover.hide()
+        self.feedback.configure(text="系统玻璃弹层：已收起")

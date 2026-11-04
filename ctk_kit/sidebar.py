@@ -45,9 +45,10 @@ from .buttons import SecondaryButton
 from .fonts import get_font
 from .pages import PageRebuilder
 from .styles import style_of
-from .theme import apply_appearance_fast
+from .theme import apply_appearance_fast, freeze_redraw
 
 __all__ = ["SidebarNav"]
+
 
 # 建页函数：给父容器，返回一个已建好的页面。
 PageBuilder = Callable[[tk.Misc], tk.Misc]
@@ -71,6 +72,23 @@ def _load_logo(spec: Union[bool, str], size: int):
     path = logo_path(size) if spec is True else spec
     image = Image.open(path).convert("RGBA")
     return ctk.CTkImage(light_image=image, dark_image=image, size=(size, size))
+
+
+def _repaint_subtree(widget: tk.Misc, mode: str) -> None:
+    """让子树里已有的 CTk 控件换到指定外观，只重绘、不重建。
+
+    ``apply_appearance_fast`` 切主题时会跳过所有已有控件（这样才不卡），外壳
+    靠 ``apply_theme`` 逐个换色；调用方塞进 footer 的自定义控件不在这套流程里，
+    在这里统一补一次。
+    """
+    for child in widget.winfo_children():
+        setter = getattr(child, "_set_appearance_mode", None)
+        if callable(setter):
+            try:
+                setter(mode)
+            except tk.TclError:
+                return
+        _repaint_subtree(child, mode)
 
 
 class SidebarNav(ctk.CTkFrame):
@@ -598,6 +616,12 @@ class SidebarNav(ctk.CTkFrame):
         for button in self._bottom_buttons.values():
             button.configure(**bottom)
 
+        # footer 是调用方自己塞进来的控件（头像、名字、设置按钮），外壳不知道
+        # 里面有什么，统一让子树里已有的 CTk 控件按新外观重绘一次。
+        footer = getattr(self, "bottom", None)
+        if footer is not None:
+            _repaint_subtree(footer, "Light" if mode == "light" else "Dark")
+
     def set_appearance_mode(self, mode: str) -> None:
         """切换外观：外壳原地换色，只重建当前页。
 
@@ -607,17 +631,23 @@ class SidebarNav(ctk.CTkFrame):
         顺序很重要：先切全局外观、再刷外壳、最后重建页面。页面里的
         ``Scrollable`` 会在构造时从父容器取底色，外壳没刷完就重建，页面会
         留着上一套外观的底色。
+
+        整个过程包在 :class:`ctk_kit.theme.freeze_redraw` 里：重建当前页要几十到
+        上百毫秒，不冻结绘制的话，中间会先合成一帧「外壳已是新色、页面还是旧
+        色」，看起来就是切主题时闪一下。
         """
-        apply_appearance_fast(mode, window=self.winfo_toplevel())
+        window = self.winfo_toplevel()
+        with freeze_redraw(window):
+            apply_appearance_fast(mode, window=window)
 
-        # 外壳控件只 configure 换色，不销毁重建；页面内容仍按需重建。
-        self.apply_theme(mode)
+            # 外壳控件只 configure 换色，不销毁重建；页面内容仍按需重建。
+            self.apply_theme(mode)
 
-        # 其余页只标过期，切过去时再按新外观建；当前页立刻重建。
-        self.rebuilder.mark_stale()
-        current = self.rebuilder.current
-        if current is not None:
-            self.rebuilder.rebuild(current)
+            # 其余页只标过期，切过去时再按新外观建；当前页立刻重建。
+            self.rebuilder.mark_stale()
+            current = self.rebuilder.current
+            if current is not None:
+                self.rebuilder.rebuild(current)
 
     def toggle_appearance(self) -> None:
         """在深浅两套外观之间切换。"""

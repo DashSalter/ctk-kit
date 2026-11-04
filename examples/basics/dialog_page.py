@@ -116,6 +116,8 @@ class DialogPageUI(PageBase):
         FieldLabel(row, "类型", width=72).pack(side="left")
         self.confirm_button = SecondaryButton(row, "普通确认", width=96)
         self.confirm_button.pack(side="left")
+        self.acrylic_button = SecondaryButton(row, "系统玻璃", width=96)
+        self.acrylic_button.pack(side="left", padx=(8, 0))
         self.danger_button = CTkButton(
             row,
             text="危险操作",
@@ -178,6 +180,20 @@ class DialogPageUI(PageBase):
     def _show_confirm(self, danger: bool) -> None:
         """确认框：UI 类里空实现，由事件类覆写。"""
 
+    def _show_acrylic(self) -> None:
+        """系统玻璃（acrylic）版弹窗；只在 Windows 11 上有效果。"""
+        ok = confirm(
+            self,
+            "删除这份备份？删除后无法恢复。",
+            title="删除备份",
+            detail="D:/backup/2026-10-31",
+            level="warn",
+            ok="删除",
+            danger=True,
+            backdrop="acrylic",
+        )
+        self._show("系统玻璃弹窗：确定" if ok else "系统玻璃弹窗：取消")
+
     def _show_prompt(self) -> None:
         """输入框：UI 类里空实现，由事件类覆写。"""
 
@@ -199,6 +215,7 @@ class DialogPage(DialogPageUI):
         self.warn_button.configure(command=lambda: self._show_alert("warn"))
         self.error_button.configure(command=lambda: self._show_alert("error"))
         self.confirm_button.configure(command=lambda: self._show_confirm(False))
+        self.acrylic_button.configure(command=self._show_acrylic)
         self.danger_button.configure(command=lambda: self._show_confirm(True))
         self.prompt_button.configure(command=self._show_prompt)
         self.custom_button.configure(command=self._show_custom)

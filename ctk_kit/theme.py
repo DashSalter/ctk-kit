@@ -219,6 +219,48 @@ def recolor_tree(
             recolor_shallow(child, bg, mode_string)
 
 
+class freeze_redraw:
+    """上下文管理器：切换外观期间挂起窗口重绘，退出时整体重画一次。
+
+    切外观要「先刷外壳、再重建当前页」，两步之间有一帧「外壳已是新配色、页面
+    还是旧的」的中间态；页面重建要几十到上百毫秒，这一帧会被看到，就是切换时
+    的闪。用 Win32 的 ``WM_SETREDRAW`` 把绘制挂起，两步都做完再一起重画，中间
+    态就不会上屏。
+
+    非 Windows 或拿不到窗口句柄时什么也不做，退化成「有可能闪一下」。
+    """
+
+    _WM_SETREDRAW = 0x000B
+    # RDW_INVALIDATE | RDW_ERASE | RDW_ALLCHILDREN | RDW_UPDATENOW
+    _REDRAW_FLAGS = 0x0001 | 0x0004 | 0x0080 | 0x0100
+
+    def __init__(self, window: tk.Misc) -> None:
+        self._window = window
+        self._hwnd = 0
+
+    def __enter__(self) -> "freeze_redraw":
+        if sys.platform == "win32":
+            try:
+                user32 = ctypes.windll.user32
+                hwnd = user32.GetParent(self._window.winfo_id()) or self._window.winfo_id()
+                user32.SendMessageW(hwnd, self._WM_SETREDRAW, 0, 0)
+                self._hwnd = hwnd
+            except Exception:  # noqa: BLE001 - 拿不到句柄就退化成普通切换
+                self._hwnd = 0
+        return self
+
+    def __exit__(self, *_exc: object) -> bool:
+        if self._hwnd:
+            try:
+                user32 = ctypes.windll.user32
+                user32.SendMessageW(self._hwnd, self._WM_SETREDRAW, 1, 0)
+                user32.RedrawWindow(self._hwnd, None, None, self._REDRAW_FLAGS)
+            except Exception:  # noqa: BLE001
+                pass
+            self._hwnd = 0
+        return False
+
+
 def recolor_shallow(widget: tk.Misc, bg: ColorToken, mode: str) -> None:
     """只刷这一个控件（不再往下递归），配合 ``recolor_tree(deep=False)``。"""
     configure = getattr(widget, "configure", None)

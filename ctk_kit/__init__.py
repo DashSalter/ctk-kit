@@ -73,6 +73,7 @@ from .avatar import Avatar
 from .badge import Badge, Tag
 from .breadcrumb import Breadcrumb
 from .calendar import Calendar, DatePicker
+from .timepicker import TimeField, TimePicker
 from .carousel import Carousel
 from .branding import ICON_PATH, LOGO_PATH, load_logo, set_window_icon
 from .buttons import (
@@ -192,6 +193,8 @@ __all__ = [
     "ContextMenu",
     "DangerButton",
     "DatePicker",
+    "TimeField",
+    "TimePicker",
     "Dialog",
     "DropField",
     "TagSelectField",

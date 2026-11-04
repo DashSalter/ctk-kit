@@ -8,6 +8,10 @@
 from __future__ import annotations
 
 import tkinter as tk
+from pathlib import Path
+
+import customtkinter as ctk
+from PIL import Image
 
 from ctk_kit import (
     App,
@@ -23,6 +27,7 @@ from ctk_kit.fonts import get_font
 from button_page import ButtonPage
 from choices_page import ChoicesPage
 from collapse_page import CollapsePage
+from datetime_page import TimeDatePage
 from dialog_page import DialogPage
 from extras_page import ExtrasPage
 from image_page import ImagePage
@@ -36,6 +41,19 @@ from profile_page import ProfilePage
 from select_page import SelectPage
 from settings_page import SettingsPage
 from table_page import TablePage
+
+_ICON_DIR = Path(__file__).resolve().parents[2] / "ctk_kit" / "Icon"
+
+
+def _tinted_icon(name: str, color: str) -> Image.Image:
+    """把单色图标的线条换成指定颜色，保留透明边缘。
+
+    只下载一版深色图标就够了，深色主题下按 alpha 通道换成浅色。
+    """
+    image = Image.open(_ICON_DIR / name).convert("RGBA")
+    solid = Image.new("RGBA", image.size, color)
+    solid.putalpha(image.getchannel("A"))
+    return solid
 
 
 class DemoApp(App):
@@ -63,6 +81,7 @@ class DemoApp(App):
                 "下拉": SelectPage,
                 "选择": ChoicesPage,
                 "展开": CollapsePage,
+                "时间日期": TimeDatePage,
                 "表格": TablePage,
                 "图片": ImagePage,
                 "提示": NotifyPage,
@@ -71,11 +90,9 @@ class DemoApp(App):
                 "列表": ListingPage,
                 "杂项": MiscPage,
             },
-            bottom_pages={
-                "设置": SettingsPage,
-            },
             hidden_pages={
                 "个人中心": ProfilePage,
+                "设置": SettingsPage,
             },
             footer=self._build_account,
             width=200,   # 侧边栏固定宽度（逻辑像素），窗口拉宽时不跟着变
@@ -98,7 +115,7 @@ class DemoApp(App):
             splash.finish()
 
     def _build_account(self, parent: tk.Misc) -> None:
-        """侧边栏底部、设置按钮上方的一行：头像 + 名字，点头像进个人中心。"""
+        """侧边栏底部一行：左边头像 + 名字进个人中心，右边齿轮进设置。"""
         row = Frame(parent)
         row.pack(fill="x", pady=(0, 8))
 
@@ -121,9 +138,33 @@ class DemoApp(App):
         name.pack(side="left", fill="x", expand=True, padx=(8, 0))
         name.bind("<Button-1>", lambda _event: self._open_profile())
 
+        # 设置入口靠右，和头像同一行。图标只放一版深色稿，深色主题下按 alpha
+        # 换成浅色线条，不用单独再下一份浅色图。
+        self._gear = ctk.CTkImage(
+            light_image=_tinted_icon("setting.png", "#3a3f47"),
+            dark_image=_tinted_icon("setting.png", "#c9cfd8"),
+            size=(17, 17),
+        )
+        self.settings_button = ctk.CTkButton(
+            row,
+            text="",
+            image=self._gear,
+            width=30,
+            height=28,
+            fg_color="transparent",
+            hover_color=T.COLOR_SOFT_HOVER,
+            corner_radius=T.RADIUS_SMALL,
+            command=self._open_settings,
+        )
+        self.settings_button.pack(side="right", padx=(6, 0))
+
     def _open_profile(self) -> None:
         """切到个人中心页。"""
         self.nav.show("个人中心")
+
+    def _open_settings(self) -> None:
+        """切到设置页。"""
+        self.nav.show("设置")
 
 
 def main() -> None:

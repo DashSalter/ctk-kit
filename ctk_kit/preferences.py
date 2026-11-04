@@ -21,9 +21,11 @@ from conf_base import ConfigBase, Section
 __all__ = [
     "default_config_path",
     "read_appearance",
+    "read_backdrop",
     "read_color_theme",
     "read_geometry",
     "write_appearance",
+    "write_backdrop",
     "write_color_theme",
     "write_geometry",
 ]
@@ -54,6 +56,7 @@ class WindowState(ConfigBase):
     appearance = Section("appearance")
     mode = appearance.field(default="system")   # light / dark / system
     color = appearance.field(default="")        # 颜色主题名或文件路径
+    backdrop = appearance.field(default="none")  # none / acrylic（毛玻璃）
 
 
 def read_geometry() -> Optional[Tuple[int, int, int, int]]:
@@ -108,3 +111,19 @@ def read_color_theme() -> str:
 def write_color_theme(name: str) -> None:
     """记住当前颜色主题（内置主题名或主题文件路径）。"""
     WindowState.color.value = name or ""
+
+
+def read_backdrop() -> str:
+    """读取上次选择的底色：``"none"``（不透明）或 ``"acrylic"``（毛玻璃）。"""
+    try:
+        mode = str(WindowState.backdrop.value or "").strip().lower()
+    except Exception:  # noqa: BLE001 - 配置损坏时回到不透明
+        return "none"
+    return "acrylic" if mode in ("acrylic", "glass", "毛玻璃", "玻璃") else "none"
+
+
+def write_backdrop(mode: str) -> None:
+    """记住当前底色模式。"""
+    WindowState.backdrop.value = "acrylic" if str(mode).lower() in (
+        "acrylic", "glass", "毛玻璃", "玻璃"
+    ) else "none"

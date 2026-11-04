@@ -16,8 +16,9 @@ import tkinter as tk
 from typing import Optional
 
 from . import tokens as T
+from .win32 import client_frame_inset, set_client_rect
 
-__all__ = ["round_window_corners", "scaled_geometry"]
+__all__ = ["round_window_corners", "scaled_geometry", "set_glass_geometry"]
 
 
 def scaled_geometry(
@@ -50,6 +51,39 @@ def scaled_geometry(
     if x is not None and y is not None:
         text += f"+{int(x)}+{int(y)}"
     return text
+
+
+def set_glass_geometry(
+    window: tk.Misc,
+    width: int,
+    height: int,
+    left: int,
+    top: int,
+) -> None:
+    """把补过 ``WS_THICKFRAME`` 的玻璃窗口摆好，让**客户区**正好是给定尺寸。
+
+    :func:`ctk_kit.win32.enable_acrylic` 会给无边框窗口补一圈缩放边框，
+    之后 Tk 的 ``geometry()`` 仍按「外框 = 客户区」算，实际客户区会小一圈
+    （125% 缩放下宽高各少 16px）。这里先把外框算大，再用
+    :func:`ctk_kit.win32.set_client_rect` 校正一次。
+
+    参数:
+        window: 目标窗口（``CTkToplevel``）。
+        width: 客户区宽度（物理像素）。
+        height: 客户区高度（物理像素）。
+        left: 屏幕横坐标（物理像素）。
+        top: 屏幕纵坐标（物理像素）。
+    """
+    inset_w, inset_h = client_frame_inset(window)
+    scaling = 1.0
+    with contextlib.suppress(Exception):
+        scaling = window._get_window_scaling() or 1.0
+    outer_w = max(1, int(round((width + inset_w) / scaling)))
+    outer_h = max(1, int(round((height + inset_h) / scaling)))
+    with contextlib.suppress(Exception):
+        window.geometry(f"{outer_w}x{outer_h}+{left}+{top}")
+        window.update_idletasks()
+        set_client_rect(window, width, height, left, top)
 
 
 def round_window_corners(

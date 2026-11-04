@@ -17,6 +17,8 @@ from typing import Optional, Sequence, Union
 
 import customtkinter as ctk
 
+from . import styles
+from . import tokens as T
 from .tokens import ColorPair
 
 try:  # 内部表：拿得到才能跳过「一次性重绘所有控件」
@@ -36,17 +38,20 @@ def is_dark() -> bool:
 
 
 def color_of(token: ColorToken) -> str:
-    """把 ``(浅色, 深色)`` 二元组按当前外观取一个值；普通字符串原样返回。
+    """把颜色令牌按当前外观/底色取一个值；普通字符串原样返回。
 
     参数:
-        token: 颜色令牌，可以是 ``("#ffffff", "#131418")`` 这样的二元组，
-            也可以是 ``"#ff0000"`` 这样的单值；单值不做任何转换。
+        token: 颜色令牌，可以是 ``(浅色, 深色)``、``(浅色, 深色, 毛玻璃)``
+            这样的元组，也可以是 ``"#ff0000"`` 这样的单值；单值不做任何转换。
+            三元组的第三项只在毛玻璃底色下生效。
 
     返回:
         当前外观下可用的单个颜色字符串，可直接传给 tk 控件的 ``bg`` /
         ``fg`` / ``fill`` 等选项。
     """
     if isinstance(token, (tuple, list)):
+        if len(token) >= 3 and current_backdrop() == "acrylic":
+            return token[2]
         return token[1] if is_dark() else token[0]
     return token
 
@@ -84,15 +89,22 @@ def repaint_native(widget: tk.Misc, bg: str) -> None:
         pass
 
 
-def _set_dwm_color(hwnd: int, attribute: int, color: ColorToken) -> bool:
+def _set_dwm_color(
+    hwnd: int, attribute: int, color: Optional[ColorToken]
+) -> bool:
     """给窗口的某个 DWM 颜色属性上色；不支持就返回 ``False``。
 
     Win32 的 ``COLORREF`` 是 ``0x00BBGGRR``，和 ``#RRGGBB`` 的字节序相反。
+    ``color`` 传 ``None`` 时写 ``DWMWA_COLOR_DEFAULT``（``0xFFFFFFFF``），把
+    属性交还给系统——标题栏重新由 DWM 绘制，玻璃外观靠这一步才能透出来。
     """
     try:
-        rgb = color_of(color).lstrip("#")
-        red, green, blue = int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)
-        value = ctypes.c_int(blue << 16 | green << 8 | red)
+        if color is None:
+            value = ctypes.c_int(-1)  # 0xFFFFFFFF == DWMWA_COLOR_DEFAULT
+        else:
+            rgb = color_of(color).lstrip("#")
+            red, green, blue = int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)
+            value = ctypes.c_int(blue << 16 | green << 8 | red)
         result = ctypes.windll.dwmapi.DwmSetWindowAttribute(
             hwnd, attribute, ctypes.byref(value), ctypes.sizeof(value)
         )
@@ -101,7 +113,7 @@ def _set_dwm_color(hwnd: int, attribute: int, color: ColorToken) -> bool:
     return result == 0
 
 
-def set_titlebar_dark(window: tk.Misc, dark: bool) -> None:
+def set_titlebar_dark(window: tk.Misc, dark: bool, *, glass: bool = False) -> None:
     """把窗口的标题栏刷成和界面一致的颜色（仅 Windows 生效）。
 
     分两步：
@@ -120,6 +132,8 @@ def set_titlebar_dark(window: tk.Misc, dark: bool) -> None:
     参数:
         window: 任意顶层窗口（``CTk`` / ``CTkToplevel`` / ``tk.Toplevel``）。
         dark: ``True`` 深色标题栏，``False`` 浅色。
+        glass: ``True`` 时不涂标题栏和边框色，交还 DWM——玻璃外观下一旦设了
+            ``CAPTION_COLOR``，标题栏就变回不透明纯色，玻璃透不过来。
     """
     if sys.platform != "win32":
         return
@@ -136,6 +150,12 @@ def set_titlebar_dark(window: tk.Misc, dark: bool) -> None:
             if result == 0:
                 break
     except Exception:  # noqa: BLE001 - 非 Windows 或 DWM 不可用
+        return
+
+    if glass:
+        # 交还给 DWM：标题栏和边框恢复系统绘制，玻璃才能一直糊到顶上。
+        _set_dwm_color(hwnd, 35, None)
+        _set_dwm_color(hwnd, 34, None)
         return
 
     # 和窗口自身的层次对齐：标题栏 = 标题栏色，边框 = 描边色，文字 = 正文色
@@ -322,7 +342,9 @@ def apply_appearance_fast(mode: str, *, window: Optional[tk.Misc] = None) -> Non
 
     if window is not None:
         repaint_window(window, target)
-        set_titlebar_dark(window, target == "Dark")
+        set_titlebar_dark(
+            window, target == "Dark", glass=current_backdrop() == "acrylic"
+        )
 
 
 #: 窗口类背景画刷：hwnd -> HBRUSH。换主题时替换，旧刷在这里删。
@@ -393,3 +415,62 @@ def set_window_brush(window: tk.Misc, color: Optional[str] = None) -> bool:
         return True
     except Exception:  # noqa: BLE001 - 非 Windows、老系统或 Tk 窗口还没建好
         return False
+
+
+# ---------------------------------------------------------------- 玻璃外观
+# 模块加载时的普通底色：从玻璃切回来时用，避免「普通色 = 玻璃色」。
+_BASE_BG = T.COLOR_BG
+_BASE_SIDE = T.COLOR_SIDE
+# 进入玻璃前各个「带第三项」令牌的原值，切回普通底色时逐个还原。
+_BASE_GLASS_COLORS: dict[str, ColorPair] = {}
+_backdrop = "none"
+
+#: 接受的玻璃模式写法（小写比较，中文不受 lower 影响）。
+_GLASS_ALIASES = {"acrylic", "glass", "玻璃", "毛玻璃", "磨砂"}
+
+
+def current_backdrop() -> str:
+    """当前底色模式：``"none"`` 或 ``"acrylic"``。"""
+    return _backdrop
+
+
+def apply_backdrop(mode: str = "none", veil: str = "#000000") -> str:
+    """把全局底色在「普通」和「玻璃」之间切换，返回实际生效的模式。
+
+    玻璃模式下 ``tokens.COLOR_BG`` / ``COLOR_SIDE`` 被换成 ``veil``：DWM 的
+    acrylic 把**纯黑**像素当成透明，窗口底和侧边栏于是透出桌面的模糊；卡片、
+    输入框这些仍是实色，浮在玻璃上。同时把 ``tokens.GLASS_COLORS`` 里登记的
+    令牌（源码里写成三元组的那些）换成第三项，透明底上的青、灰才压得住。
+
+    ``veil`` 是「透明键色」，默认纯黑。改它只影响「看起来像不像透」：DWM
+    只认纯黑（``#000000``）为全透明，换成近黑或深灰，那块区域就变成实色面板，
+    玻璃也就看不见了——所以这个值适合拿来试，不适合当真当假。
+
+    只改颜色令牌，**已经建好的控件不会自己变**——调用方要接着重建外壳和页面。
+    ``ctk_kit.window.App.set_backdrop()`` 已经把整套流程包好了。
+
+    参数:
+        mode: ``"none"`` 关闭；``"acrylic"``（也接受 ``"glass"`` / ``"毛玻璃"``）
+            开启。
+        veil: 玻璃模式下铺在窗口底/侧边栏/页面底的颜色，``"#RRGGBB"``。
+
+    返回:
+        实际生效的模式，``"none"`` 或 ``"acrylic"``。
+    """
+    global _backdrop
+    wanted = "acrylic" if str(mode).strip().lower() in _GLASS_ALIASES else "none"
+    if wanted == "acrylic":
+        T.COLOR_BG = (veil, veil)
+        T.COLOR_SIDE = (veil, veil)
+        for name, target in T.GLASS_COLORS.items():
+            _BASE_GLASS_COLORS.setdefault(name, getattr(T, name))
+            setattr(T, name, target)
+    else:
+        T.COLOR_BG = _BASE_BG
+        T.COLOR_SIDE = _BASE_SIDE
+        for name, base in _BASE_GLASS_COLORS.items():
+            setattr(T, name, base)
+        _BASE_GLASS_COLORS.clear()
+    styles.refresh_tokens()
+    _backdrop = wanted
+    return _backdrop

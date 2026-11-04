@@ -19,10 +19,11 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .glass import backdrop_image
-from .popup import round_window_corners
+from .popup import round_window_corners, set_glass_geometry
 from .fonts import get_font
 from .inputs import CTkEntry
-from .theme import color_of
+from .theme import color_of, current_backdrop
+from .win32 import acrylic_window
 
 _ARROW_CLOSED = "▼"
 _ARROW_OPEN = "▲"
@@ -140,6 +141,7 @@ class DropField(ctk.CTkFrame):
         self._anim_job: Optional[str] = None
         self._anim_started: float = 0.0
         self._popup_box: Optional[tuple] = None
+        self._glass = False
         self._closing: Optional[ctk.CTkToplevel] = None
         self._close_job: Optional[str] = None
         self._last_key: Optional[tuple] = None
@@ -280,17 +282,24 @@ class DropField(ctk.CTkFrame):
         if not values:
             return
 
+        # 玻璃只对纯黑透明键生效；浅色外观的玻璃底是亮的，面板保持实色
+        # 卡片更好读，所以这里只认「深色 + 毛玻璃」。
+        veil = None
+        if current_backdrop() == "acrylic" and (
+            ctk.get_appearance_mode().lower() == "dark"
+        ):
+            veil = "#000000"
         popup = ctk.CTkToplevel(self)
         popup.withdraw()
         popup.overrideredirect(True)
         popup.attributes("-topmost", True)
         # 窗口铺成描边色、卡片内缩 1px：边框是「露出来的一圈底色」，
         # 会跟着窗口的圆角一起走，不会像矩形描边那样在四个角断开。
-        popup.configure(fg_color=T.COLOR_BORDER)
+        popup.configure(fg_color=veil or T.COLOR_BORDER)
 
         body = ctk.CTkFrame(
             popup,
-            fg_color=T.COLOR_CARD,
+            fg_color=veil or T.COLOR_CARD,
             # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
@@ -301,7 +310,7 @@ class DropField(ctk.CTkFrame):
         self._backdrop = ctk.CTkLabel(body, text="", fg_color="transparent")
         self._backdrop.place(x=0, y=0, relwidth=1, relheight=1)
 
-        listing = _PopupList(body, color_of(T.COLOR_CARD))
+        listing = _PopupList(body, veil or color_of(T.COLOR_CARD))
         listing.pack(fill="both", expand=True, padx=5, pady=5)
         self._build_rows(listing)
 
@@ -310,11 +319,22 @@ class DropField(ctk.CTkFrame):
         self._rows = len(values)
         self._listing = listing
         self._last_key = None
+        self._glass = veil is not None
+        if self._glass:
+            # 玻璃要在「还没显示」时挂好：窗口第一次出现就是模糊背景，
+            # 不会先闪一帧不透明底。挂完再定位，边框差值才是准的。
+            tint = None
+            with contextlib.suppress(Exception):
+                tint = self.winfo_toplevel()._glass_tint()
+            acrylic_window(popup, tint=tint)
+            popup.update()
         if not self._place_popup():
             self._close_menu()
             return
-        # 截图必须在显示之前：这时屏幕上还是面板背后的真实内容
-        self._apply_backdrop()
+        # 截图必须在显示之前：这时屏幕上还是面板背后的真实内容。
+        # 系统玻璃已经给了真实背景，再铺一张模糊图反而是双份模糊。
+        if not self._glass:
+            self._apply_backdrop()
         # 先透明再显示，避免第一帧整块不透明地闪出来
         with contextlib.suppress(tk.TclError):
             popup.attributes("-alpha", 0.0)
@@ -412,10 +432,13 @@ class DropField(ctk.CTkFrame):
 
         top_px = widget_bottom + gap if below else widget_top - gap - height_px
 
-        popup.geometry(
-            f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
-            f"+{left_px}+{top_px}"
-        )
+        if self._glass:
+            set_glass_geometry(popup, width_px, height_px, left_px, top_px)
+        else:
+            popup.geometry(
+                f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
+                f"+{left_px}+{top_px}"
+            )
 
         # 入场动画要用的最终位置；窗口尺寸用逻辑像素（geometry 自己会乘缩放）
         self._popup_box = (
@@ -433,8 +456,17 @@ class DropField(ctk.CTkFrame):
         return True
 
     def _start_open_anim(self) -> None:
-        """面板显示后开始淡入 + 下滑；窗口不支持 alpha 时只做下滑。"""
+        """面板显示后开始淡入 + 下滑；窗口不支持 alpha 时只做下滑。
+
+        玻璃面板不做动画：它的尺寸靠 ``SetWindowPos`` 校正在客户区上，
+        动画每帧改 ``geometry()`` 会把客户区又缩回去，内容被裁掉。
+        """
         if self._popup is None or self._popup_box is None:
+            return
+        if self._glass:
+            with contextlib.suppress(tk.TclError):
+                self._popup.attributes("-alpha", 1.0)
+            self._schedule_follow()
             return
         self._anim_started = time.perf_counter()
         self._anim_job = self.after(1, self._open_step)
@@ -510,10 +542,13 @@ class DropField(ctk.CTkFrame):
         if width_px <= 1 or height_px <= 1:
             return False
 
-        popup.geometry(
-            f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
-            f"+{left}+{top}"
-        )
+        if self._glass:
+            set_glass_geometry(popup, width_px, height_px, left, top)
+        else:
+            popup.geometry(
+                f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
+                f"+{left}+{top}"
+            )
         return True
 
     def _flush_place(self) -> None:
@@ -719,7 +754,7 @@ class DropField(ctk.CTkFrame):
             return
         # 更早的一块还没淡完，先收掉
         self._finish_closing()
-        if animate and box is not None:
+        if animate and box is not None and not self._glass:
             with contextlib.suppress(tk.TclError):
                 if popup.winfo_exists():
                     self._start_close_anim(popup, box)

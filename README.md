@@ -878,6 +878,8 @@ app.mainloop()
   头像行排在 `bottom_pages` 按钮的上方
 - `width`：整数是固定逻辑像素（如 `200`）；`0` 到 `1` 之间的小数是宽度比例
   （如 `0.16`），窗口拉宽时侧边栏跟着变宽
+- `divider`：默认 `True`，在侧边栏和页面区之间画一条 1px 竖向分隔线，切深浅
+  外观时跟着换色；传 `False` 不画
 - `logo`：大标题左侧的图标，默认 `True` 用内置 logo；`False` 不显示，传字符串
   用自定义图片路径；`logo_size` 控制边长（默认 32 逻辑像素）
 - 拖动窗口边缘时页面区会先保持旧尺寸，松手约 320ms 后再按新尺寸重排，
@@ -959,7 +961,7 @@ finally:
 
 ## 设计令牌与外观
 
-颜色全部是 `(浅色, 深色)` 二元组，用 `color_of()` 按当前外观取值：
+颜色一般是 `(浅色, 深色)` 二元组，用 `color_of()` 按当前外观取值：
 
 ```python
 from ctk_kit import color_of
@@ -967,6 +969,16 @@ from ctk_kit.tokens import COLOR_ACCENT
 
 color_of(COLOR_ACCENT)   # 深色下返回 "#2f6fed"
 ```
+
+需要给毛玻璃单独指定颜色时写成 `(浅色, 深色, 毛玻璃)` 三元组，第三项只在毛玻璃
+底色下生效，不写就沿用深色值：
+
+```python
+COLOR_ACTIVE = ("#17a6bd", "#4fb6cc", "#183878")
+```
+
+CustomTkinter 只接受二元组，所以 `tokens` 在模块加载时会把三元组压平成二元组，
+第三项收进 `tokens.GLASS_COLORS`，由 `theme.apply_backdrop()` 在切玻璃时替换。
 
 - `apply_appearance(mode)`：切外观（`"light"` / `"dark"` / `"system"`），已有控件跟着重绘
 - `apply_appearance_fast(mode, *, window=None)`：切外观但**不重绘已有控件**（切主题不卡），
@@ -982,6 +994,19 @@ color_of(COLOR_ACCENT)   # 深色下返回 "#2f6fed"
 - `style_of(name, state, mode=None)`：从 `ctk_kit.styles` 取外壳控件的样式表，
   返回可直接解包给 `configure(**...)` 的颜色；`SidebarNav` / `Card` /
   `StatusBar` 的 `apply_theme()` 就是用它
+- `App.set_glass_options(**kwargs)` / `App.glass_options()`：运行时调整窗玻璃参数
+  （`kind` / `alpha` / `wca` / `state` / `backdrop` / `corners` / `border` /
+  `caption` / `color` / `veil` / `opacity` / `frame` / `extend` / `titlebar` /
+  `dark`），示例设置页的「毛玻璃微调」卡片就是它的面板
+- `App.set_window_debug(hide_frame_border=..., disable_transitions=...)` /
+  `App.window_debug()`：窗口级 DWM 调试项。`hide_frame_border` 写
+  `DWMWA_VISIBLE_FRAME_BORDER_THICKNESS`（37，Win11 22H2+）去掉四周那条 1px
+  系统边框，系统不支持时 `window_debug()["frame_border_supported"]` 为 `False`；
+  `disable_transitions` 写 `DWMWA_TRANSITIONS_FORCEDISABLED`（3）关掉窗口出现、
+  重建时的过渡动画。示例设置页的「窗口调试（DWM）」卡片就是它
+- `App.frame_bounds()`：`DWMWA_EXTENDED_FRAME_BOUNDS`（9），窗口含阴影的真实
+  屏幕矩形 `(left, top, right, bottom)`（物理像素），和 `winfo_rootx()` 那套
+  客户区坐标并排看，能看出标题栏和边框各占多少
 - `paint.animate_color(widget, option, start, end, duration=150)`：把某个颜色
   选项从 `start` 渐变到 `end`，返回可 `cancel()` 的句柄；同一控件同一选项
   不会叠加多套定时器

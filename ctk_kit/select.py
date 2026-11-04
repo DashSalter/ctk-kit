@@ -17,10 +17,11 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
-from .popup import round_window_corners
+from .popup import round_window_corners, set_glass_geometry
 from .inputs import CTkEntry
 from .layout import style_scrollbar
-from .theme import color_of
+from .theme import color_of, current_backdrop
+from .win32 import acrylic_window
 
 #: 面板最多铺几行，超出就在面板内部滚动。
 _MAX_VISIBLE_ROWS = 8
@@ -44,6 +45,38 @@ _OPEN_SLIDE = 6
 _CLOSE_ANIM_MS = 100
 #: 树形节点展开/收起时面板高度的补间时长。
 _ROWS_ANIM_MS = 150
+
+
+def _panel_glass_veil() -> Optional[str]:
+    """毛玻璃底色下，面板该用的透明键色；其它情况返回 ``None``。
+
+    DWM 只把**纯黑**当成透明，所以玻璃面板里凡是「该透出桌面」的底都要
+    刷成这个色；实色的卡片 / 描边色会把玻璃整块盖住。
+
+    浅色外观不走这条路：浅色玻璃的底是亮的，面板再透明反而糊成一片，
+    保持普通浅色卡片更好读。
+    """
+    if current_backdrop() != "acrylic":
+        return None
+    if ctk.get_appearance_mode().lower() != "dark":
+        return None
+    return "#000000"
+
+
+def _enable_panel_glass(popup: ctk.CTkToplevel) -> None:
+    """让下拉面板跟主窗口一起变成系统亚克力。
+
+    面板是独立的 ``CTkToplevel``，不带主窗口那层 accent 合成；玻璃下就会
+    留一块不透明的深色。这里补一次同样的合成，tint 直接沿用主窗口的。
+
+    ``frame=True`` 会补上 ``WS_THICKFRAME``——DWM 只对「有非客户区」的窗口
+    走真正的玻璃合成。代价是客户区被那圈边框吃掉，调用方必须接着用
+    :func:`set_glass_geometry` 按外框把尺寸校正回去。
+    """
+    tint = None
+    with contextlib.suppress(Exception):
+        tint = popup.master.winfo_toplevel()._glass_tint()
+    acrylic_window(popup, tint=tint)
 
 
 class _PopupList(tk.Frame):
@@ -142,6 +175,7 @@ class _PopupPanel:
         self._last_key: Optional[tuple] = None
         self._resize_quiet_until: float = 0.0
         self._last_root_size: tuple = ()
+        self._glass = False
 
     @property
     def visible(self) -> bool:
@@ -158,22 +192,23 @@ class _PopupPanel:
         # 上一块还在淡出：立刻收掉，免得两块面板叠在一起
         self._finish_closing()
 
+        veil = _panel_glass_veil()
         popup = ctk.CTkToplevel(self._owner)
         popup.withdraw()
         popup.overrideredirect(True)
         popup.attributes("-topmost", True)
-        popup.configure(fg_color=T.COLOR_BORDER)
+        popup.configure(fg_color=veil or T.COLOR_BORDER)
 
         body = ctk.CTkFrame(
             popup,
-            fg_color=T.COLOR_CARD,
+            fg_color=veil or T.COLOR_CARD,
             # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
-        listing = _PopupList(body, color_of(T.COLOR_CARD))
+        listing = _PopupList(body, veil or color_of(T.COLOR_CARD))
         listing.pack(fill="both", expand=True, padx=5, pady=5)
 
         self._popup = popup
@@ -181,7 +216,13 @@ class _PopupPanel:
         self._rows = max(0, int(self._build(listing.inner) or 0))
         self._last_key = None
 
+        self._glass = veil is not None
         popup.update_idletasks()
+        if self._glass:
+            # 玻璃要在「还没显示」时挂好：窗口第一次出现就是模糊背景，
+            # 不会先闪一帧不透明底。挂完再定位，边框差值才是准的。
+            _enable_panel_glass(popup)
+            popup.update()
         if not self._place_popup():
             self.close()
             return False
@@ -240,6 +281,10 @@ class _PopupPanel:
         # 展开/收起过程中面板高度瞬间跳变会显得生硬，补一段高度渐变；
         # 已经有一段动画在跑（刚打开面板）时不掺和，等它跑完再说。
         if self._anim_job is not None:
+            return
+        if self._glass:
+            # 玻璃面板的尺寸由 SetWindowPos 钉在客户区上，高度渐变每帧改
+            # geometry() 会把客户区缩回去；直接停在最终高度上。
             return
         with contextlib.suppress(tk.TclError):
             if self._popup is not None:
@@ -319,7 +364,7 @@ class _PopupPanel:
             return
         # 更早的一块还没淡完，先收掉
         self._finish_closing()
-        if animate and box is not None:
+        if animate and box is not None and not self._glass:
             with contextlib.suppress(tk.TclError):
                 if popup.winfo_exists():
                     self._start_close_anim(popup, box)
@@ -330,8 +375,17 @@ class _PopupPanel:
 
     # ------------------------------------------------------------ 展开/收起动画
     def _start_open_anim(self) -> None:
-        """面板显示后开始淡入 + 下滑；窗口不支持 alpha 时只做下滑。"""
+        """面板显示后开始淡入 + 下滑；窗口不支持 alpha 时只做下滑。
+
+        玻璃面板不做动画：它的尺寸靠 ``SetWindowPos`` 校正在客户区上，
+        动画每帧改 ``geometry()`` 会把客户区又缩回去，内容被裁掉。
+        """
         if self._popup is None or self._popup_box is None:
+            return
+        if self._glass:
+            with contextlib.suppress(tk.TclError):
+                self._popup.attributes("-alpha", 1.0)
+            self._schedule_follow()
             return
         self._anim_started = time.perf_counter()
         self._anim_job = self._owner.after(1, self._open_step)
@@ -478,10 +532,13 @@ class _PopupPanel:
         left_px = max(left_px, root_left)
         top_px = widget_bottom + gap if below else widget_top - gap - height_px
 
-        popup.geometry(
-            f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
-            f"+{left_px}+{top_px}"
-        )
+        if self._glass:
+            set_glass_geometry(popup, width_px, height_px, left_px, top_px)
+        else:
+            popup.geometry(
+                f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
+                f"+{left_px}+{top_px}"
+            )
 
         # 展开动画要用的最终位置；窗口尺寸用逻辑像素（geometry 自己会乘缩放）
         self._popup_box = (
@@ -520,10 +577,13 @@ class _PopupPanel:
         if width_px <= 1 or height_px <= 1:
             return False
 
-        popup.geometry(
-            f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
-            f"+{left}+{top}"
-        )
+        if self._glass:
+            set_glass_geometry(popup, width_px, height_px, left, top)
+        else:
+            popup.geometry(
+                f"{max(1, int(width_px / scaling))}x{max(1, int(height_px / scaling))}"
+                f"+{left}+{top}"
+            )
         return True
 
     def _schedule_follow(self) -> None:

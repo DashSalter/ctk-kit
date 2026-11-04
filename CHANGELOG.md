@@ -3,6 +3,28 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+- 新增 `App.set_window_debug()` / `window_debug()`：窗口级 DWM 调试项。
+  `hide_frame_border` 写 `DWMWA_VISIBLE_FRAME_BORDER_THICKNESS`（37，Win11
+  22H2+）去掉四周 1px 系统边框，不支持时 `window_debug()["frame_border_supported"]`
+  为 `False`；`disable_transitions` 写 `DWMWA_TRANSITIONS_FORCEDISABLED`（3）
+  关掉窗口出现 / 重建时的过渡动画
+- 新增 `App.frame_bounds()`：`DWMWA_EXTENDED_FRAME_BOUNDS`（9），返回窗口含阴影
+  的真实屏幕矩形，和 `winfo_rootx()` 那套客户区坐标对比能看出标题栏与边框的占用
+- `ctk_kit.win32` 新增 `set_frame_border_thickness()` / `set_transitions_disabled()` /
+  `extended_frame_bounds()` 与常量 `DWMWA_VISIBLE_FRAME_BORDER_THICKNESS`（37）/
+  `DWMWA_TRANSITIONS_FORCEDISABLED`（3）/ `DWMWA_EXTENDED_FRAME_BOUNDS`（9）
+- 示例设置页新增「窗口调试（DWM）」卡片：两个开关 + 一行「读取真实边界」，
+  拨动即可看到效果；本机不支持 37 时自动提示
+- 示例设置页「毛玻璃微调」的「底色」新增「白」：白色 tint 配高「压暗」就是
+  白雾玻璃，背后内容只剩淡淡一层（DWM 的 tint alpha 删不掉模糊层，压不到全不透）
+- `SidebarNav` 新增 `divider=True`：侧边栏与页面之间画一条 1px 竖线，底部留
+  20 逻辑像素不贴边，切深浅外观跟着换色；传 `False` 不画
+- 下拉 / 多选标签 / 层级树的面板在毛玻璃下改为真玻璃：先挂
+  `acrylic_window(frame=True)` 再用 `popup.set_glass_geometry()` 校正客户区，
+  不再是一块不透明的黑底；浅色外观的玻璃仍用普通实色卡片
+
 ## 0.9.2 — 2026-11-02
 
 - `App` 新增 `remember_geometry=True`：关闭时用 conf_base 把窗口大小和屏幕

@@ -115,6 +115,8 @@ class SidebarNav(ctk.CTkFrame):
             账号行之类。头像行会排在 ``bottom_pages`` 按钮的上方。
         bottom_width: 底部按钮宽度（逻辑像素），默认 176。
         initial: 启动后直接显示的页面名；不传就显示 ``pages`` 的第一页。
+        divider: 默认 ``True``，在侧边栏和页面区之间画一条 1px 分隔线；传
+            ``False`` 不画。
         on_change: 每次切页后调用，参数是新的页面名。
         on_hide: 页面被切走时的回调，参数是那个页面容器（见 ``PageRebuilder``）。
         **kwargs: 其余参数交给 ``CTkFrame``。
@@ -145,6 +147,7 @@ class SidebarNav(ctk.CTkFrame):
         footer: Optional[Callable[[ctk.CTkFrame], None]] = None,
         bottom_width: int = 176,
         initial: Optional[str] = None,
+        divider: bool = True,
         on_change: Optional[Callable[[str], None]] = None,
         on_hide: Optional[Callable[[tk.Misc], None]] = None,
         **kwargs: Any,
@@ -173,6 +176,7 @@ class SidebarNav(ctk.CTkFrame):
         self._on_change = on_change
         self._width = width
         self._padding = padding
+        self._show_divider = bool(divider)
         self._buttons: Dict[str, ctk.CTkButton] = {}
         self._bottom_buttons: Dict[str, ctk.CTkButton] = {}
         # 上一次高亮的导航按钮：切页时只刷变化的那两个，外观切换才全量重刷。
@@ -183,7 +187,8 @@ class SidebarNav(ctk.CTkFrame):
         self._thaw_job: Optional[str] = None
         self._last_window_size: Tuple[int, int] = (0, 0)
 
-        self.grid_columnconfigure(1, weight=1)
+        # 列 0 是侧边栏，列 1 是分隔线（固定 1px），列 2 才是页面区。
+        self.grid_columnconfigure(2, weight=1)
         self.grid_rowconfigure(0, weight=1)
 
         # ---------------------------------------------------------- 侧边栏
@@ -197,6 +202,23 @@ class SidebarNav(ctk.CTkFrame):
         )
         self.sidebar.grid(row=0, column=0, sticky="nsew")
         self.sidebar.grid_propagate(False)
+
+        # 侧边栏和页面之间的竖向分隔线：1px，跟着侧边栏吃满整列高度。
+        # 用原生 tk.Frame 而不是 CTkFrame：后者画圆角矩形，1px 宽时路径会
+        # 退化成一个像素都不画。颜色走 styles 的 sidebar/divider，切外观时
+        # 只 configure 换色。
+        self.divider: Optional[tk.Frame] = None
+        if self._show_divider:
+            self.divider = tk.Frame(
+                self,
+                width=1,
+                bd=0,
+                highlightthickness=0,
+                bg=style_of("sidebar", "divider")["fg_color"],
+            )
+            # 底部留 20 逻辑像素，线不要顶到窗口下沿。
+            gap = max(0, int(30 * self._window_scale()))
+            self.divider.grid(row=0, column=1, sticky="ns", pady=(0, gap))
 
         # 顶部品牌区：logo 在左，大标题 / 小标题在右，两行字整体与 logo 垂直居中。
         self._logo_size = max(16, int(logo_size))
@@ -256,7 +278,7 @@ class SidebarNav(ctk.CTkFrame):
 
         # ---------------------------------------------------------- 页面区
         self.content = ctk.CTkFrame(self, fg_color=T.COLOR_BG, corner_radius=0)
-        self.content.grid(row=0, column=1, sticky="nsew")
+        self.content.grid(row=0, column=2, sticky="nsew")
 
         # 内容再套一层，留出页面边距：页面用 place 铺满它，自己不用管外边距。
         # 不用 pack：拖动窗口时要把页面区钉在旧尺寸上，只有 place 能“冻结”。
@@ -603,6 +625,8 @@ class SidebarNav(ctk.CTkFrame):
         self.configure(**shell)
         self.content.configure(**style_of("sidebar", "content", mode))
         self.body.configure(bg_color=shell["fg_color"])
+        if self.divider is not None:
+            self.divider.configure(bg=style_of("sidebar", "divider", mode)["fg_color"])
         self.sidebar.configure(**side)
         self._head.configure(fg_color="transparent", bg_color=side["bg_color"])
         self._title_box.configure(fg_color="transparent", bg_color=side["bg_color"])

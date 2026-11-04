@@ -96,6 +96,7 @@ class DemoApp(App):
             },
             footer=self._build_account,
             width=200,   # 侧边栏固定宽度（逻辑像素），窗口拉宽时不跟着变
+            divider=True,  # 侧边栏和页面之间画 1px 分隔线
             initial="总览",
             padding=(40, 16),
         )

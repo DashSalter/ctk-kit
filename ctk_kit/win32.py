@@ -19,8 +19,14 @@ from typing import Any, Optional
 
 __all__ = [
     "acrylic_window",
+    "clear_window_alpha",
+    "disable_acrylic",
     "enable_acrylic",
+    "extended_frame_bounds",
     "set_client_rect",
+    "set_dwm_attribute",
+    "set_frame_border_thickness",
+    "set_transitions_disabled",
     "set_widget_opacity",
     "available",
 ]
@@ -37,20 +43,42 @@ SWP_NOMOVE = 0x0002
 SWP_NOZORDER = 0x0004
 SWP_NOACTIVATE = 0x0010
 SWP_FRAMECHANGED = 0x0020
-#: ``WCA_ACCENT_POLICY``（DWM 的窗口合成属性编号；值是 30 而不是 19）
-WCA_ACCENT_POLICY = 30
+#: ``WCA_ACCENT_POLICY`` 的默认属性号。历史上这里用 30（pywinstyles 用 19），
+#: 两者的实际效果差别很大，所以做成可传参数：默认沿用 30 保持原有观感，
+#: 想试 tint 是否生效可以传 19。
+WCA_ACCENT_POLICY = 19
+#: ``SetWindowCompositionAttribute`` 的另一个候选属性号（官方文档值）
+WCA_ACCENT_POLICY_OFFICIAL = 19
 #: ``ACCENT_ENABLE_BLURBEHIND``（Win11 上 acrylic 用这个，``4`` 已经失效）
 ACCENT_ENABLE_BLURBEHIND = 3
+#: ``ACCENT_ENABLE_ACRYLICBLURBEHIND``（Win10 1803+，Win11 上会卡顿）
+ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
+#: ``ACCENT_ENABLE_TRANSPARENTGRADIENT``：只做透明渐变，不模糊
+ACCENT_ENABLE_TRANSPARENTGRADIENT = 2
+#: ``ACCENT_DISABLED``：关掉 accent 合成
+ACCENT_DISABLED = 0
 #: ``DWMWA_USE_IMMERSIVE_DARK_MODE`` / ``DWMWA_SYSTEMBACKDROP_TYPE``
 DWMWA_USE_IMMERSIVE_DARK_MODE = 20
 DWMWA_SYSTEMBACKDROP_TYPE = 38
 #: ``DWMWA_WINDOW_CORNER_PREFERENCE``（33）与取值
 DWMWA_WINDOW_CORNER_PREFERENCE = 33
 DWMWCP_ROUND = 2
+#: ``DWMWA_TRANSITIONS_FORCEDISABLED``（3）：1 关掉窗口过渡动画
+DWMWA_TRANSITIONS_FORCEDISABLED = 3
+#: ``DWMWA_EXTENDED_FRAME_BOUNDS``（9）：含阴影的真实屏幕矩形，只读
+DWMWA_EXTENDED_FRAME_BOUNDS = 9
+#: ``DWMWA_VISIBLE_FRAME_BORDER_THICKNESS``（37，Win11 22H2+）：0 去掉 1px 边框
+DWMWA_VISIBLE_FRAME_BORDER_THICKNESS = 37
 #: ``DWMWA_BORDER_COLOR``（Win11 22H2+）：不画系统边框
 DWMWA_BORDER_COLOR = 34
+#: ``DWMWA_CAPTION_COLOR``：标题栏底色，``DWMWA_COLOR_DEFAULT`` 交还给 DWM
+DWMWA_CAPTION_COLOR = 35
 DWMWA_COLOR_NONE = 0xFFFFFFFE
+#: ``DWMWA_COLOR_DEFAULT``：把边框色恢复成系统默认
+DWMWA_COLOR_DEFAULT = 0xFFFFFFFF
 #: 系统背板类型
+BACKDROP_NONE = 0
+#: ``DWMSBT_TRANSIENTWINDOW``：亚克力，标题栏和客户区一起糊，但会被系统提亮
 BACKDROP_ACRYLIC = 3
 LWA_ALPHA = 0x02
 LWA_COLORKEY = 0x01
@@ -148,53 +176,205 @@ def set_client_rect(
         return False
 
 
-def _set_accent(hwnd: int, state: int, color: Optional[int]) -> None:
+def _set_accent(
+    hwnd: int, state: int, color: Optional[int], attribute: int = WCA_ACCENT_POLICY
+) -> None:
     accent = _ACCENT_POLICY()
     accent.AccentState = state
     if color is not None:
         accent.GradientColor = color
     data = _WINDOW_COMPOSITION_ATTRIBUTES()
-    data.Attribute = WCA_ACCENT_POLICY
+    data.Attribute = attribute
     data.SizeOfData = sizeof(accent)
     data.Data = pointer(accent)
     windll.user32.SetWindowCompositionAttribute(hwnd, pointer(data))
 
 
 def _extend_frame(hwnd: int) -> None:
-    margins = _MARGINS(-1, -1, -1, -1)
+    _set_margins(hwnd, -1, -1, -1, -1)
+
+
+def _set_margins(hwnd: int, left: int, top: int, right: int, bottom: int) -> None:
+    margins = _MARGINS(left, top, right, bottom)
     windll.dwmapi.DwmExtendFrameIntoClientArea(hwnd, byref(margins))
 
 
-def enable_acrylic(window: Any, *, tint: Optional[int] = None, dark: bool = True) -> bool:
-    """让窗口背景变成系统亚克力，返回是否成功。
+def set_dwm_attribute(window: Any, attribute: int, value: Optional[int]) -> bool:
+    """直接给 DWM 写一个整数属性，返回是否调用成功。
 
-    无边框窗口（``overrideredirect(True)``）要先补一个 ``WS_THICKFRAME``：
-    DWM 只对「有非客户区」的窗口走玻璃合成，纯 ``WS_POPUP`` 上只会得到
-    一层均匀的 tint。补边框不改变 Tk 的外观，窗口仍然没有标题栏。
-
-    ``tint`` 是 ``0xAABBGGRR``（注意 BGR 顺序）；窗口内容需要自己留出
-    透明区域，通常是一层半透明卡片（见 :func:`set_widget_opacity`）。
+    ``value=None`` 写 ``0xFFFFFFFF``（``DWMWA_COLOR_DEFAULT``），把属性恢复
+    成系统默认。常用属性见 :data:`DWMWA_WINDOW_CORNER_PREFERENCE` 等常量。
     """
     if not available:
         return False
     try:
         hwnd = _toplevel_handle(window)
-        style = windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
-        windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style | WS_THICKFRAME)
-        windll.user32.SetWindowPos(
-            hwnd, 0, 0, 0, 0, 0,
-            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+        data = c_int(-1 if value is None else int(value))
+        windll.dwmapi.DwmSetWindowAttribute(hwnd, attribute, byref(data), sizeof(data))
+        windll.dwmapi.DwmFlush()
+        return True
+    except Exception:  # noqa: BLE001 - 属性不被这个系统版本支持
+        return False
+
+
+def _dwm_set_int(window: Any, attribute: int, value: int) -> bool:
+    """写一个 DWORD 型 DWM 属性，返回 HRESULT 是否为 0（成功）。"""
+    if not available:
+        return False
+    try:
+        hwnd = _toplevel_handle(window)
+        data = c_int(int(value))
+        result = windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, attribute, byref(data), sizeof(data)
         )
-        window.update_idletasks()
-        _set_accent(hwnd, ACCENT_ENABLE_BLURBEHIND, tint)
-        _extend_frame(hwnd)
-        # 注意：不要再设 DWMWA_SYSTEMBACKDROP_TYPE（38）。它会把窗口换成
-        # 系统的主题背板，覆盖掉上面 accent 的 tint，窗口变成亮的。
-        if tint is None:
-            backdrop = c_int(BACKDROP_ACRYLIC)
+        windll.dwmapi.DwmFlush()
+        return result == 0
+    except Exception:  # noqa: BLE001 - 属性不被这个系统版本支持
+        return False
+
+
+def set_frame_border_thickness(window: Any, thickness: int = 0) -> bool:
+    """``DWMWA_VISIBLE_FRAME_BORDER_THICKNESS``（37）：0 去掉那条 1px 边框。
+
+    比 ``DWMWA_BORDER_COLOR = COLOR_NONE`` 更彻底：那个只是把颜色刷成透明，
+    边框本身还在，窗口拿到焦点时仍可能闪一条浅色线。仅 Win11 22H2+ 支持，
+    老系统上返回 ``False``、不做任何事。
+    """
+    return _dwm_set_int(window, DWMWA_VISIBLE_FRAME_BORDER_THICKNESS, thickness)
+
+
+def set_transitions_disabled(window: Any, disabled: bool = True) -> bool:
+    """``DWMWA_TRANSITIONS_FORCEDISABLED``（3）：关掉 DWM 的窗口过渡动画。
+
+    切玻璃、重建页面时少一帧「旧内容残留」；代价是窗口出现/消失也没有淡入
+    淡出。
+    """
+    return _dwm_set_int(window, DWMWA_TRANSITIONS_FORCEDISABLED, 1 if disabled else 0)
+
+
+def extended_frame_bounds(window: Any) -> Optional[tuple[int, int, int, int]]:
+    """``DWMWA_EXTENDED_FRAME_BOUNDS``（9）：窗口含阴影的真实屏幕矩形。
+
+    返回 ``(left, top, right, bottom)``（物理像素）；读不到时返回 ``None``。
+    比 ``winfo_rootx()`` 那套（客户区坐标）多出阴影和边框，弹层要贴屏幕边
+    时用它算才对得齐。
+    """
+    if not available:
+        return None
+    try:
+        hwnd = _toplevel_handle(window)
+        rect = RECT()
+        result = windll.dwmapi.DwmGetWindowAttribute(
+            hwnd, DWMWA_EXTENDED_FRAME_BOUNDS, byref(rect), sizeof(rect)
+        )
+        if result != 0:
+            return None
+        return (rect.left, rect.top, rect.right, rect.bottom)
+    except Exception:  # noqa: BLE001 - 非 Windows 或系统太老
+        return None
+
+
+def clear_window_alpha(window: Any) -> bool:
+    """去掉 Tk ``-alpha`` 留下的 ``WS_EX_LAYERED``，返回是否真的清掉了。
+
+    ``wm attributes -alpha`` 只要设过一次，窗口就带上 ``WS_EX_LAYERED``，
+    即使后来把值改回 1.0 也还是 layered —— 而 DWM 只对非 layered 窗口做
+    玻璃合成。想把毛玻璃拿回来，必须把扩展样式里的这一位摘掉，再让
+    DWM 重算一次窗口框架。
+    """
+    if not available:
+        return False
+    try:
+        hwnd = _toplevel_handle(window)
+        ex_style = windll.user32.GetWindowLongW(hwnd, GWL_EXSTYLE) & 0xFFFFFFFF
+        if not ex_style & WS_EX_LAYERED:
+            return False
+        windll.user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex_style & ~WS_EX_LAYERED)
+        windll.user32.SetWindowPos(
+            hwnd,
+            0,
+            0,
+            0,
+            0,
+            0,
+            SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE,
+        )
+        windll.dwmapi.DwmFlush()
+        return True
+    except Exception:  # noqa: BLE001 - 非 Windows 或窗口已经销毁
+        return False
+
+
+def enable_acrylic(
+    window: Any,
+    *,
+    tint: Optional[int] = None,
+    dark: bool = True,
+    system_backdrop: Any = 0,
+    frame: bool = True,
+    accent: int = ACCENT_ENABLE_BLURBEHIND,
+    attribute: int = WCA_ACCENT_POLICY,
+    extend: bool = True,
+) -> bool:
+    """让窗口背景变成系统亚克力，返回是否成功。
+
+    无边框窗口（``overrideredirect(True)``）要先补一个 ``WS_THICKFRAME``：
+    DWM 只对「有非客户区」的窗口走玻璃合成，纯 ``WS_POPUP`` 上只会得到
+    一层均匀的 tint。补边框不改变 Tk 的外观，窗口仍然没有标题栏。
+    ``frame=False`` 跳过这一步——标准窗口本来就有边框，多余的一次
+    ``SetWindowPos(FRAMECHANGED)`` 会让 DWM 重算非客户区，标题栏的玻璃
+    可能跟着被重置。
+
+    ``tint`` 是 ``0xAABBGGRR``（注意 BGR 顺序），alpha 越高玻璃越暗；窗口内容
+    需要自己留出透明区域，通常是一层纯黑底（见 :func:`acrylic_window`）。
+
+    ``accent`` 决定 accent 状态：``3`` 是模糊（默认），``4`` 是 Win10 的
+    亚克力（Win11 上可能卡顿），``2`` 只做透明渐变不模糊。
+
+    ``extend`` 控制是否 ``DwmExtendFrameIntoClientArea(-1)``：整个客户区都
+    算玻璃区域，纯黑像素才被当作透明。
+
+    ``system_backdrop`` 非 0 时改用系统背板（``2`` Mica / ``3`` 亚克力），
+    **标题栏也会一起糊上**，这是 accent 策略做不到的（Win11 的 accent 只管
+    客户区）。代价是 tint 交给系统，亮度和透明度不能再调，两者不能同时用。
+    """
+    if not available:
+        return False
+    try:
+        hwnd = _toplevel_handle(window)
+        if frame:
+            style = windll.user32.GetWindowLongW(hwnd, GWL_STYLE)
+            windll.user32.SetWindowLongW(hwnd, GWL_STYLE, style | WS_THICKFRAME)
+            windll.user32.SetWindowPos(
+                hwnd, 0, 0, 0, 0, 0,
+                SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER,
+            )
+            window.update_idletasks()
+        kind = BACKDROP_ACRYLIC if system_backdrop is True else int(system_backdrop or 0)
+        if kind:
+            # 系统背板：标题栏和客户区一起糊，亮度交给系统深色主题。
+            # 不吃 tint，所以不叠 accent；客户区仍要 extend，纯黑像素才会
+            # 被当成透明、露出背板。
+            if extend:
+                _extend_frame(hwnd)
+            else:
+                _set_margins(hwnd, 0, 0, 0, 0)
+            backdrop = c_int(kind)
             windll.dwmapi.DwmSetWindowAttribute(
                 hwnd, DWMWA_SYSTEMBACKDROP_TYPE, byref(backdrop), sizeof(backdrop)
             )
+        else:
+            _set_accent(hwnd, accent, tint, attribute)
+            if extend:
+                _extend_frame(hwnd)
+            else:
+                _set_margins(hwnd, 0, 0, 0, 0)
+            # accent 路径下不要再设 38：它会把窗口换成系统背板，覆盖 tint。
+            if tint is None:
+                backdrop = c_int(BACKDROP_ACRYLIC)
+                windll.dwmapi.DwmSetWindowAttribute(
+                    hwnd, DWMWA_SYSTEMBACKDROP_TYPE, byref(backdrop), sizeof(backdrop)
+                )
         if dark:
             value = c_int(1)
             windll.dwmapi.DwmSetWindowAttribute(
@@ -209,6 +389,34 @@ def enable_acrylic(window: Any, *, tint: Optional[int] = None, dark: bool = True
         )
         # 强制 DWM 立刻合成一帧：不然窗口刚显示时还是未激活的亮色底，
         # 要等用户拖动窗口才刷新成玻璃。
+        windll.dwmapi.DwmFlush()
+        return True
+    except Exception:  # noqa: BLE001
+        return False
+
+
+def disable_acrylic(window: Any) -> bool:
+    """关掉 :func:`enable_acrylic` 开的玻璃，返回是否成功。
+
+    只撤销合成相关的属性（accent、客户区延伸、系统背板、边框色），
+    ``WS_THICKFRAME`` 保持不动：主窗口本来就有边框，摘掉它反而让 Tk 的
+    geometry 语义变回「外框 = 客户区」，尺寸会跳一下。
+    """
+    if not available:
+        return False
+    try:
+        hwnd = _toplevel_handle(window)
+        _set_accent(hwnd, ACCENT_DISABLED, None)
+        margins = _MARGINS(0, 0, 0, 0)
+        windll.dwmapi.DwmExtendFrameIntoClientArea(hwnd, byref(margins))
+        backdrop = c_int(BACKDROP_NONE)
+        windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_SYSTEMBACKDROP_TYPE, byref(backdrop), sizeof(backdrop)
+        )
+        border = DWORD(DWMWA_COLOR_DEFAULT)
+        windll.dwmapi.DwmSetWindowAttribute(
+            hwnd, DWMWA_BORDER_COLOR, byref(border), sizeof(border)
+        )
         windll.dwmapi.DwmFlush()
         return True
     except Exception:  # noqa: BLE001

@@ -17,6 +17,7 @@ Popover 是点击打开、可以放按钮 / 输入框等任意控件，点外面
 
 from __future__ import annotations
 
+import contextlib
 import tkinter as tk
 from typing import Any, Callable, Optional, Tuple
 
@@ -24,6 +25,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .dialog import _round_corners
+from .glass import backdrop_image
 from .popup import scaled_geometry
 
 __all__ = ["Popover"]
@@ -40,6 +42,7 @@ class Popover:
         width: 弹层宽度（逻辑像素），默认 240。
         placement: ``bottom``（默认）或 ``top``。
         padding: 预留，暂未使用。
+        glass: 是否给卡片铺一张「背后屏幕模糊图」，默认开；截图失败自动退回纯色。
 
     方法:
         show() / hide() / toggle(): 手动控制。
@@ -54,6 +57,7 @@ class Popover:
         width: int = 240,
         placement: str = "bottom",
         padding: int = 12,
+        glass: bool = True,
     ) -> None:
         """给 ``widget`` 挂上点击切换弹层的行为。"""
         self._widget = widget
@@ -61,7 +65,10 @@ class Popover:
         self._width = width
         self._placement = placement
         self._padding = padding
+        self._glass = glass
         self._window: Optional[ctk.CTkToplevel] = None
+        self._backdrop: Optional[ctk.CTkLabel] = None
+        self._photo: Optional[ctk.CTkImage] = None
         self._bind_id = widget.bind("<Button-1>", self._on_click, add="+")
 
     # --- 对外 ---
@@ -90,16 +97,19 @@ class Popover:
             corner_radius=T.RADIUS_SMALL,
         )
         frame.pack(fill="both", expand=True, padx=1, pady=1)
+        # 背景先建、放在底层；图等内容排好、量出尺寸后再补上
+        self._backdrop = ctk.CTkLabel(frame, text="", fg_color="transparent")
+        self._backdrop.place(x=0, y=0, relwidth=1, relheight=1)
         if self._content is not None:
             self._content(frame)
 
         window.update_idletasks()
+        try:
+            scaling = window._get_window_scaling()
+        except Exception:  # noqa: BLE001
+            scaling = 1.0
         if self._width:
             # width 是逻辑像素，测量值是物理像素，统一成物理再交给 geometry。
-            try:
-                scaling = window._get_window_scaling()
-            except Exception:  # noqa: BLE001
-                scaling = 1.0
             width = max(1, int(round(self._width * scaling)))
         else:
             width = frame.winfo_reqwidth()
@@ -111,6 +121,8 @@ class Popover:
         # 宽高是物理像素，geometry 会再乘窗口缩放，交给 scaled_geometry 除回去；
         # 不这么做的话 125% / 150% 缩放下窗口会被放大，描边看着右边、下边厚。
         window.geometry(scaled_geometry(window, width, height, x, y))
+        # 截图必须在 deiconify 之前：这时屏幕上还是浮层背后的真实内容
+        self._apply_backdrop(x, y, width, height, scaling)
         # 窗口圆角跟卡片同半径：DWM 圆角半径由系统定，卡片比它更圆时，
         # 四角会露出一圈比 1px 粗的描边。
         _round_corners(window, T.RADIUS_SMALL)
@@ -124,6 +136,8 @@ class Popover:
         """关掉弹层。"""
         window = self._window
         self._window = None
+        self._backdrop = None
+        self._photo = None
         if window is not None:
             try:
                 window.destroy()
@@ -164,6 +178,39 @@ class Popover:
         x = max(8, min(x, screen_w - width - 8))
         y = max(8, min(y, screen_h - height - 40))
         return x, y
+
+    def _apply_backdrop(
+        self,
+        x: int,
+        y: int,
+        width: int,
+        height: int,
+        scaling: float,
+    ) -> None:
+        """把截下来的模糊图塞进背景标签；截图失败就保持纯色卡片。"""
+        if not self._glass or self._backdrop is None:
+            return
+        with contextlib.suppress(Exception):
+            image = backdrop_image(
+                x,
+                y,
+                width,
+                height,
+                scaling=scaling,
+                radius=T.RADIUS_SMALL,
+            )
+            if image is None:
+                return
+            photo = ctk.CTkImage(
+                light_image=image,
+                dark_image=image,
+                size=(
+                    max(1, int(round(width / scaling))),
+                    max(1, int(round(height / scaling))),
+                ),
+            )
+            self._photo = photo
+            self._backdrop.configure(image=photo)
 
     def _maybe_hide(self) -> None:
         """焦点离开后，指针也不在弹层或触发控件上才关。"""

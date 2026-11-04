@@ -18,6 +18,7 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
+from .glass import backdrop_image
 from .popup import round_window_corners
 from .fonts import get_font
 from .inputs import CTkEntry
@@ -100,6 +101,7 @@ class DropField(ctk.CTkFrame):
         placeholder: str = "",
         height: int = 36,
         disabled: Optional[Sequence[str]] = None,
+        glass: bool = True,
     ) -> None:
         """创建下拉输入框。
 
@@ -110,6 +112,7 @@ class DropField(ctk.CTkFrame):
             placeholder: 输入框为空时的灰色占位文字。
             height: 整体高度（像素），默认 36。
             disabled: 一开始就置灰的候选项；之后可以用 ``disable()`` 等方法改。
+            glass: 面板边缘铺一层背后的模糊图，默认开；截图失败退回纯色。
         """
         super().__init__(
             master,
@@ -144,6 +147,10 @@ class DropField(ctk.CTkFrame):
         self._last_root_size: tuple = ()
         self._rows: int = 0
         self._listing: Optional[_PopupList] = None
+        self._popup_body: Optional[ctk.CTkFrame] = None
+        self._backdrop: Optional[ctk.CTkLabel] = None
+        self._photo: Optional[ctk.CTkImage] = None
+        self._glass = glass
 
         self.entry: CTkEntry = CTkEntry(
             self,
@@ -289,6 +296,10 @@ class DropField(ctk.CTkFrame):
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
+        # 背景先建、放在底层；模糊图等面板尺寸定下来后再补
+        self._popup_body = body
+        self._backdrop = ctk.CTkLabel(body, text="", fg_color="transparent")
+        self._backdrop.place(x=0, y=0, relwidth=1, relheight=1)
 
         listing = _PopupList(body, color_of(T.COLOR_CARD))
         listing.pack(fill="both", expand=True, padx=5, pady=5)
@@ -302,6 +313,8 @@ class DropField(ctk.CTkFrame):
         if not self._place_popup():
             self._close_menu()
             return
+        # 截图必须在显示之前：这时屏幕上还是面板背后的真实内容
+        self._apply_backdrop()
         # 先透明再显示，避免第一帧整块不透明地闪出来
         with contextlib.suppress(tk.TclError):
             popup.attributes("-alpha", 0.0)
@@ -599,6 +612,43 @@ class DropField(ctk.CTkFrame):
         # 半径跟内部卡片同值：窗口比卡片更圆时，四角会露出一圈粗描边。
         round_window_corners(popup, T.RADIUS_SMALL)
 
+    def _apply_backdrop(self) -> None:
+        """把面板背后的屏幕内容模糊后铺在卡片底层；截图失败就保持纯色。
+
+        列表本身是 ``tk.Canvas`` + ``tk.Frame``，必须有不透明底色，所以
+        这层模糊图只会从卡片外圈的 5px 内边距和圆角处露出来。
+        """
+        popup = self._popup
+        if (
+            not self._glass
+            or popup is None
+            or self._backdrop is None
+            or self._popup_box is None
+        ):
+            return
+        width, height, left, top, _slide = self._popup_box
+        with contextlib.suppress(Exception):
+            scaling = popup._get_window_scaling()
+            width_px = max(1, int(round(width * scaling)))
+            height_px = max(1, int(round(height * scaling)))
+            image = backdrop_image(
+                left + 1,
+                top + 1,
+                width_px - 2,
+                height_px - 2,
+                scaling=scaling,
+                radius=T.RADIUS_SMALL,
+            )
+            if image is None:
+                return
+            photo = ctk.CTkImage(
+                light_image=image,
+                dark_image=image,
+                size=(max(1, width - 2), max(1, height - 2)),
+            )
+            self._photo = photo
+            self._backdrop.configure(image=photo)
+
     def _maybe_close_menu(self, event: tk.Event) -> None:
         """顶层窗口上的点击：点在面板外就收起。"""
         popup = self._popup
@@ -660,6 +710,9 @@ class DropField(ctk.CTkFrame):
         self._popup = None
         self._popup_box = None
         self._listing = None
+        self._popup_body = None
+        self._backdrop = None
+        self._photo = None
         self._last_key = None
         if popup is None:
             # 已经关过（或正在淡出），不要再打断它

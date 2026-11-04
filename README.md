@@ -1007,6 +1007,13 @@ CustomTkinter 只接受二元组，所以 `tokens` 在模块加载时会把三�
 - `App.frame_bounds()`：`DWMWA_EXTENDED_FRAME_BOUNDS`（9），窗口含阴影的真实
   屏幕矩形 `(left, top, right, bottom)`（物理像素），和 `winfo_rootx()` 那套
   客户区坐标并排看，能看出标题栏和边框各占多少
+- `App.set_frost_backdrop(color, *, alpha=0x38, glass=False, spread=0)` /
+  `App.clear_frost_backdrop()` / `App.frost_active`：在主窗口下面垫一层「颜色
+  窗口」，尺寸、位置、圆角都跟着主窗口走，`spread` 让它再往外多出一圈。
+  底图是纯色时 `alpha` 控透明度（0 全透、255 最实）；`glass=True` 会改成
+  系统毛玻璃（这条路径会带 `WS_THICKFRAME`，尺寸要重新校正，问题较多，
+  设置页没有开放）。毛玻璃模式下只开 `acrylic` 时会自动建一层默认底色
+  （深色配黑、浅色配白）
 - `paint.animate_color(widget, option, start, end, duration=150)`：把某个颜色
   选项从 `start` 渐变到 `end`，返回可 `cancel()` 的句柄；同一控件同一选项
   不会叠加多套定时器

@@ -24,6 +24,19 @@
 - 下拉 / 多选标签 / 层级树的面板在毛玻璃下改为真玻璃：先挂
   `acrylic_window(frame=True)` 再用 `popup.set_glass_geometry()` 校正客户区，
   不再是一块不透明的黑底；浅色外观的玻璃仍用普通实色卡片
+- 新增 `App.set_frost_backdrop()` / `clear_frost_backdrop()` / `frost_active`：
+  在主窗口下面垫一层「颜色窗口」（`ctk_kit.frost_layer.FrostLayer`），位置、
+  尺寸、圆角跟随主窗口，`spread` 可再往外多出一圈；颜色走纯色块，`alpha`
+  用 Tk 的 `-alpha` 控透明度。毛玻璃模式自动建一层默认底色（深色配黑、
+  浅色配白）
+- `ctk_kit.win32` 新增 `set_round_region()`：给窗口裁圆角矩形区域。
+  `DWMWA_WINDOW_CORNER_PREFERENCE`（33）对无边框窗口不生效，底层颜色窗口
+  只能靠它裁圆角
+- `ctk_kit.inputs.Segmented` 新增 `set_enabled()`：禁用后不响应点击，底色
+  退回输入框色
+- 示例设置页「外观模式」改成浅色 / 深色 / 毛玻璃三项；毛玻璃下多出「启用
+  背景颜色」「背景颜色」（黑、白、红、橙、黄、绿、青、蓝、紫九色）、
+  「背景透明度」「背景尺寸」四行，未勾选时后三项禁用
 
 ## 0.9.2 — 2026-11-02
 

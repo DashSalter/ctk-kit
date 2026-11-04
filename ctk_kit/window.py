@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import contextlib
 from typing import Any, Optional, Sequence
 
 from customtkinter import (
@@ -26,6 +27,7 @@ from customtkinter import (
 )
 
 from .branding import set_window_icon
+from .frost_layer import FrostLayer
 from .notify import Notifier
 from .preferences import (
     read_appearance,
@@ -58,6 +60,10 @@ from .win32 import (
 )
 
 __all__ = ["App"]
+
+#: 底层颜色模式用的透明键色。DWM 只把纯黑当全透明，这个近似黑不会被
+#: 当成透明，所以「看起来透明」的判定交给 -transparentcolor 自己做。
+_FROST_KEY = "#010203"
 
 
 class App(CTk):
@@ -151,6 +157,8 @@ class App(CTk):
         }
         # 是否调用过 wm attributes -alpha；调用过就得靠 Win32 摘 LAYERED 位复原。
         self._alpha_applied = False
+        # 底层颜色窗口（毛玻璃「所看到的那张底」），None 表示没开。
+        self._frost_layer: Optional[FrostLayer] = None
         # 窗口调试项（设置页的「窗口调试」卡片），不参与外观持久化。
         self._debug = {
             "hide_frame_border": False,  # 37：0 去掉那条 1px 系统边框
@@ -282,6 +290,19 @@ class App(CTk):
     def _refresh_backdrop(self) -> None:
         """窗口映射后把玻璃挂上（DWM 只对已映射的窗口生效）。"""
         self._apply_glass()
+        # 玻璃挂好之后再垫底层颜色窗口：主窗口的模糊采样的是它，顺序反了
+        # 就会先采到桌面、再也不会更新。
+        self.after(40, self._auto_frost_layer)
+
+    def _auto_frost_layer(self) -> None:
+        """毛玻璃模式下自动建底层颜色窗口（已经有就不动）。"""
+        if self._backdrop == "acrylic" and self._frost_layer is None:
+            # 默认底色跟着外观走：深色配黑，浅色配白，不然字看不见。
+            self.set_frost_backdrop(
+                "#000000" if get_appearance_mode() == "Dark" else "#FFFFFF"
+            )
+        elif self._backdrop != "acrylic" and self._frost_layer is not None:
+            self.clear_frost_backdrop()
 
     def glass_options(self) -> dict:
         """当前的毛玻璃参数（可调项见 :meth:`set_glass_options`）。"""
@@ -450,6 +471,62 @@ class App(CTk):
         # 正在响应点击的那个页面销毁掉。等这一轮事件处理完再重建。
         self.after_idle(self._repaint_shell)
 
+    def set_frost_backdrop(
+        self,
+        color: str = "#FFFFFF",
+        *,
+        alpha: int = 0x38,
+        glass: bool = False,
+        spread: int = 0,
+        save: bool = False,
+    ) -> None:
+        """让毛玻璃「后面」是可控的底色，而不是桌面。
+
+        做法是双窗口：底下再开一个和主窗口等大、同位置的窗口，它自己开着
+        系统毛玻璃；主窗口把客户区刷成透明键（``#010203``）并调到
+        ``-transparentcolor``，于是看到的顺序是
+
+            桌面 → 被底层窗口模糊 → 叠上 ``color`` → 上层控件
+
+        颜色和浓度随时可改，模糊由 DWM 完成，不重画任何图。
+
+        参数:
+            color: 叠在模糊桌面上的颜色，``"#RRGGBB"``。
+            alpha: 颜色浓度，``0``–``255``；``0x38`` 是「能看出颜色、还透」。
+            glass: ``True`` 时这一层自己也挂系统毛玻璃（而不是纯色块）。
+            spread: 底层窗口比主窗口向外多出的逻辑像素（0 = 严丝合缝）。
+            save: 预留参数，暂不写入配置。
+
+        注意:
+            只有 Windows 提供系统亚克力；其他平台这一层就是一块纯色窗口。
+        """
+        del save  # 目前不持久化，留着是为了和 set_backdrop 的签名一致
+        if self._frost_layer is None:
+            self._frost_layer = FrostLayer(
+                self, color=color, alpha=alpha, glass=glass, spread=spread
+            )
+            self._frost_layer.start()
+        else:
+            self._frost_layer.configure(
+                color=color, alpha=alpha, glass=glass, spread=spread
+            )
+
+    def clear_frost_backdrop(self) -> None:
+        """关掉底层颜色窗口。"""
+        if self._frost_layer is not None:
+            self._frost_layer.stop()
+            self._frost_layer = None
+
+    @property
+    def frost_active(self) -> bool:
+        """底层颜色窗口是否开着。"""
+        return self._frost_layer is not None
+
+    @property
+    def frost_layer(self) -> Optional[FrostLayer]:
+        """底层颜色窗口对象，没开时为 ``None``。"""
+        return self._frost_layer
+
     def set_backdrop(self, mode: str = "acrylic", *, save: bool = True) -> None:
         """开启或关闭「毛玻璃」底色，默认开启。
 
@@ -465,6 +542,8 @@ class App(CTk):
         注意:
             只有 Windows 11 的 DWM 提供系统亚克力；其他平台退化成纯黑底。
         """
+        if self._frost_layer is not None:
+            self.clear_frost_backdrop()
         mode = apply_backdrop(mode)
         if mode == self._backdrop:
             return
@@ -486,6 +565,8 @@ class App(CTk):
                 set_titlebar_dark(self, get_appearance_mode() == "Dark")
             set_window_brush(self)
             self._repaint_shell()
+        # 切回毛玻璃时把底层颜色窗口也补回来。
+        self.after(40, self._auto_frost_layer)
         if save and getattr(self, "_remember_theme", False):
             try:
                 write_backdrop(mode)
@@ -675,6 +756,10 @@ class App(CTk):
             self._save_geometry()
             self._geometry_written = True
         self._cancel_pending_afters()
+        if self._frost_layer is not None:
+            with contextlib.suppress(Exception):
+                self._frost_layer.stop()
+            self._frost_layer = None
         super().destroy()
 
     def _cancel_pending_afters(self) -> None:

@@ -117,6 +117,37 @@ def _toplevel_handle(window: Any) -> int:
     return parent or hwnd
 
 
+def set_round_region(window: Any, radius: int, width: int = 0, height: int = 0) -> bool:
+    """给窗口裁一个圆角矩形区域，四个角以外直接不画。
+
+    DWM 的 ``DWMWA_WINDOW_CORNER_PREFERENCE``（33）只对有系统边框的窗口
+    生效；无边框窗口（``overrideredirect`` + ``WS_THICKFRAME``）拿不到，
+    所以在「底层颜色窗口」这种场景只能自己裁区域。
+
+    参数:
+        window: 目标窗口。
+        radius: 圆角半径（物理像素），``0`` 表示恢复成方角。
+        width: 区域宽（物理像素），``0`` 表示取窗口当前宽度。
+        height: 区域高（物理像素），``0`` 表示取窗口当前高度。
+    """
+    if not available:
+        return False
+    try:
+        hwnd = _toplevel_handle(window)
+        box_w = int(width or window.winfo_width())
+        box_h = int(height or window.winfo_height())
+        if box_w <= 1 or box_h <= 1:
+            return False
+        radius = max(0, int(radius))
+        region = windll.gdi32.CreateRoundRectRgn(
+            0, 0, box_w + 1, box_h + 1, radius * 2, radius * 2
+        )
+        windll.user32.SetWindowRgn(hwnd, region, True)
+        return True
+    except Exception:  # noqa: BLE001 - 窗口还没建好 / 非 Windows
+        return False
+
+
 def client_frame_inset(window: Any) -> tuple[int, int]:
     """窗口外框比客户区多出的宽、高（物理像素）。
 

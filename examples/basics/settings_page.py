@@ -38,7 +38,7 @@ class SettingsPageUI(PageBase):
         self.refresh_theme()
 
     def _build_appearance(self, area: tk.Misc) -> None:
-        """外观模式：主题分段按钮 + 底色（毛玻璃）开关 + 一行说明。"""
+        """外观模式：主题三项 + 毛玻璃时的背景窗口设置。"""
         box = Card(area, title="外观模式")
         box.pack(fill="x")
 
@@ -47,16 +47,52 @@ class SettingsPageUI(PageBase):
 
         FieldLabel(row, "主题", width=64).pack(side="left")
 
-        self.theme = Segmented(row, ["浅色", "深色"], width=200)
+        self.theme = Segmented(row, ["浅色", "深色", "毛玻璃"], width=270)
         self.theme.pack(side="left", padx=(4, 0))
+
+        self.bg_box = box
+        self.bg_rows: list[tk.Frame] = []
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "启用背景颜色", width=110).pack(side="left")
+        self.bg_enable = Switch(row, command=self.on_bg_enable)
+        self.bg_enable.pack(side="left", padx=(4, 8))
+        HintLabel(row, "开启后在窗口下面垫一层颜色窗口").pack(side="left")
+        self.bg_rows.append(row)
+
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "背景颜色", width=110).pack(side="left")
+        self.bg_color = Segmented(
+            row,
+            ["黑", "白", "红", "橙", "黄", "绿", "青", "蓝", "紫"],
+            width=630,
+        )
+        self.bg_color.pack(side="left", padx=(4, 0))
+        self.bg_rows.append(row)
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 14))
+        FieldLabel(row, "背景透明度", width=110).pack(side="left")
+        self.bg_alpha = Slider(row, from_=0, to=255, width=180)
+        self.bg_alpha.pack(side="left", padx=(4, 8))
+        self.bg_alpha_value = FieldLabel(row, "56", width=36)
+        self.bg_alpha_value.pack(side="left")
+        HintLabel(row, "0 全透，255 最实").pack(side="left", padx=(10, 0))
+        self.bg_rows.append(row)
 
-        FieldLabel(row, "底色", width=64).pack(side="left")
-
-        self.backdrop = Segmented(row, ["不透明", "毛玻璃"], width=200)
-        self.backdrop.pack(side="left", padx=(4, 0))
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 14))
+        FieldLabel(row, "背景尺寸", width=110).pack(side="left")
+        self.bg_spread = Slider(row, from_=0, to=40, width=180)
+        self.bg_spread.pack(side="left", padx=(4, 8))
+        self.bg_spread_value = FieldLabel(row, "0", width=36)
+        self.bg_spread_value.pack(side="left")
+        HintLabel(row, "底层窗口比主窗口往外多出的像素，0 = 完全重合").pack(
+            side="left", padx=(10, 0)
+        )
+        self.bg_rows.append(row)
 
     def _build_glass(self, area: tk.Misc) -> None:
         """毛玻璃微调：DWM 的每一种手段单独一个控件，改完立即重挂。"""
@@ -203,10 +239,11 @@ class SettingsPageUI(PageBase):
     def refresh_theme(self) -> None:
         """按当前外观刷新标题说明和分段选中项。"""
         self.header.info.configure(text=f"当前：{get_appearance_mode()}")
-        self.theme.set("深色" if is_dark() else "浅色")
-        self.backdrop.set(
-            "毛玻璃" if theme.current_backdrop() == "acrylic" else "不透明"
-        )
+        if theme.current_backdrop() == "acrylic":
+            self.theme.set("毛玻璃")
+        else:
+            self.theme.set("深色" if is_dark() else "浅色")
+        self.refresh_background()
         self.refresh_glass()
         self.refresh_debug()
 
@@ -314,7 +351,10 @@ class SettingsPage(SettingsPageUI):
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""
         self.theme.configure(command=self.on_theme)
-        self.backdrop.configure(command=self.on_backdrop)
+        self.bg_enable.configure(command=self.on_bg_enable)
+        self.bg_color.configure(command=self.on_bg_color)
+        self.bg_alpha.configure(command=self.on_bg_alpha)
+        self.bg_spread.configure(command=self.on_bg_spread)
         self.glass_kind.configure(command=self.on_glass_kind)
         self.glass_wca.configure(command=self.on_glass_wca)
         self.glass_state.configure(command=self.on_glass_state)
@@ -328,13 +368,132 @@ class SettingsPage(SettingsPageUI):
         self.glass_veil.configure(command=self.on_glass_veil)
 
     def on_theme(self, value: str) -> None:
-        """切换浅色 / 深色；有 SidebarNav 时只重建当前页。"""
-        self.app.set_appearance_mode(value)
-
-    def on_backdrop(self, value: str) -> None:
-        """切换普通底色 / 系统毛玻璃；会重建当前页。"""
+        """切换浅色 / 深色 / 毛玻璃；有 SidebarNav 时只重建当前页。"""
         app = self.app
-        app.set_backdrop("acrylic" if value == "毛玻璃" else "none")
+        if value == "毛玻璃":
+            app.set_appearance_mode("dark")
+            app.set_backdrop("acrylic")
+        else:
+            app.set_backdrop("none")
+            app.set_appearance_mode("light" if value == "浅色" else "dark")
+        # 不在这里 refresh：set_backdrop 会重建当前页，这个实例马上就要被丢掉，
+        # 再碰它的控件只会拿到 "invalid command name"。
+
+    # ------------------------------------------------------------------ 背景窗口
+    def refresh_background(self) -> None:
+        """把「背景窗口」那三行同步到 App 的当前状态。"""
+        app = getattr(self, "app", None)
+        if app is None or not self.winfo_exists():
+            return
+        acrylic = theme.current_backdrop() == "acrylic"
+        for row in getattr(self, "bg_rows", []):
+            if acrylic:
+                row.pack(fill="x", padx=16, pady=(0, 8))
+            else:
+                row.pack_forget()
+        active = bool(getattr(app, "frost_active", False))
+        self._syncing_bg = True
+        try:
+            if active:
+                self.bg_enable.select()
+            else:
+                self.bg_enable.deselect()
+        finally:
+            self._syncing_bg = False
+        layer = getattr(app, "frost_layer", None)
+        if layer is not None:
+            color = str(getattr(layer, "color", "#FFFFFF")).upper()
+            for name, value in self._bg_colors().items():
+                if value.upper() == color:
+                    self.bg_color.set(name)
+                    break
+            alpha = int(getattr(layer, "alpha", 56))
+            self.bg_alpha.set(alpha)
+            self.bg_alpha_value.configure(text=str(alpha))
+            spread = int(getattr(layer, "spread", 0))
+            self.bg_spread.set(spread)
+            self.bg_spread_value.configure(text=str(spread))
+        else:
+            # 没开的时候给一个跟当前外观搭的默认值：深色配黑、浅色配白。
+            self.bg_color.set("黑" if is_dark() else "白")
+            self.bg_alpha.set(56)
+            self.bg_alpha_value.configure(text="56")
+            self.bg_spread.set(0)
+            self.bg_spread_value.configure(text="0")
+        self._set_bg_controls(active)
+
+    def _bg_colors(self) -> dict:
+        """底层窗口的九种底色：黑、白 + 七个彩色。"""
+        return {
+            "黑": "#000000",
+            "白": "#FFFFFF",
+            "红": "#E5484D",
+            "橙": "#F76B15",
+            "黄": "#F5C542",
+            "绿": "#30A46C",
+            "青": "#17A6BD",
+            "蓝": "#2F6FED",
+            "紫": "#8E4EC6",
+        }
+
+    def _set_bg_controls(self, enabled: bool) -> None:
+        self.bg_color.set_enabled(enabled)
+        self.bg_alpha.configure(state="normal" if enabled else "disabled")
+        self.bg_spread.configure(state="normal" if enabled else "disabled")
+
+    def _bg_request(self) -> tuple[str, bool]:
+        """读当前选择，返回 ``(颜色, 是否用毛玻璃)``。
+
+        毛玻璃那格已经去掉：切到毛玻璃会带 WS_THICKFRAME，底层窗口的
+        位置和尺寸都会跟着变，问题太多，这里固定走纯色。
+        """
+        return self._bg_colors().get(self.bg_color.get(), "#FFFFFF"), False
+
+    def _push_bg(self) -> None:
+        """把当前颜色 + 透明度推给 App。"""
+        app = self.app
+        if not getattr(app, "frost_active", False):
+            return
+        color, glass = self._bg_request()
+        app.set_frost_backdrop(
+            color,
+            alpha=int(self.bg_alpha.get()),
+            glass=glass,
+            spread=int(self.bg_spread.get()),
+        )
+
+    def on_bg_enable(self) -> None:
+        """勾选 = 显示背景颜色窗口；取消 = 收起。"""
+        if getattr(self, "_syncing_bg", False):
+            return
+        enabled = bool(self.bg_enable.get())
+        self._set_bg_controls(enabled)
+        if enabled:
+            # 直接建，不走 _push_bg：它要求 frost_active 已经是 True，
+            # 而第一次勾选时恰好事 False。
+            app = self.app
+            color, glass = self._bg_request()
+            app.set_frost_backdrop(
+                color,
+                alpha=int(self.bg_alpha.get()),
+                glass=glass,
+                spread=int(self.bg_spread.get()),
+            )
+        else:
+            self.app.clear_frost_backdrop()
+
+    def on_bg_color(self, _value: str) -> None:
+        self._push_bg()
+
+    def on_bg_alpha(self, value: float) -> None:
+        alpha = int(round(value))
+        self.bg_alpha_value.configure(text=str(alpha))
+        self._push_bg()
+
+    def on_bg_spread(self, value: float) -> None:
+        spread = int(round(value))
+        self.bg_spread_value.configure(text=str(spread))
+        self._push_bg()
 
     def on_glass_kind(self, value: str) -> None:
         """换一种 DWM 合成方式：Accent 模糊 / Acrylic / 系统背板 / Mica。"""

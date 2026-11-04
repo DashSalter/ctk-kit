@@ -297,6 +297,7 @@ class Segmented(ctk.CTkFrame):
         self._radius = corner_radius
         self._index = 0 if self._values else -1
         self._hover = -1
+        self._enabled = True
         # 浮点段索引：动画期间落在两段之间
         self._progress = float(self._index) if self._index >= 0 else 0.0
         self._anim_job: Optional[str] = None
@@ -324,6 +325,16 @@ class Segmented(ctk.CTkFrame):
         self._canvas.bind("<Configure>", self._on_configure)
 
     # ------------------------------------------------------------ 公共 API
+    def set_enabled(self, enabled: bool) -> None:
+        """启用 / 禁用。禁用时点击无反应，整块换成输入框底显得「灰掉」。"""
+        self._enabled = bool(enabled)
+        base = T.COLOR_SOFT if self._enabled else T.COLOR_INPUT
+        try:
+            self.configure(fg_color=base)
+            self._canvas.configure(bg=color_of(base))
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            pass
+
     def get(self) -> str:
         """当前选中段文字；没有段时返回空字符串。"""
         if 0 <= self._index < len(self._values):
@@ -476,6 +487,8 @@ class Segmented(ctk.CTkFrame):
         return max(0, min(len(self._values) - 1, index))
 
     def _on_click(self, event: tk.Event) -> None:
+        if not self._enabled:
+            return
         index = self._segment_at(event.x)
         if index < 0:
             return
@@ -485,6 +498,8 @@ class Segmented(ctk.CTkFrame):
             self._command(self._values[index])
 
     def _on_motion(self, event: tk.Event) -> None:
+        if not self._enabled:
+            return
         index = self._segment_at(event.x)
         if index != self._hover:
             self._hover = index

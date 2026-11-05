@@ -17,7 +17,9 @@ concurrency:
 jobs:
   build:
     name: Build package
-    runs-on: ubuntu-latest
+    # 核心模块是 Windows 的 .pyd，必须在 Windows 上构建：在 ubuntu 上打出来
+    # 的是 py3-none-any 的 wheel，Linux 装完 import 就会崩。
+    runs-on: windows-latest
 
     steps:
       - uses: actions/checkout@v5

@@ -7,7 +7,7 @@ name = "ctk-kit"
 version = "0.9.2"
 description = "面向 CustomTkinter 的轻量界面基件：深浅色令牌、常用控件与懒加载列表"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 license = { text = "MIT" }
 authors = [{ name = "加点盐", email = "1431705288@qq.com" }]
 keywords = [
@@ -23,9 +23,8 @@ classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
+    "Operating System :: Microsoft :: Windows",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -60,3 +59,6 @@ exclude = ["examples*"]
 
 [tool.setuptools.package-data]
 ctk_kit = ["py.typed"]
+# core/ 里是编译好的 .pyd（和配套的 .pyi）；不显式写进来，wheel 里就只剩
+# 一个空的 core/__init__.py，装上后 import 立刻失败。
+"ctk_kit.core" = ["*.pyd", "*.pyi"]

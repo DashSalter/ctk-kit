@@ -16,7 +16,7 @@ import tkinter as tk
 from typing import Optional
 
 from . import tokens as T
-from .win32 import client_frame_inset, set_client_rect
+from .core.win32 import client_frame_inset, set_client_rect
 
 __all__ = ["round_window_corners", "scaled_geometry", "set_glass_geometry"]
 

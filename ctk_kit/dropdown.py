@@ -18,12 +18,12 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
-from .glass import backdrop_image
+from .core.glass import backdrop_image
 from .popup import round_window_corners, set_glass_geometry
 from .fonts import get_font
 from .inputs import CTkEntry
 from .theme import color_of, current_backdrop
-from .win32 import acrylic_window
+from .core.win32 import acrylic_window
 
 _ARROW_CLOSED = "▼"
 _ARROW_OPEN = "▲"

@@ -44,7 +44,7 @@ try:  # pragma: no cover - 只在缺二进制时触发
     import importlib as _importlib
 
     for _core_name in ("win32", "glass", "frost_layer"):
-        _importlib.import_module(f"{__name__}.{_core_name}")
+        _importlib.import_module(f"{__name__}.core.{_core_name}")
 except ImportError as _exc:  # noqa: BLE001
     import platform as _platform
     import sys as _sys

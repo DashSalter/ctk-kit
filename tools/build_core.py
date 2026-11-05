@@ -1,11 +1,14 @@
 """把 ``_src/`` 里的核心模块编译成稳定 ABI（abi3）的 ``.pyd``。
 
-    python -m tools.build_core          # 编译并放到 ctk_kit/
+    python -m tools.build_core          # 编译并放到 ctk_kit/core/
     python -m tools.build_core --copy   # 只把源码拷过去（本地开发用）
 
-``_src/`` 是私有的：源码留在本地、不提交；仓库里只有 ``ctk_kit/*.pyd`` 和
-``ctk_kit/*.pyi``。用 ``Py_LIMITED_API`` 编译出来的 ``.pyd`` 不带 ``cp3xx``
+``_src/`` 是私有的：源码留在本地、不提交；仓库里只有 ``ctk_kit/core/*.pyd``
+和对应的 ``*.pyi``。用 ``Py_LIMITED_API`` 编译出来的 ``.pyd`` 不带 ``cp3xx``
 后缀，Python 3.9 及以上都能加载。
+
+改了核心模块的公开函数后，记得同步改 ``ctk_kit/core/*.pyi``（打包后 IDE 和
+类型检查靠它，缺了不会报错，但补全就没了）。
 
 编译需要 MSVC（VS 2022 的 Build Tools 即可），本地和 GitHub Actions 的
 ``windows-latest`` 都自带。
@@ -14,6 +17,7 @@
 from __future__ import annotations
 
 import argparse
+import contextlib
 import shutil
 import sys
 from pathlib import Path
@@ -21,6 +25,8 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "_src"
 PKG = ROOT / "ctk_kit"
+#: 编译产物的落点：和普通 Python 代码分开放。
+OUT = PKG / "core"
 
 #: 要保护源码、编成二进制的模块。
 MODULES = ("win32", "glass", "frost_layer")
@@ -35,8 +41,8 @@ def copy_sources() -> None:
     if missing:
         raise SystemExit(f"_src/ 里缺少：{', '.join(missing)}")
     for name in MODULES:
-        shutil.copy2(SRC / f"{name}.py", PKG / f"{name}.py")
-    print(f"已复制 {len(MODULES)} 个模块到 ctk_kit/（这些 .py 已被 .gitignore 忽略）")
+        shutil.copy2(SRC / f"{name}.py", OUT / f"{name}.py")
+    print(f"已复制 {len(MODULES)} 个模块到 ctk_kit/core/（这些 .py 已被 .gitignore 忽略）")
 
 
 def build() -> int:
@@ -53,7 +59,7 @@ def build() -> int:
 
     extensions = [
         Extension(
-            f"ctk_kit.{name}",
+            f"ctk_kit.core.{name}",
             [str(SRC / f"{name}.py")],
             define_macros=[("Py_LIMITED_API", LIMITED_API)],
             py_limited_api=True,
@@ -75,11 +81,11 @@ def build() -> int:
     finally:
         sys.argv = argv
 
-    # Cython 会把中间 .c 留在包目录里，提交前清掉。
-    for path in PKG.glob("*.c"):
+    # Cython 会把中间 .c 留在源码目录里，提交前清掉。
+    for path in list(PKG.glob("*.c")) + list(SRC.glob("*.c")):
         path.unlink(missing_ok=True)
 
-    built = [PKG / f"{name}.pyd" for name in MODULES]
+    built = [OUT / f"{name}.pyd" for name in MODULES]
     for path in built:
         if not path.exists():
             raise SystemExit(f"没生成 {path.name}，检查上面的编译输出")
@@ -88,6 +94,9 @@ def build() -> int:
 
 
 def main() -> int:
+    # 控制台默认是 GBK，打印中文路径会 UnicodeEncodeError 并以退出码 1 结束。
+    with contextlib.suppress(Exception):
+        sys.stdout.reconfigure(encoding="utf-8")
     parser = argparse.ArgumentParser(description="编译 ctk_kit 核心模块")
     parser.add_argument("--copy", action="store_true", help="只复制源码，不编译")
     args = parser.parse_args()

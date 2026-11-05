@@ -21,7 +21,7 @@ from .popup import round_window_corners, set_glass_geometry
 from .inputs import CTkEntry
 from .layout import style_scrollbar
 from .theme import color_of, current_backdrop
-from .win32 import acrylic_window
+from .core.win32 import acrylic_window
 
 #: 面板最多铺几行，超出就在面板内部滚动。
 _MAX_VISIBLE_ROWS = 8

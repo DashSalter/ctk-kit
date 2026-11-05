@@ -41,11 +41,11 @@ from PIL import Image, ImageDraw, ImageTk
 
 from . import tokens as T
 from .fonts import get_font
-from .glass import backdrop_image, excluding_from_capture, gradient_image
+from .core.glass import backdrop_image, excluding_from_capture, gradient_image
 from .inputs import FormEntry
 from .paint import cached
 from .popup import round_window_corners, scaled_geometry
-from .win32 import acrylic_window, client_frame_inset, set_client_rect
+from .core.win32 import acrylic_window, client_frame_inset, set_client_rect
 from .theme import color_of
 
 __all__ = ["Dialog", "alert", "confirm", "prompt"]

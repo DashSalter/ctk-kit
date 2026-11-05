@@ -25,8 +25,8 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .dialog import _round_corners
-from .glass import backdrop_image, excluding_from_capture
-from .win32 import acrylic_window
+from .core.glass import backdrop_image, excluding_from_capture
+from .core.win32 import acrylic_window
 from .popup import scaled_geometry
 
 __all__ = ["Popover"]

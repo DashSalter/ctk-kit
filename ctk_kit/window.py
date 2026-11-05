@@ -27,7 +27,7 @@ from customtkinter import (
 )
 
 from .branding import set_window_icon
-from .frost_layer import FrostLayer
+from .core.frost_layer import FrostLayer
 from .notify import Notifier
 from .theme import (
     apply_appearance,
@@ -36,7 +36,7 @@ from .theme import (
     set_titlebar_dark,
     set_window_brush,
 )
-from .win32 import (
+from .core.win32 import (
     DWMWA_BORDER_COLOR,
     DWMWA_CAPTION_COLOR,
     DWMWA_WINDOW_CORNER_PREFERENCE,

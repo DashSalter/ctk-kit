@@ -35,8 +35,11 @@ jobs:
           python -m build
 
       - name: Verify wheel
+        shell: pwsh
         run: |
-          pip install dist/*.whl
+          # Windows 的 pwsh 不会展开 dist/*.whl，直接传给 pip 会当成字面量文件名。
+          $wheel = Get-ChildItem dist/*.whl | Select-Object -First 1
+          python -m pip install $wheel.FullName
           python -c "import ctk_kit; print('OK:', ctk_kit.__version__, ctk_kit.__all__)"
 
       - uses: actions/upload-artifact@v4

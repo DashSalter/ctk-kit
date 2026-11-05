@@ -49,6 +49,16 @@ except ImportError as _exc:  # noqa: BLE001
     import platform as _platform
     import sys as _sys
 
+    _missing = getattr(_exc, "name", "") or ""
+    if not _missing.startswith(f"{__name__}.core."):
+        # 二进制装好了，但它 import 时缺第三方依赖（最常见的是 Pillow）。
+        # 这种错误说成「核心模块没加载」会让人找错方向。
+        raise ImportError(
+            f"ctk-kit 缺少依赖：{_missing or '未知模块'}。\n"
+            "  试试重装一遍，让 pip 把依赖补齐：\n"
+            "  pip install --upgrade --force-reinstall ctk-kit"
+        ) from _exc
+
     raise ImportError(
         "ctk-kit 的核心模块没能加载。\n"
         f"  当前环境：Python {_sys.version.split()[0]} / {_platform.system()} {_platform.machine()}\n"

@@ -41,6 +41,7 @@ from profile_page import ProfilePage
 from select_page import SelectPage
 from settings_page import SettingsPage
 from table_page import TablePage
+from window_state import WindowStateStore
 
 _ICON_DIR = Path(__file__).resolve().parents[2] / "ctk_kit" / "Icon"
 
@@ -63,6 +64,9 @@ class DemoApp(App):
             size=(1200, 800),
             min_size=(380, 220),
             center=True,
+            # 状态持久化是使用方的事：核心库不再自带配置文件，这里接示例
+            # 自己的实现（~/.ctk-kit/window.json）。不传就什么都不记。
+            state=WindowStateStore(),
         )
         # 先藏起来：建页面、盖遮罩期间不要让用户看到半成品的第一帧。
         self.withdraw()

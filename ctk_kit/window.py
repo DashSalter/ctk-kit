@@ -29,16 +29,6 @@ from customtkinter import (
 from .branding import set_window_icon
 from .frost_layer import FrostLayer
 from .notify import Notifier
-from .preferences import (
-    read_appearance,
-    read_backdrop,
-    read_color_theme,
-    read_geometry,
-    write_appearance,
-    write_backdrop,
-    write_color_theme,
-    write_geometry,
-)
 from .theme import (
     apply_appearance,
     apply_backdrop,
@@ -83,13 +73,14 @@ class App(CTk):
             ``app.notify(...)``；``False`` 时不建（也不需要提示的窗口可以关掉）。
         icon: 窗口图标。默认 ``True`` 用内置 logo；传 ``False`` 不设；
             传字符串则当成自定义 ``.ico`` / ``.png`` 路径。
-        remember_geometry: 默认 ``True``，关闭时把窗口大小和位置写进配置，
-            下次启动自动恢复；传 ``False`` 关掉。
-        remember_theme: 默认 ``True``，记住上次选择的外观和颜色主题，
-            下次启动自动恢复；传 ``False`` 关掉。
+        remember_geometry: 默认 ``True``，关闭时把窗口大小和位置交给 ``state``
+            保存，下次启动自动恢复；没传 ``state`` 时什么都不会记。
+        remember_theme: 默认 ``True``，记住上次选择的外观、颜色主题和底色，
+            下次启动自动恢复；同样需要 ``state``。
         backdrop: ``"none"``（不透明）或 ``"acrylic"``（毛玻璃）；在窗口创建前
             生效，默认沿用上次的选择。也可以建好后 ``app.set_backdrop(...)``
             即时切换。
+        state: 可选的"窗口状态存储"对象，见下方说明；核心库不内置持久化。
         **kwargs: 其余参数原样交给 ``CTk``，例如 ``fg_color`` / ``bg_color``。
 
     注意:
@@ -118,17 +109,26 @@ class App(CTk):
         remember_geometry: bool = True,
         remember_theme: bool = True,
         backdrop: Optional[str] = None,
+        state: Any = None,
         **kwargs: Any,
     ) -> None:
-        """建根窗口：先应用外观/主题，再交给 ``CTk`` 完成其余初始化。"""
+        """建根窗口：先应用外观/主题，再交给 ``CTk`` 完成其余初始化。
+
+        ``state`` 是"窗口状态存储"：核心库不内置持久化，要用就把一个带
+        ``read_geometry`` / ``write_geometry`` / ``read_appearance`` /
+        ``write_appearance`` / ``read_color_theme`` / ``write_color_theme`` /
+        ``read_backdrop`` / ``write_backdrop`` 这些方法的对象传进来（见
+        ``examples/basics/window_state.py``）；不传就什么都不记。
+        """
+        self._state = state
         # 没显式指定就沿用上次的选择；remember_theme=False 时保持 CTk 默认。
         if remember_theme:
             if appearance is None:
-                appearance = read_appearance()
+                appearance = self._state_call("read_appearance")
             if theme is None:
-                theme = read_color_theme() or None
+                theme = self._state_call("read_color_theme") or None
             if backdrop is None:
-                backdrop = read_backdrop()
+                backdrop = self._state_call("read_backdrop")
         if appearance is not None:
             set_appearance_mode(appearance)
         if theme is not None:
@@ -282,10 +282,7 @@ class App(CTk):
         set_window_brush(self)
 
         if save and getattr(self, "_remember_theme", False):
-            try:
-                write_appearance(mode)
-            except Exception:  # noqa: BLE001 - 写失败不影响本次切换
-                pass
+            self._state_call("write_appearance", mode)
 
     def _refresh_backdrop(self) -> None:
         """窗口映射后把玻璃挂上（DWM 只对已映射的窗口生效）。"""
@@ -395,6 +392,18 @@ class App(CTk):
         ``None``。
         """
         return extended_frame_bounds(self)
+
+    def _state_call(self, name: str, *args: Any) -> Any:
+        """调一次状态存储上的方法；没接存储或调用失败都返回 ``None``。
+
+        核心库不关心数据存在哪、什么格式，只按约定调这几个方法。
+        """
+        if self._state is None:
+            return None
+        try:
+            return getattr(self._state, name)(*args)
+        except Exception:  # noqa: BLE001 - 读写失败不该影响窗口本身
+            return None
 
     def _glass_tint(self) -> int:
         """把 ``color`` + ``alpha`` 拼成 ``0xAABBGGRR``。"""
@@ -568,10 +577,7 @@ class App(CTk):
         # 切回毛玻璃时把底层颜色窗口也补回来。
         self.after(40, self._auto_frost_layer)
         if save and getattr(self, "_remember_theme", False):
-            try:
-                write_backdrop(mode)
-            except Exception:  # noqa: BLE001 - 写失败不影响本次切换
-                pass
+            self._state_call("write_backdrop", mode)
 
     def toggle_backdrop(self) -> None:
         """在普通底色和毛玻璃之间切换。"""
@@ -607,10 +613,7 @@ class App(CTk):
         """
         set_default_color_theme(theme)
         if save and getattr(self, "_remember_theme", False):
-            try:
-                write_color_theme(theme)
-            except Exception:  # noqa: BLE001 - 写失败不影响本次切换
-                pass
+            self._state_call("write_color_theme", theme)
 
     def toggle_appearance(self) -> None:
         """在深浅两套外观之间切换。"""
@@ -693,7 +696,7 @@ class App(CTk):
         返回是否真的恢复了；调用方据此决定还要不要居中——用户上次把窗口
         放在某个位置，就不该被 ``center=True`` 又挪回屏幕中间。
         """
-        state = read_geometry()
+        state = self._state_call("read_geometry")
         if state is None:
             return False
 
@@ -738,7 +741,7 @@ class App(CTk):
                     x, y = int(parts[1]), int(parts[2])
             except (ValueError, IndexError):
                 pass
-            write_geometry(width, height, x, y)
+            self._state_call("write_geometry", width, height, x, y)
         except Exception:  # noqa: BLE001 - 关闭时写失败不该拦住退出
             pass
 

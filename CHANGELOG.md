@@ -38,6 +38,16 @@
   背景颜色」「背景颜色」（黑、白、红、橙、黄、绿、青、蓝、紫九色）、
   「背景透明度」「背景尺寸」四行，未勾选时后三项禁用
 
+### 破坏性变更
+
+- 删除 `ctk_kit.preferences`（`WindowState` 与 `read_*` / `write_*`）：核心库
+  不再内置任何持久化。`App` 新增 `state=` 参数，传一个带 `read_geometry` /
+  `write_geometry` / `read_appearance` / `write_appearance` /
+  `read_color_theme` / `write_color_theme` / `read_backdrop` /
+  `write_backdrop` 的对象即可恢复原来的行为；不传则什么都不记，
+  `remember_geometry` / `remember_theme` 随之失效。现成实现见
+  `examples/basics/window_state.py`（`WindowStateStore`）
+
 ## 0.9.2 — 2026-11-02
 
 - `App` 新增 `remember_geometry=True`：关闭时用 conf_base 把窗口大小和屏幕

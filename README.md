@@ -70,27 +70,39 @@ CTkButton(bar, text="保存").pack()
 - `icon=True`：窗口图标（标题栏左上角 + 任务栏），默认用内置 logo；
   传 `False` 不设，传字符串则用自定义的 `.ico` / `.png`
 - `remember_geometry=True`：关闭时记住窗口大小和位置，下次启动自动恢复；
-  传 `False` 关掉
+  需要有 `state`（见下）；传 `False` 关掉
 - `remember_theme=True`：记住上次选择的外观和颜色主题，下次启动自动恢复；
-  传 `False` 关掉
+  同样需要 `state`；传 `False` 关掉
 
 窗口标题栏颜色也会自动跟随外观（Windows 11 22H2+ 真正上色），不需要再手动调
 `set_titlebar_dark`。
 
 ### 记住窗口大小和位置
 
-`App` 默认就会记：关闭时把宽高和屏幕坐标写进 `~/.ctk-kit/window.json`，
-下次 `App(...)` 构造时自动恢复，不需要额外代码。
+核心库**不内置持久化**：数据存哪、用什么格式是使用方的事。要用就把一个「状态
+存储」对象传给 `state`，它需要提供这几个方法：
+
+| 方法 | 说明 |
+| --- | --- |
+| `read_geometry()` | 返回 `(宽, 高, x, y)`，没有记录返回 `None` |
+| `write_geometry(width, height, x, y)` | 保存几何（宽高逻辑像素、x/y 屏幕物理像素） |
+| `read_appearance()` / `write_appearance(mode)` | `light` / `dark` / `system` |
+| `read_color_theme()` / `write_color_theme(name)` | 主题名或文件路径 |
+| `read_backdrop()` / `write_backdrop(mode)` | `none` / `acrylic` |
+
+`examples/basics/window_state.py` 是一个现成的实现（用 `conf_base` 写到
+`~/.ctk-kit/window.json`），可以直接抄：
 
 ```python
-from ctk_kit import App
+from window_state import WindowStateStore
 
-app = App(title="备份", size=(880, 560))   # 上次拖过大小/挪过位置就按上次的来
+app = App(title="备份", size=(880, 560), state=WindowStateStore())
 app.mainloop()
 ```
 
-不想记就传 `remember_geometry=False`。最大化/最小化关闭时不会覆盖上次的普通
-几何；配置文件损坏或字段缺失时静默回退到 `size`。
+不传 `state` 就什么都不记，`remember_geometry` / `remember_theme` 也就没有作用。
+最大化/最小化关闭时不会覆盖上次的普通几何；配置损坏或字段缺失时静默回退到
+`size`。
 
 ### 记住外观和颜色主题
 
@@ -98,7 +110,7 @@ app.mainloop()
 `app.set_color_theme(...)` 时，把选择写进同一个配置文件，下次启动自动恢复。
 
 ```python
-app = App(title="备份")            # 启动时沿用上次的浅色/深色和主题
+app = App(title="备份", state=WindowStateStore())   # 启动时沿用上次的浅色/深色和主题
 app.set_appearance_mode("light")   # 同时写进配置
 app.set_color_theme("green")       # 只影响之后创建的控件
 ```
@@ -109,7 +121,7 @@ app.set_color_theme("green")       # 只影响之后创建的控件
 app.set_appearance_mode("dark", save=False)
 ```
 
-不想要这个行为就传 `remember_theme=False`。
+不想要这个行为就传 `remember_theme=False`（或者干脆不传 `state`）。
 
 ### 内置 logo
 

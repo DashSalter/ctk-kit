@@ -36,7 +36,9 @@ from __future__ import annotations
 
 from typing import Any
 
-__version__ = "0.9.2"
+#: 改这里时记得同步 ``pyproject.toml`` 的 ``version``（打包以那份为准，
+#: 这行只给 ``ctk_kit.__version__`` 用）。
+__version__ = "0.10.0"
 
 # 核心模块（win32 / glass / frost_layer）发布时是编译好的 .pyd，源码不在仓库里。
 # 装错平台或 Python 版本时，import 那一层会报得很晚、很难懂，这里提前说清楚。

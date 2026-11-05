@@ -3,7 +3,7 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## 未发布
+## 0.10.0 — 2026-11-05
 
 - 新增 `App.set_window_debug()` / `window_debug()`：窗口级 DWM 调试项。
   `hide_frame_border` 写 `DWMWA_VISIBLE_FRAME_BORDER_THICKNESS`（37，Win11

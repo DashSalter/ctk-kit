@@ -1,8 +1,9 @@
-"""组件页：徽标、悬浮提示、分页条、页签、日期、区间滑块、搜索框、步骤条。
+"""组件页：徽标、分页条、页签、日期、区间滑块、搜索框、步骤条。
 
-前半是 0.9.2 第一档的小件（``Badge`` / ``Tag`` / ``Tooltip`` / ``Pagination``），
+前半是 0.9.2 第一档的小件（``Badge`` / ``Tag`` / ``Pagination``），
 后半是第二档：``Tabs`` 页签、``Calendar`` / ``DatePicker`` 日期、``RangeSlider``
 区间、``SearchBox`` 搜索、``Steps`` / ``Wizard`` 步骤与向导。
+``Tooltip`` 的演示搬到「提示」页（``notify_page.py``）。
 
 和别的页面一样拆成「UI 类 + 事件类」：UI 类只建控件，事件类在构造时
 ``bind_events()``，每个卡片底部带一个「查看实现」折叠代码块。
@@ -43,7 +44,6 @@ from ctk_kit import (
     Tabs,
     Tag,
     Timeline,
-    Tooltip,
     Wizard,
 )
 
@@ -52,11 +52,6 @@ Badge(card, "已同步", color="success")              # 淡绿底、绿字
 Badge(card, "3", color="danger", variant="solid")   # 红底白字计数
 Badge(card, dot=True, color="warning")               # 一个状态点
 Tag(card, "草稿", variant="outline")                 # 描边标签'''
-
-TOOLTIP_CODE = '''from ctk_kit import Tooltip
-
-Tooltip(save_button, "保存当前草稿")
-Tooltip(entry, lambda: f"当前长度 {len(entry.get())}", delay=300)'''
 
 PAGINATION_CODE = '''from ctk_kit import Pagination
 
@@ -178,12 +173,11 @@ class ExtrasPageUI(PageBase):
         self._skeleton_on = True
 
     def _build_cards(self, area: tk.Misc) -> None:
-        """按顺序建 12 张卡片；前 3 张同步，其余分帧。"""
+        """按顺序建 11 张卡片；前 3 张同步，其余分帧。"""
         self.build_cards(
             area,
             [
                 self._build_badges,
-                self._build_tooltip,
                 self._build_pagination,
                 self._build_tabs,
                 self._build_range_search,
@@ -245,33 +239,6 @@ class ExtrasPageUI(PageBase):
             box,
             BADGE_CODE,
             "Tag 是 Badge 的别名；set_text() 可以在运行时换文字。",
-        )
-
-    def _build_tooltip(self, area: tk.Misc) -> None:
-        """按钮和输入框挂悬停提示。"""
-        box = Card(area, title="悬浮提示")
-        box.pack(fill="x", pady=(12, 0))
-
-        HintLabel(
-            box,
-            "默认停 0.5 秒弹出；文字可以传函数，每次悬停都重新算。",
-        ).pack(fill="x", padx=16, pady=(14, 8))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 10))
-        self.save_button = PrimaryButton(row, "保存")
-        self.save_button.pack(side="left")
-        self.delay_button = SoftButton(row, "延迟 300ms")
-        self.delay_button.pack(side="left", padx=(8, 0))
-        self.tip_entry = FormEntry(row, placeholder="输入几个字，再悬停")
-        self.tip_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
-        self.edge_button = SoftButton(row, "靠右边缘")
-        self.edge_button.pack(side="right", padx=(8, 0))
-
-        CodePanel(
-            box,
-            TOOLTIP_CODE,
-            "提示窗口不抢焦点；贴着屏幕边缘时会自动翻到上方。",
         )
 
     def _build_pagination(self, area: tk.Misc) -> None:
@@ -603,17 +570,7 @@ class ExtrasPage(ExtrasPageUI):
         self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
-        """挂提示、徽标点击和分页按钮。"""
-        self.tips = [
-            Tooltip(self.save_button, "保存当前草稿"),
-            Tooltip(self.delay_button, "延迟 0.3 秒才弹出", delay=300),
-            Tooltip(
-                self.tip_entry,
-                lambda: f"当前输入了 {len(self.tip_entry.get())} 个字符",
-                delay=200,
-            ),
-            Tooltip(self.edge_button, "窗口贴边时提示会翻到左边或上方"),
-        ]
+        """挂徽标点击、分页按钮和其余交互（悬停提示已搬到「提示」页）。"""
         self.badge_demo.bind("<Button-1>", self._cycle_badge)
         self.pager.configure(command=self._on_page)
         self.page5.configure(command=self._jump_five)

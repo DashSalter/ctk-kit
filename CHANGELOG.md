@@ -3,6 +3,66 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.11.0 — 2026-11-06
+
+- **破坏性变更**：`tokens` 只保留**一套毛玻璃配色**，颜色令牌从
+  `(浅色, 深色)` 二元组改成 `"#RRGGBB"` 字符串（`ColorToken = str`）。
+  `GLASS_COLORS`、`tokens._flatten_glass_colors()`、`theme.glass_tint()` 一并移除；
+  `color_of()` 对字符串原样返回，对旧二元组取最后一项（兼容旧代码）。
+  外观模式仍固定为深色，设置页的「毛玻璃 / 深空 / Acrylic / Mica」切换不受影响
+- 新增 `ctk_kit.theming`：运行时换色。`apply_palette()` 改 `tokens` 全局值，并把
+  已经存在控件的颜色属性同步换掉、就地重绘（之后新建的控件自动用新色）；
+  `reset_palette()` 还原默认配色；`current_palette()` / `palette_changes()` 查看
+  现状；`save_palette()` / `load_palette()` 读写整份调色板 JSON；
+  `find_usage()` / `usage_summary()` / `describe_usage()` 查询某个令牌用在哪些
+  控件上；`register_redraw()` 给自绘控件（canvas / Pillow）登记重绘回调
+- `App` 新增 `apply_palette()` / `reset_palette()`：窗口级封装，`save=True` 时把
+  覆盖写进状态存储（`read_palette` / `write_palette`），启动时在建控件之前恢复
+- `ctk_kit.theme` 新增 `current_veil()`；`apply_backdrop()` 只在玻璃模式下把
+  `COLOR_BG` / `COLOR_SIDE` 换成透明键色，切回不透明时还原基准色
+- 毛玻璃模式下改「窗口底色 / 侧边栏底」不会破坏透明：令牌仍是透明键色，用户
+  挑的颜色记为不透明模式的基准，切回不透明时生效
+- 新增 `COLOR_PROGRESS`（「进度条前景色」）与 `COLOR_PROGRESS_TRACK`（「进度条背景色」）：
+  进度条的已完成段和轨道拆成两个令牌，`Progress` / `RingProgress` / `ProgressBar` 用前者、
+  `ProgressBar` / `Slider` / `RangeSlider` / `Progress` 的轨道用后者；改它不影响「选项主色」
+- 新增 `COLOR_KNOB`（「选项辅助色」）：开关的圆球、`Check` 的勾、`Radio` 的中心点共用
+  这一个亮色，主题页里可以单独调
+- 新增 `COLOR_KNOB_HOVER`（「选项悬停色」）：鼠标移到开关 / 勾选框 / 单选框上时，圆球、勾、
+  中心点换成这个色；主题页里它和「选项辅助色」排在同一行
+- 新增 `theming.set_darken(factor)`：按系数统一压暗自定义颜色（只影响覆盖过的
+  令牌）。示例的设置页在「毛玻璃」主题下传 `0.8`（自定义色实际显示暗 20%），
+  切到“深空 / Acrylic / Mica”时传 `1.0` 还原，并把窗口整体透明度、背景层
+  不透明度都拉满
+- 示例新增独立的「主题」页（导航里可进）：放「主颜色」「选项主色」「选项辅助色」
+  「选项悬停色」「进度条前景色」「进度条背景色」六项，选项三项并排一行、进度条两项
+  并排一行，用途文字改成鼠标悬停时才显示；上方一块预览放主按钮 / 次按钮 / 窄输入框 /
+  分段选择（开·关）/ 开关 / 勾选框 / 单选框 / 进度条，改完立刻能看到变色；
+  「恢复默认配色」一键还原
+- `choices.Check` / `choices.Radio` 新增 `apply_theme()`：按当前令牌重画勾选框 / 单选框
+  （canvas + Pillow 画的，换属性刷不到）
+- `misc.Progress` / `misc.RingProgress` / `inputs.Slider` / `range.RangeSlider` 新增
+  `apply_theme()`：换完颜色立刻重画，不用再动一次数值。前两个在构造时把颜色烤成了
+  字段，现在换令牌会重新求值（显式传了 `color=` / `track=` 的仍按传入值）
+- `inputs.Segmented` 新增 `apply_theme()`：按当前令牌重刷底色、选中滑块与文字
+- 换色时自动遍历控件树，调用每个实现了 `apply_theme()` 的组件（`Card`、`SidebarNav`、
+  `StatusBar`、`Segmented`、`TimePicker` 等），所以 canvas / Pillow 自绘的组件也会
+  立刻跟着变，不需要逐个登记 `register_redraw()`
+- `Tooltip` 的浮层改成下拉面板 / 右键菜单同一套样式：底色用菜单面板的
+  `#2B2B2B`，不再挂系统毛玻璃；默认字号 14px、内边距 `(14, 10)`，比原来的
+  12px / `(10, 6)` 更松快。示例里的 `Tooltip` 演示从「组件」页搬到「提示」页
+- `ColorPicker` 支持 `configure(command=...)` / `configure(value=...)`，和
+  `Segmented` 等控件的用法一致
+- `ColorPicker` 点击后**直接打开完整取色面板**，不再先弹一个 12 色的小色板；
+  这 12 个常用色移到面板底部「取消 / 确定」左边的空白处作为参考色，点一下跳到该颜色
+- `ColorPicker` 加右键菜单：点「复制颜色」把当前颜色写进剪贴板；
+  「粘贴颜色」在剪贴板里不是合法颜色时自动灰掉（`#rgb` / `#rrggbb` 都认）
+- 修复：`FlatButton` / `SoftButton` / `Avatar` 把令牌用 `color_of()` 求值成单色后
+  再交给 CTk，导致这两个控件以前不跟随深浅切换；现在直接传令牌
+- 修复：`StatusBar` 的 `_tone_color()` 还在对令牌做 `token[1]` / `token[0]`，单色化后
+  会取到字符串的字符，改为直接返回令牌
+- 修复：`Switch` 换色后不变——`self._photos` 按 `(选中, 悬停)` 缓存整张 `CTkImage`，
+  颜色变了键没变导致命中旧图；新增 `apply_theme()` 先清缓存再重画
+
 ## 0.10.0 — 2026-11-05
 
 - 新增 `App.set_window_debug()` / `window_debug()`：窗口级 DWM 调试项。

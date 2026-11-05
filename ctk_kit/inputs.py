@@ -387,6 +387,19 @@ class Segmented(ctk.CTkFrame):
             return self._command
         return super().cget(attribute_name)
 
+    def apply_theme(self) -> None:
+        """按当前令牌重刷底色、滑块和文字（``theming`` 运行时换色后调用）。"""
+        canvas = self._seg_canvas
+        if not canvas.winfo_exists():
+            return
+        base = T.COLOR_SOFT if self._enabled else T.COLOR_INPUT
+        try:
+            self.configure(fg_color=base)
+            canvas.configure(bg=color_of(base))
+        except tk.TclError:
+            return
+        self._layout()
+
     # ------------------------------------------------------------ 布局
     def _set_values(self, values: Sequence[str]) -> None:
         """换一组段；原选中项还在就保留，否则回到第一段。"""
@@ -623,24 +636,20 @@ def _switch_image(track: str, knob: str, checked: bool):
 
 
 def _switch_picture(checked: bool, hover: bool, progress: Optional[float] = None):
-    """开关的深浅两张图：``CTkImage`` 会按当前外观挑一张。
+    """开关的背景图（深浅两套用同一张）。
 
     ``progress`` 给定时按中间态画（0=关、1=开），动画用；不传则取终态，
     走 :func:`_switch_image` 的缓存。
     """
     ratio = (1.0 if checked else 0.0) if progress is None else progress
-    knob = T.COLOR_BUTTON_KNOB_HOVER if hover else T.COLOR_BUTTON_KNOB
-    light_track = blend_hex(T.COLOR_BORDER_STRONG[0], T.COLOR_ACTIVE[0], ratio)
-    dark_track = blend_hex(T.COLOR_BORDER_STRONG[1], T.COLOR_ACTIVE[1], ratio)
+    # 「三级颜色」：圆球和勾选框的勾、单选框的中心点同色；悬停时换成悬停色
+    knob = color_of(T.COLOR_KNOB_HOVER if hover else T.COLOR_KNOB)
+    track = blend_hex(color_of(T.COLOR_BORDER_STRONG), color_of(T.COLOR_ACTIVE), ratio)
     if progress is None:
-        return (
-            _switch_image(light_track, knob[0], checked),
-            _switch_image(dark_track, knob[1], checked),
-        )
-    return (
-        _draw_switch(light_track, knob[0], ratio),
-        _draw_switch(dark_track, knob[1], ratio),
-    )
+        image = _switch_image(track, knob, checked)
+    else:
+        image = _draw_switch(track, knob, ratio)
+    return image, image.copy()
 
 
 class Switch(ctk.CTkFrame):
@@ -651,10 +660,10 @@ class Switch(ctk.CTkFrame):
     上画好，再交给 ``CTkImage`` 缩到逻辑尺寸，HighDPI 下也跟着缩放。
 
     轨道用 ``COLOR_BORDER_STRONG`` 而不是 ``COLOR_SOFT``：后者在深色主题下
-    （``#22242c``）和卡片底几乎同色，整个开关看起来就是一团黑；把手则取
-    ``COLOR_BUTTON_KNOB``，深色下比轨道亮、浅色下比轨道深，两个主题都分得清。
-    悬停时换成 ``COLOR_BUTTON_KNOB_HOVER``，同样按「浅色走深、深色走亮」取色，
-    不会糊进轨道里。
+    （``#22242c``）和卡片底几乎同色，整个开关看起来就是一团黑；把手取
+    ``COLOR_KNOB``（「三级颜色」），和勾选框的勾、单选框的中心点同色，
+    悬停时掺白提亮。拨到右边时轨道用 ``COLOR_ACTIVE``，
+    和勾选、单选、滑块同一个颜色。
     拨到右边时轨道用 ``COLOR_ACTIVE``（偏青），和勾选、单选、滑块同一个颜色。
 
     参数:
@@ -717,6 +726,15 @@ class Switch(ctk.CTkFrame):
         self._refresh()
 
     # ------------------------------------------------------------ 绘制
+    def apply_theme(self) -> None:
+        """按当前令牌重画开关图（``theming`` 运行时换色后调用）。
+
+        ``self._photos`` 是按 ``(选中, 悬停)`` 索引的**整张 CTkImage** 缓存，
+        颜色变了键却不变，不清理就会一直用旧图。
+        """
+        self._photos.clear()
+        self._refresh()
+
     def _refresh(self) -> None:
         """按当前状态换图；同一状态复用已经画好的 ``CTkImage``。"""
         if not _HAS_PIL:
@@ -1079,11 +1097,15 @@ class Slider(ctk.CTkFrame):
 
     # ---- 绘制 ----------------------------------------------------------
 
+    def apply_theme(self) -> None:
+        """按当前令牌重画轨道和填充（``theming`` 运行时换色后调用）。"""
+        self._render()
+
     def _render(self) -> None:
         """画轨道、已滑过段和圆钮。"""
         canvas = self._canvas
         canvas.delete("all")
-        track = color_of(T.COLOR_BORDER_STRONG)
+        track = color_of(T.COLOR_PROGRESS_TRACK)
         active = color_of(
             T.COLOR_MUTED if self._state == "disabled" else T.COLOR_ACTIVE
         )
@@ -1170,8 +1192,8 @@ def ProgressBar(
         height=height,
         corner_radius=height // 2,
         border_width=0,
-        fg_color=T.COLOR_BORDER_STRONG,
-        progress_color=T.COLOR_ACTIVE,
+        fg_color=T.COLOR_PROGRESS_TRACK,
+        progress_color=T.COLOR_PROGRESS,
     )
     bar.set(max(0.0, min(1.0, value)))
     return bar

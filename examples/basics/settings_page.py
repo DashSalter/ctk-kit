@@ -15,6 +15,7 @@ from ctk_kit import (
     Slider,
     Switch,
     theme,
+    theming,
 )
 
 
@@ -84,7 +85,7 @@ class SettingsPageUI(PageBase):
 
     def _build_glass(self, area: tk.Misc) -> None:
         """毛玻璃微调：DWM 的每一种手段单独一个控件，改完立即重挂。"""
-        box = Card(area, title="毛玻璃微调")
+        box = Card(area, title="窗口Debug")
         box.pack(fill="x", pady=(12, 0))
 
         row = Frame(box)
@@ -316,6 +317,13 @@ class SettingsPage(SettingsPageUI):
     def on_theme(self, value: str) -> None:
         """切换毛玻璃 / 深空 / Acrylic / Mica；有 SidebarNav 时只重建当前页。"""
         app = self.app
+        # 毛玻璃：自定义颜色整体暗 20%；其它主题：恢复原色并把背景、整体
+        # 透明度都拉满（少一点透光，贴近系统原生窗口）。
+        if value == "毛玻璃":
+            theming.set_darken(0.75, root=app)
+        else:
+            theming.set_darken(1.0, root=app)
+            self._full_opacity()
         # Acrylic / Mica 是深色版的玻璃主题：深色外观 + 中性深色 tint，
         # 不再沿用默认 #181A20 的蓝调。
         deep_kinds = {"Acrylic": "acrylic", "Mica": "mica"}
@@ -353,6 +361,20 @@ class SettingsPage(SettingsPageUI):
             app.set_appearance_mode(wanted_mode)
         # 不在这里 refresh：set_backdrop 会重建当前页，这个实例马上就要被丢掉，
         # 再碰它的控件只会拿到 "invalid command name"。
+
+    def _full_opacity(self) -> None:
+        """把窗口整体透明度和背景层都拉满（不透明）。"""
+        app = self.app
+        app.set_glass_options(opacity=1.0)
+        layer = getattr(app, "frost_layer", None)
+        if layer is None:
+            return
+        app.set_frost_backdrop(
+            getattr(layer, "color", "#181A20"),
+            alpha=255,
+            glass=bool(getattr(layer, "glass", False)),
+            spread=int(getattr(layer, "spread", 0)),
+        )
 
     # ------------------------------------------------------------------ 背景窗口
     def refresh_background(self) -> None:

@@ -21,14 +21,17 @@
     state.write_backdrop(mode)
     state.read_frost()      -> Optional[dict]   {"color", "alpha", "spread"}
     state.write_frost(color, alpha, spread)
+    state.read_palette()    -> dict     {"COLOR_ACTIVE": "#606269", ...}
+    state.write_palette(palette)
 
 不想记就直接不传 ``state``。
 """
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Any, Dict, Optional, Tuple
 
 from conf_base import ConfigBase, Section
 
@@ -67,6 +70,10 @@ class WindowState(ConfigBase):
     frost_color = frost.field(default="#000000")
     frost_alpha = frost.field(default=56, validator=lambda v: 0 <= int(v) <= 255)
     frost_spread = frost.field(default=0, validator=lambda v: 0 <= int(v) <= 40)
+
+    palette = Section("palette")
+    #: 自定义主题：``{"令牌名": "#RRGGBB"}``，存成一行 JSON。
+    palette_json = palette.field(default="")
 
 
 class WindowStateStore:
@@ -159,3 +166,35 @@ class WindowStateStore:
             WindowState.frost_color.value = color
             WindowState.frost_alpha.value = int(alpha)
             WindowState.frost_spread.value = int(spread)
+
+    def read_palette(self) -> Dict[str, Any]:
+        """读取自定义主题的令牌覆盖；没有记录或损坏时返回空字典。
+
+        返回值形如 ``{"COLOR_ACTIVE": "#606269", "COLOR_TEXT": "#f1f3f6"}``。
+        旧版本写下的 ``[浅色, 深色]`` 会取最后一项，兼容读回。
+        """
+        try:
+            raw = str(WindowState.palette_json.value or "").strip()
+            data = json.loads(raw) if raw else {}
+        except Exception:  # noqa: BLE001 - 配置损坏时回到默认配色
+            return {}
+        if not isinstance(data, dict):
+            return {}
+
+        palette: Dict[str, Any] = {}
+        for name, value in data.items():
+            if isinstance(value, str):
+                palette[name] = value
+            elif isinstance(value, (list, tuple)) and value:
+                palette[name] = str(value[-1])
+        return palette
+
+    def write_palette(self, palette: Dict[str, Any]) -> None:
+        """记住自定义主题的令牌覆盖；传空字典等于清空。"""
+        data: Dict[str, Any] = {}
+        for name, value in palette.items():
+            if isinstance(value, (list, tuple)) and value:
+                value = value[-1]
+            if isinstance(value, str) and value:
+                data[name] = value
+        WindowState.palette_json.value = json.dumps(data, ensure_ascii=False)

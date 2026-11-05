@@ -199,6 +199,8 @@ class _Mark(ctk.CTkFrame):
         self._anim_started = 0.0
         # 程序性写变量时临时静音 trace，避免先把终态画出来再补间
         self._silent = False
+        # 鼠标是否悬停在指示符/文字上：悬停时勾和圆点换成「悬停色」
+        self._hover = False
 
         self._canvas = tk.Canvas(
             self,
@@ -221,6 +223,21 @@ class _Mark(ctk.CTkFrame):
         self._label.pack(side="left", padx=(8, 0))
         for widget in (self._canvas, self._label):
             widget.bind("<Button-1>", self._on_click)
+            widget.bind("<Enter>", self._on_enter)
+            widget.bind("<Leave>", self._on_leave)
+
+    # ------------------------------------------------------------ 悬停
+    def _on_enter(self, _event: Any = None) -> None:
+        """鼠标进来：勾 / 圆点换「悬停色」。"""
+        if not self._hover:
+            self._hover = True
+            self._refresh()
+
+    def _on_leave(self, _event: Any = None) -> None:
+        """鼠标离开：换回三级颜色。"""
+        if self._hover:
+            self._hover = False
+            self._refresh()
 
     # ------------------------------------------------------------ 子类实现
     def _is_checked(self) -> bool:
@@ -255,6 +272,15 @@ class _Mark(ctk.CTkFrame):
         if self._command is not None:
             self._command()
 
+    def apply_theme(self) -> None:
+        """按当前令牌重画指示符（``theming`` 运行时换色后调用）。"""
+        self._bg = _bg_of(self)
+        try:
+            self._canvas.configure(bg=self._bg)
+        except tk.TclError:
+            return
+        self._refresh()
+
     def _refresh(self) -> None:
         """重画指示符；没有动画时直接画终态。"""
         self._canvas.delete("all")
@@ -265,7 +291,7 @@ class _Mark(ctk.CTkFrame):
         self._progress = 1.0 if checked else 0.0
         color = color_of(T.COLOR_ACTIVE)
         track = color_of(T.COLOR_BORDER_STRONG)
-        foreground = color_of(T.COLOR_ACCENT_TEXT)
+        foreground = color_of(T.COLOR_KNOB_HOVER if self._hover else T.COLOR_KNOB)
         if not _HAS_PIL:
             self._draw_plain(checked, color, track, foreground)
             return
@@ -280,7 +306,7 @@ class _Mark(ctk.CTkFrame):
         self._canvas.delete("all")
         color = color_of(T.COLOR_ACTIVE)
         track = color_of(T.COLOR_BORDER_STRONG)
-        foreground = color_of(T.COLOR_ACCENT_TEXT)
+        foreground = color_of(T.COLOR_KNOB_HOVER if self._hover else T.COLOR_KNOB)
         if not _HAS_PIL:
             self._draw_plain(progress >= 0.5, color, track, foreground)
             return
@@ -385,8 +411,8 @@ class Check(_Mark):
         text: str = "",
         command: Optional[Callable[[], None]] = None,
         *,
-        width: int = 18,
-        height: int = 18,
+        width: int = 22,
+        height: int = 22,
         variable: Optional[tk.IntVar] = None,
         font: Any = None,
     ) -> None:
@@ -441,8 +467,8 @@ class Radio(_Mark):
         *,
         variable: Optional[tk.StringVar] = None,
         command: Optional[Callable[[], None]] = None,
-        width: int = 18,
-        height: int = 18,
+        width: int = 22,
+        height: int = 22,
         font: Any = None,
     ) -> None:
         """建单选项；``value`` 是选中时写进变量的值。"""

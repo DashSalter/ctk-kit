@@ -31,11 +31,10 @@ from PIL import Image, ImageDraw, ImageTk
 from . import tokens as T
 from .branding import dim_image, set_window_icon
 from .buttons import PrimaryButton, SecondaryButton
+from .context_menu import attach_menu
 from .core.win32 import enable_acrylic
-from .dialog import _round_corners
 from .fonts import get_font
 from .inputs import FormEntry, Segmented
-from .popup import scaled_geometry
 from .theme import is_win11, set_titlebar_dark
 
 __all__ = ["ColorPicker", "ColorDialog"]
@@ -102,7 +101,6 @@ class ColorPicker(ctk.CTkFrame):
         self._value = value
         self._command = command
         self._colors: List[str] = list(colors) if colors else list(_SWATCHES)
-        self._popup: Optional[ctk.CTkToplevel] = None
 
         self._swatch = ctk.CTkButton(
             self,
@@ -141,6 +139,37 @@ class ColorPicker(ctk.CTkFrame):
         )
         self._arrow.pack(side="right", padx=(0, 6))
 
+        menu = attach_menu(self, [("复制颜色", self._copy_color)], deep=True)
+        menu.add_command(
+            "粘贴颜色", self._paste_color, enabled=self._clipboard_is_color
+        )
+
+    def _copy_color(self) -> None:
+        """复制当前颜色的 hex 字符串。"""
+        value = self.get()
+        self.clipboard_clear()
+        self.clipboard_append(value)
+        self.update_idletasks()
+
+    def _paste_color(self) -> None:
+        """把剪贴板里的颜色贴进来（等同于用户选了这个颜色）。"""
+        color = self._clipboard_color()
+        if color:
+            self.set(color, notify=True)
+
+    def _clipboard_color(self) -> str:
+        """剪贴板里的颜色，规范成 ``#rrggbb``；不是颜色时返回空字符串。"""
+        try:
+            text = str(self.clipboard_get()).strip()
+        except Exception:  # noqa: BLE001 - 剪贴板为空或放的不是文本
+            return ""
+        rgb = _parse_hex(text)
+        return _hex_of(rgb) if rgb is not None else ""
+
+    def _clipboard_is_color(self, _source: Any = None) -> bool:
+        """剪贴板里有没有能认出来的颜色（菜单据此灰掉「粘贴颜色」）。"""
+        return self._clipboard_color() != ""
+
     # --- 对外 ---
     def get(self) -> str:
         """当前颜色。"""
@@ -154,151 +183,34 @@ class ColorPicker(ctk.CTkFrame):
         if notify and self._command is not None:
             self._command(color)
 
+    def configure(self, require_redraw: bool = False, **kwargs: Any) -> Any:
+        """支持 ``configure(command=...)`` / ``configure(value=...)``。"""
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        if "value" in kwargs:
+            self.set(str(kwargs.pop("value")))
+        if kwargs:
+            return super().configure(require_redraw=require_redraw, **kwargs)
+        return self
+
     def open(self) -> None:
-        """打开色板；已经开着就什么也不做。"""
-        if self._popup is not None and self._popup.winfo_exists():
-            return
-
-        window = ctk.CTkToplevel(self)
-        window.withdraw()
-        window.overrideredirect(True)
-        try:
-            window.attributes("-topmost", True)
-        except tk.TclError:
-            pass
-
-        # 描边画在窗口上：整窗铺描边色，色板卡片四边各内缩 1px。
-        window.configure(fg_color=T.COLOR_BORDER)
-        frame = ctk.CTkFrame(
-            window,
-            fg_color=T.COLOR_CARD,
-            border_width=0,
-            # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
-            corner_radius=T.RADIUS_SMALL,
-        )
-        frame.pack(fill="both", expand=True, padx=1, pady=1)
-
-        columns = 4
-        for index, color in enumerate(self._colors):
-            selected = color.lower() == self._value.lower()
-            ctk.CTkButton(
-                frame,
-                text="",
-                width=28,
-                height=28,
-                corner_radius=6,
-                fg_color=color,
-                hover_color=color,
-                border_width=2 if selected else 1,
-                border_color=T.COLOR_TEXT if selected else T.COLOR_BORDER,
-                command=lambda c=color: self._pick(c),
-            ).grid(
-                row=index // columns,
-                column=index % columns,
-                padx=6,
-                pady=6,
-            )
-
-        # 色板之外再给一个入口，点开完整取色面板。
-        rows = (len(self._colors) + columns - 1) // columns
-        ctk.CTkButton(
-            frame,
-            text="自定义…",
-            height=28,
-            corner_radius=6,
-            fg_color="transparent",
-            hover_color=T.COLOR_SOFT,
-            text_color=T.COLOR_TEXT,
-            font=get_font(T.FONT_TINY),
-            command=self._open_dialog,
-        ).grid(
-            row=rows,
-            column=0,
-            columnspan=columns,
-            sticky="ew",
-            padx=6,
-            pady=(0, 6),
-        )
-
-        window.update_idletasks()
-        width = frame.winfo_reqwidth() + 2
-        height = frame.winfo_reqheight() + 2
-        x, y = self._place(width, height)
-        # 宽高是物理像素，geometry 会再乘窗口缩放，交给 scaled_geometry 除回去。
-        window.geometry(scaled_geometry(window, width, height, x, y))
-        _round_corners(window, T.RADIUS_SMALL)
-        window.deiconify()
-        window.lift()
-        window.focus_force()
-        window.bind("<FocusOut>", lambda _e: window.after(60, self._maybe_hide))
-        self._popup = window
+        """打开取色面板。面板是模态的，关掉之后才返回。"""
+        self._open_dialog()
 
     def close(self) -> None:
-        """关掉色板。"""
-        window = self._popup
-        self._popup = None
-        if window is not None:
-            try:
-                window.destroy()
-            except Exception:  # noqa: BLE001
-                pass
+        """接口占位：取色面板是模态窗口，由它自己关。"""
 
     def toggle(self) -> None:
-        """开着就关，关着就开。"""
-        if self._popup is not None and self._popup.winfo_exists():
-            self.close()
-        else:
-            self.open()
+        """点色块或箭头都直接打开面板。"""
+        self._open_dialog()
 
     def _open_dialog(self) -> None:
-        """打开完整取色面板；选中颜色后和点色块一样处理。"""
-        self.close()
-        color = ColorDialog(self, value=self._value).show()
+        """打开完整取色面板，选完直接应用到控件上。"""
+        color = ColorDialog(self, value=self._value, colors=self._colors).show()
         if color:
             self.set(color, notify=True)
 
     # --- 内部 ---
-    def _place(self, width: int, height: int) -> tuple:
-        """色板放在控件下方，贴边就往里收。"""
-        x = self.winfo_rootx()
-        y = self.winfo_rooty() + self.winfo_height() + 4
-        screen_w = self.winfo_screenwidth()
-        screen_h = self.winfo_screenheight()
-        x = max(8, min(x, screen_w - width - 8))
-        y = max(8, min(y, screen_h - height - 40))
-        return x, y
-
-    def _pick(self, color: str) -> None:
-        """选中一个颜色并关闭色板。"""
-        self.set(color, notify=True)
-        self.close()
-
-    def _maybe_hide(self) -> None:
-        """焦点离开后，指针也不在弹层或控件上才关。"""
-        if self._popup is None:
-            return
-        try:
-            x, y = self._popup.winfo_pointerxy()
-            under = self._popup.winfo_containing(x, y)
-        except Exception:  # noqa: BLE001
-            under = None
-        if under is not None:
-            path = str(under)
-            if path.startswith(str(self._popup)) or path.startswith(str(self)):
-                return
-        if self._has_focus():
-            return
-        self.close()
-
-    def _has_focus(self) -> bool:
-        """焦点是否还在弹层里。"""
-        if self._popup is None:
-            return False
-        try:
-            focus = self._popup.focus_get()
-        except Exception:  # noqa: BLE001
-            return False
-        return focus is not None and str(focus).startswith(str(self._popup))
 
 
 # ---------------------------------------------------------------- 完整取色面板
@@ -431,6 +343,7 @@ class ColorDialog(ctk.CTkToplevel):
         title: str = "选择颜色",
         command: Optional[Callable[[str], None]] = None,
         icon: Optional[str] = None,
+        colors: Optional[Sequence[str]] = None,
     ) -> None:
         # 屏蔽 CTk 自带的标题栏染色：它会先 withdraw 再 deiconify，而且把
         # 标题栏涂成实色，玻璃就断了；改用本库的 set_titlebar_dark(glass=True)。
@@ -466,6 +379,7 @@ class ColorDialog(ctk.CTkToplevel):
         rgb = _parse_hex(value) or (37, 99, 235)
         self._rgb = tuple(rgb)
         self._hsv = list(colorsys.rgb_to_hsv(*(c / 255.0 for c in self._rgb)))
+        self._colors: List[str] = list(colors) if colors else list(_SWATCHES)
 
         self._build()
         self._bind_events()
@@ -560,10 +474,32 @@ class ColorDialog(ctk.CTkToplevel):
             self._num_labels.append(label)
 
         buttons = ctk.CTkFrame(body, fg_color="transparent")
-        buttons.grid(row=2, column=0, columnspan=2, sticky="e", pady=(12, 0))
+        buttons.grid(row=2, column=0, columnspan=2, sticky="ew", pady=(12, 0))
         self._body = body
+
+        # 参考色放在「取消 / 确定」左边的空白里：点一下跳到那个颜色，
+        # 不直接关面板，还能接着微调。
+        if self._colors:
+            swatches = ctk.CTkFrame(buttons, fg_color="transparent")
+            swatches.pack(side="left")
+            for color in self._colors:
+                ctk.CTkButton(
+                    swatches,
+                    text="",
+                    width=20,
+                    height=20,
+                    corner_radius=5,
+                    fg_color=color,
+                    hover_color=color,
+                    border_width=1,
+                    border_color=T.COLOR_BORDER,
+                    command=lambda c=color: self._use_swatch(c),
+                ).pack(side="left", padx=(0, 5))
+
+        actions = ctk.CTkFrame(buttons, fg_color="transparent")
+        actions.pack(side="right")
         SecondaryButton(
-            buttons,
+            actions,
             "取消",
             lambda: self._finish(None),
             width=84,
@@ -571,7 +507,7 @@ class ColorDialog(ctk.CTkToplevel):
             border=True,
         ).pack(side="left", padx=(0, 8))
         PrimaryButton(
-            buttons,
+            actions,
             "确定",
             lambda: self._finish(self._hex_text()),
             width=84,
@@ -782,6 +718,12 @@ class ColorDialog(ctk.CTkToplevel):
         self._rgb = tuple(max(0, min(255, int(c))) for c in rgb)
         self._hsv = list(colorsys.rgb_to_hsv(*(c / 255.0 for c in self._rgb)))
         self._refresh()
+
+    def _use_swatch(self, color: str) -> None:
+        """点参考色块：跳到那个颜色（不直接关面板，还能再微调）。"""
+        rgb = _parse_hex(color)
+        if rgb:
+            self._set_rgb(rgb)
 
     def _hex_text(self) -> str:
         return _hex_of(self._rgb)

@@ -18,7 +18,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
-from .theme import ColorToken, color_of
+from .theme import ColorToken
 
 # 无参回调；CTk 的 command 就是这么调的，不会传入事件对象。
 Command = Optional[Callable[[], None]]
@@ -241,9 +241,9 @@ class FlatButton(ctk.CTkButton):
             height=measure.metrics("linespace") + pady * 2,
             corner_radius=radius,
             font=button_font,
-            fg_color=bg if bg is not None else color_of(T.COLOR_SOFT),
-            hover_color=hover if hover is not None else color_of(T.COLOR_SOFT_HOVER),
-            text_color=fg if fg is not None else color_of(T.COLOR_TEXT),
+            fg_color=bg if bg is not None else T.COLOR_SOFT,
+            hover_color=hover if hover is not None else T.COLOR_SOFT_HOVER,
+            text_color=fg if fg is not None else T.COLOR_TEXT,
         )
 
 
@@ -262,7 +262,7 @@ class SoftButton(FlatButton):
             master,
             text,
             command,
-            fg=color_of(T.COLOR_MUTED),
+            fg=T.COLOR_MUTED,
             padx=8,
             pady=2,
             radius=T.RADIUS_SMALL - 2,

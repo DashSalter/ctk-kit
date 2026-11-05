@@ -40,6 +40,9 @@ _PANEL_BG = "#2B2B2B"
 _PANEL_HOVER = "#575A63"
 #: 已选中候选行的底色：比悬停色（#575A63）暗一档，扫过时还能再亮一下。
 _SELECTED_ROW_BG = "#464A54"
+#: 面板里的滚动条滑块：比主题那档亮，压在以 #2B2B2B 为主的面板上才看得见。
+_PANEL_SCROLLBAR = "#4A5060"
+_PANEL_SCROLLBAR_HOVER = "#5F6678"
 #: 面板里每一行的高度（逻辑像素）。
 _ROW_HEIGHT = 32
 #: 面板展开：淡入 + 从下方滑入（毫秒 / 帧间隔 / 滑入距离逻辑像素）。
@@ -87,6 +90,12 @@ class _PopupList(tk.Frame):
         # 滚动条先建先 pack：pack 按调用顺序分配空间，倒过来放它会被 canvas 挤没
         self.scrollbar = style_scrollbar(
             ctk.CTkScrollbar(self, orientation="vertical", command=self._yview)
+        )
+        # 面板底是 #2B2B2B，比卡片深，主题里那档滑块（#3D4350）压在上面几乎看不见，
+        # 这里提亮一档，和滚动容器里的观感对齐。
+        self.scrollbar.configure(
+            button_color=_PANEL_SCROLLBAR,
+            button_hover_color=_PANEL_SCROLLBAR_HOVER,
         )
         self.scrollbar.pack(side="right", fill="y", padx=(0, 3), pady=2)
         self.scrollbar.pack_forget()

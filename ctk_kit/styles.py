@@ -1,7 +1,7 @@
 """外壳控件的样式表：颜色集中定义，切主题时只 configure、不重建。
 
-样式值用 :mod:`ctk_kit.tokens` 里的 ``(浅色, 深色)`` 令牌写成；控件在
-``apply_theme()`` 里按当前外观解析成单个颜色，直接传给 ``configure``。
+样式值用 :mod:`ctk_kit.tokens` 里的颜色令牌写成（``"#RRGGBB"`` 字符串）；
+控件在 ``apply_theme()`` 里直接取当前令牌，传给 ``configure``。
 这样切主题时外壳控件（侧边栏、卡片、状态栏）可以原地换色，只有页面内容
 才需要重建。
 
@@ -9,11 +9,12 @@
 
     from ctk_kit.styles import style_of
 
-    sheet = style_of("card", "shell")      # 当前外观
+    sheet = style_of("card", "shell")      # 当前配色
     frame.configure(**sheet)
 
 ``style_of`` 的第三个参数可以显式指定 ``"light"`` / ``"dark"``；不传就按
-``customtkinter.get_appearance_mode()`` 取当前外观。
+``customtkinter.get_appearance_mode()`` 取当前外观（现在只有玻璃一套配色，
+这个参数只为兼容保留）。
 """
 
 from __future__ import annotations
@@ -98,25 +99,13 @@ def is_dark(mode: Optional[str] = None) -> bool:
     return str(mode).lower() in ("dark", "深色")
 
 
-def _glass_active() -> bool:
-    """当前是否毛玻璃底色；样式模块不依赖 theme，只能延迟导入。"""
-    try:
-        from .theme import current_backdrop
-
-        return current_backdrop() == "acrylic"
-    except Exception:  # noqa: BLE001 - 独立使用 styles 时按不透明处理
-        return False
-
-
 def pick(value: ColorValue, mode: Optional[str] = None) -> str:
-    """把一个样式值解析成当前外观下的单色字符串。
+    """把一个样式值解析成单色字符串。
 
-    三元组的第三项只给毛玻璃底色用；二元组照旧按深浅外观取。
+    令牌现在本身就是单色；传二元组时取当前外观那一侧（兼容旧写法）。
     """
     if isinstance(value, (tuple, list)):
-        if len(value) >= 3 and _glass_active():
-            return value[2]
-        return value[1] if is_dark(mode) else value[0]
+        return value[1] if is_dark(mode) and len(value) > 1 else value[0]
     return value
 
 

@@ -101,8 +101,11 @@ class Progress(ctk.CTkFrame):
         self._steps = max(0, int(steps))
         self._height = max(2, int(height))
         self._striped = bool(striped)
-        self._color = color_of(color or T.COLOR_ACTIVE)
-        self._track_color = color_of(track or T.COLOR_BORDER_STRONG)
+        self._color = color_of(color or T.COLOR_PROGRESS)
+        self._track_color = color_of(track or T.COLOR_PROGRESS_TRACK)
+        # 构造时传的颜色只存原值：默认色要在换令牌时重新求值
+        self._color_arg = color
+        self._track_arg = track
         self._radius = radius
         self._handle = bool(handle)
         self._on_change = on_change
@@ -153,6 +156,19 @@ class Progress(ctk.CTkFrame):
     def set(self, value: float) -> None:
         """写入进度；会先夹到 0~1，再重画。"""
         self._value = max(0.0, min(1.0, float(value)))
+        self._render()
+
+    def apply_theme(self) -> None:
+        """按当前令牌重画整条（``theming`` 运行时换色后调用）。"""
+        if not self._canvas.winfo_exists():
+            return
+        # 颜色在构造时就烤成单色了，换令牌必须重新求值
+        self._color = color_of(self._color_arg or T.COLOR_PROGRESS)
+        self._track_color = color_of(self._track_arg or T.COLOR_PROGRESS_TRACK)
+        try:
+            self._canvas.configure(bg=_parent_bg(self._canvas.master))
+        except tk.TclError:
+            return
         self._render()
 
     # ------------------------------------------------------------ 绘制
@@ -295,7 +311,7 @@ class Progress(ctk.CTkFrame):
         height = max(1, canvas.winfo_height())
         canvas.delete("all")
         if _HAS_PIL:
-            image = Image.new("RGBA", (width, height), color_of(T.COLOR_BORDER_STRONG))
+            image = Image.new("RGBA", (width, height), color_of(T.COLOR_PROGRESS_TRACK))
             start = int(max(0.0, self._anim_pos) * width)
             end = min(width, start + int(0.3 * width))
             if end > start:
@@ -360,8 +376,11 @@ class RingProgress(ctk.CTkFrame):
         self._size = max(60, int(size))
         self._thickness = max(3, int(thickness))
         self._ticks = max(0, int(ticks))
-        self._color = color_of(color or T.COLOR_ACTIVE)
-        self._track_color = color_of(track or T.COLOR_BORDER_STRONG)
+        self._color = color_of(color or T.COLOR_PROGRESS)
+        self._track_color = color_of(track or T.COLOR_PROGRESS_TRACK)
+        # 构造时传的颜色只存原值：默认色要在换令牌时重新求值
+        self._color_arg = color
+        self._track_arg = track
         self._show_text = show_text
         self._ring = bool(ring)
         self._tick_len = max(2, int(tick_len))
@@ -387,6 +406,18 @@ class RingProgress(ctk.CTkFrame):
     def set(self, value: float) -> None:
         """写入进度；会先夹到 0~1 再重画。"""
         self._value = max(0.0, min(1.0, float(value)))
+        self._render()
+
+    def apply_theme(self) -> None:
+        """按当前令牌重画整块（``theming`` 运行时换色后调用）。"""
+        if not self._canvas.winfo_exists():
+            return
+        self._color = color_of(self._color_arg or T.COLOR_PROGRESS)
+        self._track_color = color_of(self._track_arg or T.COLOR_PROGRESS_TRACK)
+        try:
+            self._canvas.configure(bg=_parent_bg(self))
+        except tk.TclError:
+            return
         self._render()
 
     # ------------------------------------------------------------ 绘制

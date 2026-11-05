@@ -11,8 +11,9 @@
 控件或控件被销毁时自动收起。文字如果是可调用对象，每次弹出前现取，
 适合放「当前值」这类会变的内容。
 
-提示的配色跟着当前外观走（卡片底、正文色、1px 描边），圆角在 Windows
-上裁出来；其他平台退回直角，不影响功能。
+提示的配色和下拉面板、右键菜单同一套（面板底、正文色），
+不用系统毛玻璃——一小块浮层糊了背景反而看不清。圆角在 Windows 上裁出来，
+其他平台退回直角，不影响功能。
 """
 
 from __future__ import annotations
@@ -23,8 +24,10 @@ import time
 import tkinter as tk
 from typing import Any, Callable, Optional, Union
 
+import customtkinter as ctk
+
 from . import tokens as T
-from .popup import enable_popup_glass, glass_veil, round_window_corners
+from .popup import round_window_corners
 from .fonts import get_font
 from .theme import color_of
 
@@ -35,6 +38,10 @@ TextSource = Union[str, Callable[[], str]]
 # 提示只做淡入：鼠标移开时它得立刻让路，再做淡出反而挡视线
 _FADE_MS = 120
 _FADE_STEP = 16
+
+# 底色和右键菜单（context_menu._MENU_BG）、下拉面板（dropdown._PANEL_BG）
+# 同一个值：比 COLOR_CARD 浅一档，一小块浮层才不会糊成黑块。
+_TIP_BG = "#2B2B2B"
 
 
 def _round_corners(window: tk.Misc, radius: int = 6) -> None:
@@ -50,8 +57,8 @@ class Tooltip:
         text: 提示文字；也可以传一个返回字符串的函数，每次显示前调用。
         delay: 鼠标停多久后弹出（毫秒），默认 500。
         wraplength: 文字超过这个宽度就换行（像素），默认 300。
-        font: 提示文字字体，默认 :data:`tokens.FONT_SMALL`。
-        padding: ``(左右, 上下)`` 的内边距，默认 ``(10, 6)``。
+        font: 提示文字字体，默认正文字号再大一档（14px）。
+        padding: ``(左右, 上下)`` 的内边距，默认 ``(14, 10)``。
 
     属性:
         text: 当前文字（读的时候会把函数求值）。
@@ -71,8 +78,8 @@ class Tooltip:
         *,
         delay: int = 500,
         wraplength: int = 300,
-        font: T.FontSpec = T.FONT_SMALL,
-        padding: tuple[int, int] = (10, 6),
+        font: T.FontSpec = (T.FONT_NAME, 14),
+        padding: tuple[int, int] = (14, 10),
     ) -> None:
         """建提示对象并绑好 ``<Enter>`` / ``<Leave>`` 等事件。"""
         self._widget = widget
@@ -125,29 +132,22 @@ class Tooltip:
 
         self._ensure_window()
         assert self._tip is not None and self._label is not None
-        veil = glass_veil()
         self._label.configure(
             text=text,
             font=get_font(self._font),
-            bg=veil or color_of(T.COLOR_CARD),
+            bg=_TIP_BG,
             fg=color_of(T.COLOR_TEXT),
             wraplength=self._wraplength,
             padx=self._padding[0],
             pady=self._padding[1],
         )
-        self._tip.configure(bg=veil or color_of(T.COLOR_BORDER))
+        self._tip.configure(fg_color=_TIP_BG)
         self._tip.update_idletasks()
         self._place()
         _round_corners(self._tip)
-        if veil:
-            # 和下拉面板同一路：显示前先把系统玻璃挂好，第一帧就是模糊背景。
-            enable_popup_glass(self._tip)
         with contextlib.suppress(tk.TclError):
             self._tip.attributes("-alpha", 0.0)
         self._tip.deiconify()
-        if veil:
-            # 映射之后再补一次，窗口刚出来时 DWM 合成还没稳定。
-            enable_popup_glass(self._tip)
         self._tip.lift()
         self._tip.attributes("-topmost", True)
         self._shown = True
@@ -268,10 +268,12 @@ class Tooltip:
                     return
             except tk.TclError:
                 pass
-        tip = tk.Toplevel(self._widget)
+        # 和下拉面板、右键菜单同一路：整块铺面板底色，不用系统毛玻璃——
+        # 提示只是一小块浮层，糊了背景反而看不清。
+        tip = ctk.CTkToplevel(self._widget)
         tip.withdraw()
         tip.overrideredirect(True)
-        tip.configure(bg=glass_veil() or color_of(T.COLOR_BORDER))
+        tip.configure(fg_color=_TIP_BG)
         label = tk.Label(
             tip,
             text="",
@@ -279,6 +281,8 @@ class Tooltip:
             anchor="w",
             bd=0,
             highlightthickness=0,
+            bg=_TIP_BG,
+            fg=color_of(T.COLOR_TEXT),
         )
         label.pack(padx=1, pady=1)
         self._tip = tip

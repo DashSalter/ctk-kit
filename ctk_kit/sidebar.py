@@ -43,6 +43,7 @@ from . import tokens as T
 from .branding import dim_image, logo_path
 from .buttons import SecondaryButton
 from .fonts import get_font
+from .layout import Scrollable
 from .pages import PageRebuilder
 from .styles import style_of
 from .theme import apply_appearance_fast, freeze_redraw
@@ -269,6 +270,19 @@ class SidebarNav(ctk.CTkFrame):
         )
         self.subtitle_label.pack(fill="x", pady=(1, 0))
 
+        # 导航区套一层滚动容器：窗口矮到放不下全部按钮时露出滚动条，
+        # 不再把按钮压扁或溢出到窗口外。
+        self.nav_scroll = Scrollable(
+            self.sidebar,
+            fg_color="transparent",
+            bg_color=T.COLOR_SIDE,
+            corner_radius=0,
+        )
+        # 侧边栏本身是 grid 定高的，这里关掉「子控件反向撑大父容器」，
+        # 导航区才会老实占用剩余高度、内容超出时交给滚动条。
+        self.sidebar.pack_propagate(False)
+        self.nav_scroll.pack(fill="both", expand=True)
+
         for name in self._nav_names:
             self._add_nav_button(name)
 
@@ -327,7 +341,7 @@ class SidebarNav(ctk.CTkFrame):
     def _add_nav_button(self, name: str) -> ctk.CTkButton:
         """建一个导航按钮并挂到侧边栏（构造与动态加页共用）。"""
         button = ctk.CTkButton(
-            self.sidebar,
+            self.nav_scroll,
             text=name,
             height=38,
             corner_radius=T.RADIUS_SMALL,

@@ -66,24 +66,19 @@ def _mix(fore: str, back: str, ratio: float) -> str:
     return f"#{r:02x}{g:02x}{b:02x}"
 
 
-def _pair_mix(color: T.ColorPair, base: T.ColorPair, ratio: float) -> T.ColorPair:
-    """深浅两套颜色分别混合，得到可以直接交给 CTk 的色对。"""
-    return (_mix(color[0], base[0], ratio), _mix(color[1], base[1], ratio))
-
-
 def _is_hex(value: str) -> bool:
     """是不是 ``#rrggbb``；自定义颜色名不能参与混合。"""
     return len(value) == 7 and value.startswith("#")
 
 
-def _resolve_color(color: ColorSpec) -> T.ColorPair:
-    """语义名 / 单色 / 色对，统一成 ``(light, dark)``。"""
-    if isinstance(color, tuple):
-        return color
+def _resolve_color(color: ColorSpec) -> str:
+    """语义名 / 单色 / 色对，统一成单色。"""
+    if isinstance(color, (tuple, list)):
+        return str(color[-1]) if color else "#000000"
     token = _COLOR_TOKENS.get(color)
     if token is not None:
         return token
-    return (color, color)
+    return color
 
 
 class Badge(ctk.CTkFrame):
@@ -177,7 +172,7 @@ class Badge(ctk.CTkFrame):
         return super().configure(**kwargs)
 
     # --- 内部 ---
-    def _text_color(self) -> Union[str, T.ColorPair]:
+    def _text_color(self) -> str:
         """文字颜色：实底用白字（警告色用深字），其余用主色。"""
         if self._dot:
             return self._palette
@@ -185,28 +180,29 @@ class Badge(ctk.CTkFrame):
             return "#1f1300" if self._color == "warning" else "#ffffff"
         return self._palette
 
-    def _fill(self, mode: int) -> Optional[str]:
-        """按外观和形态取底色；``outline`` 返回 ``None``（只描边）。"""
+    def _fill(self) -> Optional[str]:
+        """按形态取底色；``outline`` 返回 ``None``（只描边）。"""
         if self._dot or self._variant == "solid":
-            return self._palette[mode]
+            return self._palette
         if self._variant == "outline":
             return None
-        if all(_is_hex(part) for part in self._palette):
-            return _mix(self._palette[mode], T.COLOR_CARD[mode], 0.14)
-        return T.COLOR_SOFT[mode]
+        if _is_hex(self._palette):
+            return _mix(self._palette, T.COLOR_CARD, 0.14)
+        return T.COLOR_SOFT
 
-    def _render(self, width: int, height: int, mode: int) -> Image.Image:
-        """画一张 ``mode`` 外观的胶囊 / 圆点，尺寸是逻辑尺寸的 4 倍。"""
+    def _render(self, width: int, height: int) -> Image.Image:
+        """画一张胶囊 / 圆点，尺寸是逻辑尺寸的 4 倍。"""
         outline = None
         if self._variant == "outline" and not self._dot:
-            outline = self._palette[mode]
-        return _badge_image(width, height, self._fill(mode), outline)
+            outline = self._palette
+        return _badge_image(width, height, self._fill(), outline)
 
     def _image(self, width: int, height: int) -> ctk.CTkImage:
-        """深浅两套背景图，交给 ``CTkImage`` 按 DPI 缩放。"""
+        """背景图，交给 ``CTkImage`` 按 DPI 缩放。"""
+        image = self._render(width, height)
         return ctk.CTkImage(
-            light_image=self._render(width, height, 0),
-            dark_image=self._render(width, height, 1),
+            light_image=image,
+            dark_image=image.copy(),
             size=(width, height),
         )
 

@@ -64,7 +64,7 @@ toggle.select()      # 拨到右边
 toggle.deselect()    # 拨回左边
 toggle.toggle()
 
-# 圆球色 COLOR_BUTTON_KNOB、悬停色 COLOR_BUTTON_KNOB_HOVER，都在 tokens 里改'''
+# 圆球色共用 COLOR_KNOB（和勾选框的勾、单选框的中心点同色），在 tokens 里改'''
 
 CHECKBOX_CODE = '''from ctk_kit import Checkbox
 

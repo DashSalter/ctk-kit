@@ -26,7 +26,6 @@ from . import tokens as T
 from .branding import dim_image
 from .fonts import get_font
 from .paint import cached
-from .theme import color_of
 
 try:  # Pillow 是可选依赖
     from PIL import Image, ImageDraw
@@ -175,7 +174,7 @@ class Avatar(ctk.CTkFrame):
             width=size,
             height=size,
             corner_radius=0 if _HAS_PIL else size // 2,
-            fg_color="transparent" if _HAS_PIL else color_of(_resolve(color)),
+            fg_color="transparent" if _HAS_PIL else _resolve(color),
             text_color=T.COLOR_ACCENT_TEXT,
             font=get_font((T.FONT_NAME, max(10, size // 3), "bold")),
         )
@@ -227,7 +226,7 @@ class Avatar(ctk.CTkFrame):
             self._label.configure(
                 image="",
                 text="" if self._image is not None else self._initial(self._text),
-                fg_color=color_of(_resolve(self._color)),
+                fg_color=_resolve(self._color),
             )
             return
 
@@ -262,7 +261,7 @@ class Avatar(ctk.CTkFrame):
         if not (self._status and self._status in _STATUS):
             self._dot.place_forget()
             return
-        self._dot.configure(fg_color=color_of(_STATUS[self._status]))
+        self._dot.configure(fg_color=_STATUS[self._status])
         self._dot.place(relx=1.0, rely=1.0, anchor="se", x=2, y=2)
 
     def _base_images(self) -> Tuple["Image.Image", "Image.Image"]:

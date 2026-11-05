@@ -42,6 +42,7 @@ from profile_page import ProfilePage
 from select_page import SelectPage
 from settings_page import SettingsPage
 from table_page import TablePage
+from theme_page import ThemePage
 from window_state import WindowStateStore
 
 _ICON_DIR = Path(__file__).resolve().parents[2] / "ctk_kit" / "Icon"
@@ -97,6 +98,7 @@ class DemoApp(App):
                 "菜单": MenuPage,
                 "列表": ListingPage,
                 "杂项": MiscPage,
+                "主题": ThemePage,
             },
             hidden_pages={
                 "个人中心": ProfilePage,

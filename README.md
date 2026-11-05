@@ -6,7 +6,7 @@
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 面向 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 的界面基件：
-一套深浅色设计令牌和一批开箱即用的控件。支持 Python 3.8 – 3.14。
+一套毛玻璃设计令牌和一批开箱即用的控件。支持 Python 3.8 – 3.14。
 
 CustomTkinter 的公开接口（`CTk`、`CTkButton`、`CTkImage` 等）也全部从 `ctk_kit`
 转出；根窗口 `App` 还多收标题、尺寸、外观这些构造参数。建窗口和摆控件都只
@@ -123,6 +123,14 @@ app.set_appearance_mode("dark", save=False)
 
 不想要这个行为就传 `remember_theme=False`（或者干脆不传 `state`）。
 
+自定义配色也走同一个存储：状态对象提供 `read_palette()` / `write_palette(palette)`
+即可，`App.apply_palette(...)` 会自动写入，下次启动在**建控件之前**恢复：
+
+```python
+app.apply_palette({"COLOR_ACCENT": "#e11d48"})   # 立即换色并保存
+app.reset_palette()                              # 恢复默认配色
+```
+
 ### 内置 logo
 
 仓库里带一张 logo，放在 `ctk_kit/logo/`，`App` 默认就挂上：
@@ -214,7 +222,7 @@ print(LOGO_PATH, ICON_PATH)           # 需要原图路径时
 | `pagination` | `Pagination` | 页码条；`Table(page_size=…)` 的底部分页也用它 |
 | `sidebar` | `SidebarNav` | 侧边栏 + 页面管理，`add_page` / `remove_page`，见下 |
 | `tooltip` | `Tooltip` | 任意控件的悬停提示 |
-| `theme` / `tokens` | `apply_appearance` `color_of` 等 | 外观与设计令牌 |
+| `theme` / `tokens` / `theming` | `apply_appearance` `color_of` `apply_palette` 等 | 外观、设计令牌与运行时换色 |
 | `customtkinter` | `CTk` `App` `CTkButton` `CTkFrame` `CTkImage` `CTkFont` `set_appearance_mode` 等 | 原生类原样转出；`App` / `CTkEntry` / `CTkButton` / `Frame` 是带库默认样式或默认参数的子类，见上 |
 
 ### 按钮（`buttons`）
@@ -268,8 +276,8 @@ Tag(card, "草稿", variant="outline")                # 描边标签
   分段选择；`command` 收选中的文字
 - `Switch(master, command=None, *, text="", width=44)`
   开关，`text` 留空就只显示轨道；`command` 收开关状态。轨道和圆球是 Pillow
-  4 倍超采样画的图，边缘没有锯齿；圆球色是 `COLOR_BUTTON_KNOB`，悬停色是
-  `COLOR_BUTTON_KNOB_HOVER`（都在 `tokens` 里改）
+  4 倍超采样画的图，边缘没有锯齿；圆球色是 `COLOR_KNOB`（和勾选框的勾、单选框的
+  中心点同色），鼠标移上去换成 `COLOR_KNOB_HOVER`（都在 `tokens` 里改）
 - `Checkbox(master, text="", command=None, *, width=20, height=20)`
   勾选框，选中后填主色打勾
 - `radio_group(master, values, command=None, *, variable=None, gap=8)` → `(容器, StringVar)`
@@ -973,24 +981,19 @@ finally:
 
 ## 设计令牌与外观
 
-颜色一般是 `(浅色, 深色)` 二元组，用 `color_of()` 按当前外观取值：
+颜色令牌就是普普通通的 `"#RRGGBB"` 字符串，只有**一套毛玻璃配色**：
 
 ```python
-from ctk_kit import color_of
 from ctk_kit.tokens import COLOR_ACCENT
 
-color_of(COLOR_ACCENT)   # 深色下返回 "#2f6fed"
+COLOR_ACCENT = "#3E4059"
 ```
 
-需要给毛玻璃单独指定颜色时写成 `(浅色, 深色, 毛玻璃)` 三元组，第三项只在毛玻璃
-底色下生效，不写就沿用深色值：
+`color_of(token)` 拿到的就是它本身（保留这个函数只为兼容旧代码，老代码里传
+`(浅色, 深色)` 二元组也仍然可用，取最后一项）。
 
-```python
-COLOR_ACTIVE = ("#17a6bd", "#4fb6cc", "#183878")
-```
-
-CustomTkinter 只接受二元组，所以 `tokens` 在模块加载时会把三元组压平成二元组，
-第三项收进 `tokens.GLASS_COLORS`，由 `theme.apply_backdrop()` 在切玻璃时替换。
+这套令牌是给 Windows 毛玻璃窗口配的：背景做成 `#000000` 的透明键色，控件
+颜色直接写在 `tokens` 里，改一处全局生效，不再分深浅两套。
 
 - `apply_appearance(mode)`：切外观（`"light"` / `"dark"` / `"system"`），已有控件跟着重绘
 - `apply_appearance_fast(mode, *, window=None)`：切外观但**不重绘已有控件**（切主题不卡），
@@ -1026,6 +1029,18 @@ CustomTkinter 只接受二元组，所以 `tokens` 在模块加载时会把三�
   系统毛玻璃（这条路径会带 `WS_THICKFRAME`，尺寸要重新校正，问题较多，
   设置页没有开放）。毛玻璃模式下只开 `acrylic` 时会自动建一层默认底色
   （深色配黑、浅色配白）
+- `theming.apply_palette({...})`：**运行时换色**——改 `tokens` 全局值，把已经存在
+  的控件颜色属性一起换掉并重绘，之后新建的控件自动用新色；返回实际改掉的令牌名。
+  颜色写 `"#RRGGBB"`，未知令牌会被忽略；`repaint=False`
+  只改令牌不刷界面（启动阶段用）。`reset_palette()` 还原默认配色，
+  `current_palette()` 取当前全部令牌，`palette_changes()` 取被覆盖的那些，
+  `save_palette()` / `load_palette()` 读写整份调色板 JSON。毛玻璃下
+  `COLOR_BG` / `COLOR_SIDE` 仍保持透明键色，用户挑的普通底色记成基准，切回不透明
+  时生效。自绘控件（canvas / Pillow）无法靠换属性刷新，用
+  `theming.register_redraw(widget, fn)` 登记重绘回调
+- `App.apply_palette(updates, *, save=True)` / `App.reset_palette(*, save=True)`：
+  上面那套的窗口级封装，会顺带把覆盖写进状态存储（`read_palette` / `write_palette`），
+  启动时自动恢复。示例左侧导航的「主题」页就是它的面板
 - `paint.animate_color(widget, option, start, end, duration=150)`：把某个颜色
   选项从 `start` 渐变到 `end`，返回可 `cancel()` 的句柄；同一控件同一选项
   不会叠加多套定时器

@@ -24,7 +24,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .fonts import get_font
 from .paint import animate_color
-from .styles import is_dark, style_of
+from .styles import style_of
 
 __all__ = ["StatusBar"]
 
@@ -37,9 +37,8 @@ _TONES = {
 
 
 def _tone_color(tone: str, mode: Optional[str] = None) -> str:
-    """按外观取圆点颜色；未知 tone 退回 ``neutral``。"""
-    token = _TONES.get(tone, T.COLOR_MUTED)
-    return token[1] if is_dark(mode) else token[0]
+    """取圆点颜色；未知 tone 退回 ``neutral``。"""
+    return _TONES.get(tone, T.COLOR_MUTED)
 
 
 class StatusBar(ctk.CTkFrame):

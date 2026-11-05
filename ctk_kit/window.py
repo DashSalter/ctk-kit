@@ -18,7 +18,7 @@ from __future__ import annotations
 
 import contextlib
 import tkinter as tk
-from typing import Any, Optional, Sequence
+from typing import Any, Mapping, Optional, Sequence
 
 from customtkinter import (
     CTk,
@@ -27,6 +27,7 @@ from customtkinter import (
     set_default_color_theme,
 )
 
+from . import theming
 from .branding import dim_ratio, set_dim_ratio, set_window_icon
 from .core.frost_layer import FrostLayer
 from .notify import Notifier
@@ -142,6 +143,9 @@ class App(CTk):
         # 玻璃底色必须在建控件之前定下来：tokens 里的 COLOR_BG / COLOR_SIDE
         # 会被换成纯黑，之后创建的控件才按玻璃取值。
         self._backdrop = apply_backdrop(backdrop or "none")
+        # 用户挑过的颜色也在这时候恢复：改的是 tokens 全局值，之后建的控件
+        # 自然用新色，不用等窗口出来再刷一遍。
+        self._restore_palette(remember_theme)
         # 整窗玻璃的参数，运行时用 set_glass_options() 调（设置页有一组控件）。
         # tint 是 0xAABBGGRR：alpha 越高越暗、越低越透。默认沿用原来的 0xE6。
         self._glass = {
@@ -732,6 +736,42 @@ class App(CTk):
     def toggle_backdrop(self) -> None:
         """在普通底色和毛玻璃之间切换。"""
         self.set_backdrop("none" if self._backdrop == "acrylic" else "acrylic")
+
+    def _restore_palette(self, enabled: bool) -> None:
+        """启动时把上次保存的颜色覆盖应用上（此时还没有控件，只改令牌）。"""
+        # 毛玻璃主题下自定义色要暗 20%，系数先定好再应用，免得先亮后暗闪一下
+        theming.set_darken(0.8 if self._backdrop == "acrylic" else 1.0)
+        if not enabled:
+            return
+        palette = self._state_call("read_palette")
+        if not isinstance(palette, dict) or not palette:
+            return
+        # 玻璃模式下 COLOR_BG / COLOR_SIDE 由 apply_palette 自己保住透明键色，
+        # 用户挑的普通底色会记进基准，切回不透明时自动生效。
+        theming.apply_palette(palette, repaint=False)
+
+    def apply_palette(self, updates: Mapping[str, Any], *, save: bool = True) -> list:
+        """运行时换一批颜色令牌，已经建好的控件就地更新。
+
+        参数:
+            updates: ``{令牌名: "#RRGGBB"}``。未知令牌会被忽略；传二元组时
+                取最后一项（兼容旧写法）。
+            save: 默认 ``True``，把覆盖写进状态存储，下次启动沿用。
+
+        返回:
+            实际改掉的令牌名列表（值没变化的不会出现在里面）。
+        """
+        changed = theming.apply_palette(updates, root=self)
+        if changed and save and getattr(self, "_remember_theme", False):
+            self._state_call("write_palette", theming.palette_changes())
+        return changed
+
+    def reset_palette(self, *, save: bool = True) -> list:
+        """把所有颜色令牌还原成默认值，界面同步更新。返回还原了哪些令牌。"""
+        changed = theming.reset_palette(root=self)
+        if changed and save and getattr(self, "_remember_theme", False):
+            self._state_call("write_palette", theming.palette_changes())
+        return changed
 
     def _repaint_shell(self) -> None:
         """按当前颜色令牌重刷外壳和当前页（切底色后调用）。"""

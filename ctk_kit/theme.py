@@ -53,21 +53,20 @@ def is_win11() -> bool:
 
 
 def color_of(token: ColorToken) -> str:
-    """把颜色令牌按当前外观/底色取一个值；普通字符串原样返回。
+    """把颜色令牌取成单个颜色字符串；字符串原样返回。
+
+    令牌本身都是字符串，这个函数存在的意义是兼容调用方自己传的色对：
+    ``(浅色, 深色)`` 取深色，``(浅色, 深色, 毛玻璃)`` 取最后一项。
 
     参数:
-        token: 颜色令牌，可以是 ``(浅色, 深色)``、``(浅色, 深色, 毛玻璃)``
-            这样的元组，也可以是 ``"#ff0000"`` 这样的单值；单值不做任何转换。
-            三元组的第三项只在毛玻璃底色下生效。
+        token: 颜色令牌或色对。
 
     返回:
-        当前外观下可用的单个颜色字符串，可直接传给 tk 控件的 ``bg`` /
-        ``fg`` / ``fill`` 等选项。
+        可直接传给 tk 控件的 ``bg`` / ``fg`` / ``fill`` 等选项的字符串。
     """
     if isinstance(token, (tuple, list)):
-        if len(token) >= 3 and current_backdrop() == "acrylic":
-            return token[2]
-        return token[1] if is_dark() else token[0]
+        values = [str(part) for part in token if part]
+        return values[-1] if values else "#000000"
     return token
 
 
@@ -436,9 +435,9 @@ def set_window_brush(window: tk.Misc, color: Optional[str] = None) -> bool:
 # 模块加载时的普通底色：从玻璃切回来时用，避免「普通色 = 玻璃色」。
 _BASE_BG = T.COLOR_BG
 _BASE_SIDE = T.COLOR_SIDE
-# 进入玻璃前各个「带第三项」令牌的原值，切回普通底色时逐个还原。
-_BASE_GLASS_COLORS: dict[str, ColorPair] = {}
 _backdrop = "none"
+# 当前玻璃模式铺的透明键色，运行时换色要把它保住。
+_veil = "#000000"
 
 #: 接受的玻璃模式写法（小写比较，中文不受 lower 影响）。
 _GLASS_ALIASES = {"acrylic", "glass", "玻璃", "毛玻璃", "磨砂"}
@@ -449,13 +448,36 @@ def current_backdrop() -> str:
     return _backdrop
 
 
+def current_veil() -> str:
+    """玻璃模式下铺在窗口底 / 侧边栏的透明键色，普通模式返回 ``"#000000"``。"""
+    return _veil
+
+
+def rebase_token(name: str, value: ColorToken) -> None:
+    """改某个颜色令牌在**普通底色**下的基准值。
+
+    毛玻璃模式切回不透明时会把 ``COLOR_BG`` / ``COLOR_SIDE`` 还原成「进玻璃
+    之前」的值；运行时换色（``theming.apply_palette``）改完令牌后要同步改这个
+    基准，否则一关玻璃用户挑的颜色就被还原丢掉了。
+
+    参数:
+        name: 令牌名，例如 ``"COLOR_BG"``。
+        value: 新的颜色字符串。
+    """
+    global _BASE_BG, _BASE_SIDE
+
+    if name == "COLOR_BG":
+        _BASE_BG = value
+    elif name == "COLOR_SIDE":
+        _BASE_SIDE = value
+
+
 def apply_backdrop(mode: str = "none", veil: str = "#000000") -> str:
     """把全局底色在「普通」和「玻璃」之间切换，返回实际生效的模式。
 
     玻璃模式下 ``tokens.COLOR_BG`` / ``COLOR_SIDE`` 被换成 ``veil``：DWM 的
     acrylic 把**纯黑**像素当成透明，窗口底和侧边栏于是透出桌面的模糊；卡片、
-    输入框这些仍是实色，浮在玻璃上。同时把 ``tokens.GLASS_COLORS`` 里登记的
-    令牌（源码里写成三元组的那些）换成第三项，透明底上的青、灰才压得住。
+    输入框这些仍是实色，浮在玻璃上。
 
     ``veil`` 是「透明键色」，默认纯黑。改它只影响「看起来像不像透」：DWM
     只认纯黑（``#000000``）为全透明，换成近黑或深灰，那块区域就变成实色面板，
@@ -472,20 +494,15 @@ def apply_backdrop(mode: str = "none", veil: str = "#000000") -> str:
     返回:
         实际生效的模式，``"none"`` 或 ``"acrylic"``。
     """
-    global _backdrop
+    global _backdrop, _veil
     wanted = "acrylic" if str(mode).strip().lower() in _GLASS_ALIASES else "none"
     if wanted == "acrylic":
-        T.COLOR_BG = (veil, veil)
-        T.COLOR_SIDE = (veil, veil)
-        for name, target in T.GLASS_COLORS.items():
-            _BASE_GLASS_COLORS.setdefault(name, getattr(T, name))
-            setattr(T, name, target)
+        _veil = veil
+        T.COLOR_BG = veil
+        T.COLOR_SIDE = veil
     else:
         T.COLOR_BG = _BASE_BG
         T.COLOR_SIDE = _BASE_SIDE
-        for name, base in _BASE_GLASS_COLORS.items():
-            setattr(T, name, base)
-        _BASE_GLASS_COLORS.clear()
     styles.refresh_tokens()
     _backdrop = wanted
     return _backdrop

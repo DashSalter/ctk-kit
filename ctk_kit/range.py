@@ -189,11 +189,15 @@ class RangeSlider(ctk.CTkFrame):
         if self._command is not None:
             self._command(self._low, self._high)
 
+    def apply_theme(self) -> None:
+        """按当前令牌重画轨道和两端手柄（``theming`` 运行时换色后调用）。"""
+        self._render()
+
     def _render(self) -> None:
         """画轨道、已选段和两个圆球。"""
         canvas = self._canvas
         canvas.delete("all")
-        track = color_of(T.COLOR_BORDER_STRONG)
+        track = color_of(T.COLOR_PROGRESS_TRACK)
         active = color_of(T.COLOR_ACTIVE)
         knob = color_of(T.COLOR_CARD)
 

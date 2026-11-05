@@ -6,7 +6,8 @@ dist/
 
 # 缓存
 __pycache__/
-*.py[cod]
+# 缓存（注意别写成 [cod]：那样会连 .pyd 二进制一起忽略）
+*.py[co]
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
@@ -21,6 +22,17 @@ venv/
 
 # 截图脚本用的 PIL 副本
 .shotlib/
+
+# 私有源码：核心模块只提交编译产物（ctk_kit/*.pyd + ctk_kit/*.pyi）
+_src/
+
+# 本地开发时从 _src 拷过来的明文，发布前不应提交
+ctk_kit/win32.py
+ctk_kit/glass.py
+ctk_kit/frost_layer.py
+
+# Cython 编译中间产物
+*.c
 
 # 本地测试区：截图、验证 demo、第三方参考源码，只在本机保留，不提交
 tests/

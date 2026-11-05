@@ -38,6 +38,25 @@ from typing import Any
 
 __version__ = "0.9.2"
 
+# 核心模块（win32 / glass / frost_layer）发布时是编译好的 .pyd，源码不在仓库里。
+# 装错平台或 Python 版本时，import 那一层会报得很晚、很难懂，这里提前说清楚。
+try:  # pragma: no cover - 只在缺二进制时触发
+    import importlib as _importlib
+
+    for _core_name in ("win32", "glass", "frost_layer"):
+        _importlib.import_module(f"{__name__}.{_core_name}")
+except ImportError as _exc:  # noqa: BLE001
+    import platform as _platform
+    import sys as _sys
+
+    raise ImportError(
+        "ctk-kit 的核心模块没能加载。\n"
+        f"  当前环境：Python {_sys.version.split()[0]} / {_platform.system()} {_platform.machine()}\n"
+        "  这些模块以 abi3 二进制发布，需要 Python 3.9+ 且与安装包平台一致（Windows x64）。\n"
+        "  如果是在源码仓库里运行，先执行：python -m tools.build_core\n"
+        "  缺哪个模块看下面的原始错误。"
+    ) from _exc
+
 # 原生 CustomTkinter 的公开接口原样转出，用户只 import ctk_kit 就够了。
 # 显式列名字而不是 ``from customtkinter import *``：这样 __all__ 与实际导出
 # 一一对应，也不会把 customtkinter 内部的 StringVar / filedialog 之类带进来。

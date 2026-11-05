@@ -48,6 +48,18 @@
   `remember_geometry` / `remember_theme` 随之失效。现成实现见
   `examples/basics/window_state.py`（`WindowStateStore`）
 
+### 构建
+
+- 核心模块 `win32` / `glass` / `frost_layer` 改为 **abi3 二进制**发布：源码放在
+  私有的 `_src/`（`.gitignore` 忽略），仓库里只有 `ctk_kit/*.pyd` 与对应的
+  `*.pyi`。用 `python -m tools.build_core` 编译（Cython +
+  `Py_LIMITED_API=0x03090000`），产物文件名不带 `cp3xx` 后缀，Python 3.9+
+  都能加载；本地开发可以 `python -m tools.build_core --copy` 直接拷源码
+- `ctk_kit/__init__.py` 在导入时检查三个核心模块，缺失时给出明确提示（当前
+  Python 版本 / 平台 / 该跑哪条命令），而不是抛一句 `ModuleNotFoundError`
+- `.gitignore` 的缓存规则由 `*.py[cod]` 改为 `*.py[co]`：原写法会把 `.pyd`
+  一起忽略掉
+
 ## 0.9.2 — 2026-11-02
 
 - `App` 新增 `remember_geometry=True`：关闭时用 conf_base 把窗口大小和屏幕

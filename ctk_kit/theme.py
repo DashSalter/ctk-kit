@@ -37,6 +37,21 @@ def is_dark() -> bool:
     return ctk.get_appearance_mode() == "Dark"
 
 
+def is_win11() -> bool:
+    """当前系统是不是 Windows 11（build 22000 以上）。
+
+    Win11 上 ``SetWindowCompositionAttribute`` 的 accent 模糊对普通窗口
+    基本失效，要用 ``DWMWA_SYSTEMBACKDROP_TYPE`` 才会真的糊；Win10 没有
+    这个属性，仍得走 accent + tint。
+    """
+    if not sys.platform.startswith("win"):
+        return False
+    try:
+        return sys.getwindowsversion().build >= 22000
+    except Exception:  # noqa: BLE001
+        return False
+
+
 def color_of(token: ColorToken) -> str:
     """把颜色令牌按当前外观/底色取一个值；普通字符串原样返回。
 

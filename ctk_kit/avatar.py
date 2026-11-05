@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .branding import dim_image
 from .fonts import get_font
 from .paint import cached
 from .theme import color_of
@@ -124,6 +125,7 @@ class Avatar(ctk.CTkFrame):
         text: 名字；没有图片时取第一个字。
         image: ``CTkImage``，给了就显示图片、忽略文字。
         size: 直径（逻辑像素），默认 40。
+        dim: 图片预先压暗的比例，默认 0.25，抵消玻璃合成那层白；0 = 不处理。
         color: 底色，语义名或十六进制，默认 ``accent``。
         status: ``online`` / ``away`` / ``busy`` / ``offline``；不传就不画状态点。
         command: 点头像时的回调；传了会把光标改成手形。
@@ -142,6 +144,7 @@ class Avatar(ctk.CTkFrame):
         text: str = "",
         image: Optional[ctk.CTkImage] = None,
         size: int = 40,
+        dim: Optional[float] = None,
         color: Any = "accent",
         status: Optional[str] = None,
         command: Optional[Callable[[], None]] = None,
@@ -159,6 +162,7 @@ class Avatar(ctk.CTkFrame):
         self.grid_propagate(False)
 
         self._size = size
+        self._dim = None if dim is None else float(dim)
         self._image = image
         self._status = status
         self._text = text
@@ -205,6 +209,11 @@ class Avatar(ctk.CTkFrame):
         """换图片；``None`` 退回显示首字。"""
         self._image = image
         self._apply_text()
+
+    def _refresh_dim(self) -> None:
+        """背景透明度变了：按新比例重画图片。"""
+        if self._image is not None and _HAS_PIL:
+            self._apply_text()
 
     def set_status(self, status: Optional[str]) -> None:
         """换状态点；``None`` 收起来。"""
@@ -276,6 +285,7 @@ class Avatar(ctk.CTkFrame):
             resized = source.convert("RGBA").resize(
                 (size * _SCALE, size * _SCALE), Image.LANCZOS
             )
+            resized = dim_image(resized, self._dim)
             resized.putalpha(mask)
             return resized
 

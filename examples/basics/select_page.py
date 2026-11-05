@@ -26,6 +26,7 @@ from ctk_kit import (
     TreeSelectField,
     tokens as T,
 )
+from ctk_kit.theme import color_of
 
 #: 单选的候选。
 SINGLE_VALUES = ["选项 A", "选项 B", "选项 C"]
@@ -191,6 +192,23 @@ class SelectPageUI(PageBase):
         self.disabled_field.pack(side="left", fill="x", expand=True)
         self.disabled_button = FlatButton(row, "解除 Beta", self._on_toggle_disabled)
         self.disabled_button.pack(side="left", padx=(8, 0))
+
+        # 禁用项下面铺一行红块，用来对照「铺满整行」的排法
+        swatches = Frame(box)
+        swatches.pack(fill="x", padx=16, pady=(0, 8))
+        for index in range(5):
+            tk.Frame(
+                swatches,
+                bg=color_of(T.COLOR_DANGER),
+                height=34,
+                highlightthickness=0,
+                bd=0,
+            ).pack(
+                side="left",
+                fill="x",
+                expand=True,
+                padx=(0 if index == 0 else 6, 0),
+            )
 
         HintLabel(
             box,

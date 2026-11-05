@@ -16,9 +16,69 @@ import tkinter as tk
 from typing import Optional
 
 from . import tokens as T
-from .core.win32 import client_frame_inset, set_client_rect
+from .core.win32 import (
+    acrylic_window,
+    client_frame_inset,
+    enable_acrylic,
+    set_client_rect,
+    set_dwm_attribute,
+)
 
-__all__ = ["round_window_corners", "scaled_geometry", "set_glass_geometry"]
+# 浮层玻璃的 tint：只有 RGB、alpha=0，DWM 不会把它当成不透明底。
+_POPUP_TINT = 0x00000000
+
+
+__all__ = [
+    "enable_popup_glass",
+    "glass_veil",
+    "round_window_corners",
+    "scaled_geometry",
+    "set_glass_geometry",
+]
+
+
+def glass_veil() -> Optional[str]:
+    """浮层该不该用玻璃：该用时返回透明键色 ``"#000000"``，否则 ``None``。
+
+    只有「玻璃底色 + 深色外观」才挂系统玻璃；浅色下窗口本身是白的，
+    再挂玻璃反而糊成一片，不如保持原来的实色卡片。
+    """
+    import customtkinter as ctk
+
+    from .theme import current_backdrop
+
+    if current_backdrop() != "acrylic":
+        return None
+    if ctk.get_appearance_mode().lower() != "dark":
+        return None
+    return "#000000"
+
+
+def enable_popup_glass(window: tk.Misc, *, frame: bool = True) -> bool:
+    """把系统亚克力挂到一个独立的浮层窗口上，tint 沿用主窗口的。
+
+    ``Toplevel`` 不会自己带上主窗口那层 accent 合成，玻璃下就会留一块
+    不透明的深色；菜单、下拉面板、提示都是这么补一次的，这里收成共用。
+    """
+    # 走弹窗那套配方：attribute=30 + accent=3 + 无 alpha 的 tint。
+    # 带 alpha 的 tint（主窗口的 0xE6）只在窗口非激活时才被当成「只是模糊」，
+    # 一旦浮层拿到焦点，DWM 就按不透明合成，整块变黑；alpha=0 的 tint
+    # 不会出现这个问题。
+    ok = enable_acrylic(
+        window,
+        tint=_POPUP_TINT,
+        accent=3,
+        attribute=30,
+        dark=True,
+        # DWM 只给「带标准边框样式」的顶层窗口做玻璃合成；不补这个样式，
+        # 窗口就只是个半透明的灰块，没有真正的模糊。
+        # 第一次（窗口还隐藏时）传 True 补样式；重新挂的时候传 False，
+        # 否则 SetWindowPos(FRAMECHANGED) 会重算非客户区，可见的窗口会抖一下。
+        frame=frame,
+        extend=True,
+    )
+    set_dwm_attribute(window, 33, 2)
+    return ok
 
 
 def scaled_geometry(
@@ -59,6 +119,8 @@ def set_glass_geometry(
     height: int,
     left: int,
     top: int,
+    *,
+    settle: bool = True,
 ) -> None:
     """把补过 ``WS_THICKFRAME`` 的玻璃窗口摆好，让**客户区**正好是给定尺寸。
 
@@ -81,9 +143,14 @@ def set_glass_geometry(
     outer_w = max(1, int(round((width + inset_w) / scaling)))
     outer_h = max(1, int(round((height + inset_h) / scaling)))
     with contextlib.suppress(Exception):
-        window.geometry(f"{outer_w}x{outer_h}+{left}+{top}")
-        window.update_idletasks()
-        set_client_rect(window, width, height, left, top)
+        if settle:
+            window.geometry(f"{outer_w}x{outer_h}+{left}+{top}")
+            # 摆放只做一次：外框 = 客户区 + 固定那圈边框。之后只挪位置，
+            # 尺寸不动，客户区就不会重排，面板里的内容也不会错位。
+            window.update_idletasks()
+            set_client_rect(window, width, height, left, top)
+        else:
+            window.geometry(f"+{left}+{top}")
 
 
 def round_window_corners(

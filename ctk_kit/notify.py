@@ -105,6 +105,14 @@ class _Notice:
         self.on_close = on_close
 
 
+
+
+
+# 卡片底色 / 关闭按钮悬停色，和右键菜单、下拉面板保持一致。
+_CARD_BG = "#2B2B2B"
+_CARD_HOVER = "#575A63"
+
+
 class Notifier:
     """管理贴在窗口顶部或底部的提示条。
 
@@ -254,9 +262,10 @@ class Notifier:
         # 卡片四边各内缩 1px，四边宽度就是绝对均匀的，圆角处也跟着一起弯。
         window.configure(fg_color=T.COLOR_BORDER)
 
+        # 卡片底色和右键菜单、下拉面板保持一致（#2B2B2B）。
         card = ctk.CTkFrame(
             window,
-            fg_color=T.COLOR_CARD,
+            fg_color=_CARD_BG,
             corner_radius=max(1, radius - 1),
             border_width=0,
         )
@@ -317,7 +326,7 @@ class Notifier:
             border_spacing=0,
             corner_radius=6,
             fg_color="transparent",
-            hover_color=T.COLOR_SOFT,
+            hover_color=_CARD_HOVER,
             text_color=T.COLOR_FAINT,
             font=get_font((T.FONT_NAME, 10)),
             command=lambda v=card: self.dismiss(v),

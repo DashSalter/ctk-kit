@@ -17,11 +17,15 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
-from .popup import round_window_corners, set_glass_geometry
+from .popup import (
+    enable_popup_glass,
+    glass_veil,
+    round_window_corners,
+    set_glass_geometry,
+)
 from .inputs import CTkEntry
 from .layout import style_scrollbar
 from .theme import color_of, current_backdrop
-from .core.win32 import acrylic_window
 
 #: 面板最多铺几行，超出就在面板内部滚动。
 _MAX_VISIBLE_ROWS = 8
@@ -31,12 +35,13 @@ _FOLLOW_MS = 60
 _RESIZE_QUIET = 0.30
 #: 面板与输入框之间的间隙（逻辑像素）。
 _PANEL_GAP = 2
+#: 面板底色 / 悬停色，和右键菜单、单选下拉保持一致。
+_PANEL_BG = "#2B2B2B"
+_PANEL_HOVER = "#575A63"
+#: 已选中候选行的底色：比悬停色（#575A63）暗一档，扫过时还能再亮一下。
+_SELECTED_ROW_BG = "#464A54"
 #: 面板里每一行的高度（逻辑像素）。
 _ROW_HEIGHT = 32
-#: 已选中候选行的底色：只比卡片色亮一点点，选多了也不晃眼。
-_SELECTED_ROW_BG = ("#eef8fa", "#1b262b")
-#: 上面那行的悬停底色，比它稍亮一格。
-_SELECTED_ROW_HOVER = ("#e2f1f5", "#223036")
 #: 面板展开：淡入 + 从下方滑入（毫秒 / 帧间隔 / 滑入距离逻辑像素）。
 _OPEN_ANIM_MS = 130
 _ANIM_STEP = 16
@@ -56,11 +61,8 @@ def _panel_glass_veil() -> Optional[str]:
     浅色外观不走这条路：浅色玻璃的底是亮的，面板再透明反而糊成一片，
     保持普通浅色卡片更好读。
     """
-    if current_backdrop() != "acrylic":
-        return None
-    if ctk.get_appearance_mode().lower() != "dark":
-        return None
-    return "#000000"
+    # 和单选下拉保持一致：面板不挂玻璃，展开时不惊动 DWM。
+    return None
 
 
 def _enable_panel_glass(popup: ctk.CTkToplevel) -> None:
@@ -73,10 +75,7 @@ def _enable_panel_glass(popup: ctk.CTkToplevel) -> None:
     走真正的玻璃合成。代价是客户区被那圈边框吃掉，调用方必须接着用
     :func:`set_glass_geometry` 按外框把尺寸校正回去。
     """
-    tint = None
-    with contextlib.suppress(Exception):
-        tint = popup.master.winfo_toplevel()._glass_tint()
-    acrylic_window(popup, tint=tint)
+    enable_popup_glass(popup)
 
 
 class _PopupList(tk.Frame):
@@ -151,10 +150,10 @@ class _PopupPanel:
     """
 
     def __init__(
-        self,
-        owner: tk.Misc,
-        *,
-        build: Callable[[tk.Misc], int],
+            self,
+            owner: tk.Misc,
+            *,
+            build: Callable[[tk.Misc], int],
     ) -> None:
         """记录宿主控件与铺行回调。"""
         self._owner = owner
@@ -201,14 +200,14 @@ class _PopupPanel:
 
         body = ctk.CTkFrame(
             popup,
-            fg_color=veil or T.COLOR_CARD,
+            fg_color=veil or _PANEL_BG,
             # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
-        listing = _PopupList(body, veil or color_of(T.COLOR_CARD))
+        listing = _PopupList(body, veil or _PANEL_BG)
         listing.pack(fill="both", expand=True, padx=5, pady=5)
 
         self._popup = popup
@@ -323,7 +322,7 @@ class _PopupPanel:
         step()
 
     def close(
-        self, _event: Optional[tk.Event] = None, *, animate: bool = True
+            self, _event: Optional[tk.Event] = None, *, animate: bool = True
     ) -> None:
         """收起面板并清理绑定；重复调用安全。
 
@@ -657,7 +656,7 @@ class _PopupPanel:
         if focused is not None:
             name = str(focused)
             if name.startswith(str(self._popup)) or name.startswith(
-                str(self._owner.winfo_toplevel())
+                    str(self._owner.winfo_toplevel())
             ):
                 return
         self.close()
@@ -698,10 +697,10 @@ class _PopupPanel:
         if popup is None or not popup.winfo_exists():
             return
         if (
-            popup.winfo_rootx() <= event.x_root <= popup.winfo_rootx() + popup.winfo_width()
-            and popup.winfo_rooty()
-            <= event.y_root
-            <= popup.winfo_rooty() + popup.winfo_height()
+                popup.winfo_rootx() <= event.x_root <= popup.winfo_rootx() + popup.winfo_width()
+                and popup.winfo_rooty()
+                <= event.y_root
+                <= popup.winfo_rooty() + popup.winfo_height()
         ):
             return
         self.close()
@@ -722,15 +721,15 @@ class TagSelectField(ctk.CTkFrame):
     """
 
     def __init__(
-        self,
-        master: tk.Misc,
-        *,
-        values_provider: Callable[[], Sequence[str]],
-        command: Optional[Callable[[list], None]] = None,
-        placeholder: str = "",
-        height: int = 36,
-        values: Optional[Sequence[str]] = None,
-        disabled: Optional[Sequence[str]] = None,
+            self,
+            master: tk.Misc,
+            *,
+            values_provider: Callable[[], Sequence[str]],
+            command: Optional[Callable[[list], None]] = None,
+            placeholder: str = "",
+            height: int = 36,
+            values: Optional[Sequence[str]] = None,
+            disabled: Optional[Sequence[str]] = None,
     ) -> None:
         """创建多选标签下拉。
 
@@ -852,6 +851,7 @@ class TagSelectField(ctk.CTkFrame):
         加青色文字。
         """
         values = list(self._values_provider() or [])
+        bg_color, hover_color, selected_color = _PANEL_BG, _PANEL_HOVER, _SELECTED_ROW_BG
         for value in values:
             selected = value in self._values
             disabled = value in self._disabled
@@ -861,13 +861,13 @@ class TagSelectField(ctk.CTkFrame):
                 anchor="w",
                 height=32,
                 corner_radius=T.RADIUS_SMALL,
-                fg_color=_SELECTED_ROW_BG if selected else "transparent",
+                fg_color=selected_color if selected else "transparent",
                 hover_color=(
-                    T.COLOR_CARD
+                    bg_color
                     if disabled
-                    else (_SELECTED_ROW_HOVER if selected else T.COLOR_SOFT_HOVER)
+                    else (selected_color if selected else hover_color)
                 ),
-                text_color=T.COLOR_ACTIVE if selected else T.COLOR_TEXT,
+                text_color=T.COLOR_TEXT,
                 text_color_disabled=T.COLOR_FAINT,
                 font=T.FONT_SMALL,
                 command=lambda v=value: self._toggle(v),
@@ -1034,15 +1034,15 @@ class TreeSelectField(ctk.CTkFrame):
     """
 
     def __init__(
-        self,
-        master: tk.Misc,
-        *,
-        values_provider: Callable[[], Sequence],
-        command: Optional[Callable[[str], None]] = None,
-        placeholder: str = "",
-        height: int = 36,
-        value: str = "",
-        disabled: Optional[Sequence[str]] = None,
+            self,
+            master: tk.Misc,
+            *,
+            values_provider: Callable[[], Sequence],
+            command: Optional[Callable[[str], None]] = None,
+            placeholder: str = "",
+            height: int = 36,
+            value: str = "",
+            disabled: Optional[Sequence[str]] = None,
     ) -> None:
         """创建层级树下拉。
 
@@ -1221,7 +1221,7 @@ class TreeSelectField(ctk.CTkFrame):
         return len(rows)
 
     def _make_row(
-        self, parent: tk.Misc, depth: int, label: str, is_group: bool, path: tuple
+            self, parent: tk.Misc, depth: int, label: str, is_group: bool, path: tuple
     ) -> ctk.CTkFrame:
         """建一行并记进 ``_rows_map``；分组行顺手记下右侧的箭头。"""
         font = T.FONT_SMALL
@@ -1241,7 +1241,7 @@ class TreeSelectField(ctk.CTkFrame):
             ),
             fg_color="transparent",
         )
-        text.pack(side="left", fill="x", expand=True, padx=(10 + depth * 14, 0))
+        text.pack(side="left", fill="x", expand=True, padx=(10 + depth * 14, 3))  # 3X是防止按钮和滚动条重合
         widgets = [row, text]
         if is_group:
             marker = ctk.CTkLabel(
@@ -1252,10 +1252,15 @@ class TreeSelectField(ctk.CTkFrame):
                 text_color=T.COLOR_MUTED,
                 fg_color="transparent",
             )
-            marker.pack(side="right", padx=(0, 8))
+            # 面板本身左右各内缩 5（listing.pack），这里再留 3，箭头离窗口右边
+            # 正好和输入框那颗（8）对齐。
+            marker.pack(side="right", padx=(0, 3))
             widgets.append(marker)
             self._markers[path] = marker
 
+        # 这一行的常态底色：选中行是暗底，其它透明。悬停进来再提亮，移开回到它。
+        # 层级树选完就关面板，没有「常亮」的选中行，常态一律透明。
+        base = "transparent"
         if is_group:
             handler = lambda _e, p=path: self._toggle_expand(p)  # noqa: E731
         elif disabled:
@@ -1267,11 +1272,11 @@ class TreeSelectField(ctk.CTkFrame):
             widget.bind(
                 "<Enter>",
                 lambda _e, r=row, d=disabled: r.configure(
-                    fg_color="transparent" if d else T.COLOR_SOFT_HOVER
+                    fg_color="transparent" if d else _PANEL_HOVER
                 ),
             )
             widget.bind(
-                "<Leave>", lambda _e, r=row: r.configure(fg_color="transparent")
+                "<Leave>", lambda _e, r=row, b=base: r.configure(fg_color=b)
             )
             if self._panel._listing is not None:
                 self._panel._listing.bind_wheel(widget)
@@ -1347,19 +1352,19 @@ class Stepper(ctk.CTkFrame):
     """
 
     def __init__(
-        self,
-        master: tk.Misc,
-        *,
-        values: Optional[Sequence] = None,
-        from_: float = 0,
-        to: float = 100,
-        increment: float = 1,
-        value=None,
-        command: Optional[Callable[[object], None]] = None,
-        width: int = 170,
-        height: int = 36,
-        suffix: str = "%",
-        decimals: int = 0,
+            self,
+            master: tk.Misc,
+            *,
+            values: Optional[Sequence] = None,
+            from_: float = 0,
+            to: float = 100,
+            increment: float = 1,
+            value=None,
+            command: Optional[Callable[[object], None]] = None,
+            width: int = 170,
+            height: int = 36,
+            suffix: str = "%",
+            decimals: int = 0,
     ) -> None:
         """创建步进器。
 
@@ -1505,6 +1510,7 @@ class Stepper(ctk.CTkFrame):
     def _build_rows(self, parent: tk.Misc) -> int:
         """铺候选按钮；返回行数。"""
         options = self._candidates()
+        _bg, hover_color, selected_color = _PANEL_BG, _PANEL_HOVER, _SELECTED_ROW_BG
         for option in options:
             chosen = option == self._value
             button = ctk.CTkButton(
@@ -1513,12 +1519,14 @@ class Stepper(ctk.CTkFrame):
                 anchor="w",
                 height=32,
                 corner_radius=T.RADIUS_SMALL,
-                fg_color=_SELECTED_ROW_BG if chosen else "transparent",
-                hover_color=_SELECTED_ROW_HOVER if chosen else T.COLOR_SOFT_HOVER,
-                text_color=T.COLOR_ACTIVE if chosen else T.COLOR_TEXT,
+                fg_color=selected_color if chosen else "transparent",
+                hover_color=selected_color if chosen else hover_color,
+                text_color=T.COLOR_TEXT,
                 font=T.FONT_SMALL,
                 command=lambda v=option: self._pick(v),
             )
+            # 左右 10：左边和层级树行的文字缩进（listing 5 + 10）对齐，
+            # 右边这 10 正好给滚动条让位，出不出滚动条都不挤文字。
             button.pack(fill="x", pady=1)
             if self._panel._listing is not None:
                 self._panel._listing.bind_wheel(button)
@@ -1600,5 +1608,3 @@ class Stepper(ctk.CTkFrame):
         """销毁前先收起面板。"""
         self._panel.dispose()
         super().destroy()
-
-

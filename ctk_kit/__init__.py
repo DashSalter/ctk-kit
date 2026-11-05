@@ -118,7 +118,7 @@ from .buttons import (
 from .choices import Check, Radio
 from .collapse import Collapsible
 from .code_panel import CodePanel
-from .color import ColorPicker
+from .color import ColorDialog, ColorPicker
 from .context_menu import ContextMenu, attach_edit_menu, attach_menu
 from .dialog import Dialog, alert, confirm, prompt
 from .dropdown import DropField
@@ -222,6 +222,7 @@ __all__ = [
     "Check",
     "CodePanel",
     "Collapsible",
+    "ColorDialog",
     "ColorPicker",
     "ContextMenu",
     "DangerButton",

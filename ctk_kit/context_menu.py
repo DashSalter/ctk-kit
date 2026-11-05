@@ -26,6 +26,13 @@ import customtkinter as ctk
 from . import tokens as T
 from .popup import round_window_corners
 
+
+
+# 菜单面板底色。比卡片浅一档，浮在玻璃/页面之上时边界更清楚。
+_MENU_BG = "#2B2B2B"
+# 菜单项悬停色：比底色亮一档，扫过时能看出是哪一行。
+_MENU_HOVER = "#575A63"
+
 # 菜单项回调：点中某一项时执行。
 Command = Optional[Callable[[], None]]
 # 菜单项可用性：布尔值表示固定状态；函数在每次弹出前以来源控件为参数求值。
@@ -187,7 +194,7 @@ class ContextMenu:
 
         body = ctk.CTkFrame(
             popup,
-            fg_color=T.COLOR_CARD,
+            fg_color=_MENU_BG,
             # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
@@ -211,7 +218,7 @@ class ContextMenu:
                 height=_ITEM_HEIGHT,
                 corner_radius=T.RADIUS_SMALL,
                 fg_color="transparent",
-                hover_color=T.COLOR_SOFT_HOVER,
+                hover_color=_MENU_HOVER,
                 text_color=T.COLOR_TEXT,
                 text_color_disabled=T.COLOR_FAINT,
                 font=self._font,

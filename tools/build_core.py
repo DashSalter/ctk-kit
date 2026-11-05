@@ -78,6 +78,14 @@ def build() -> int:
             ),
             options={"bdist_wheel": {"py_limited_api": "cp39"}},
         )
+    except Exception as exc:  # noqa: BLE001 - 只给占用这种情况加人话提示
+        text = str(exc)
+        if "拒绝访问" in text or "Permission denied" in text:
+            raise SystemExit(
+                "覆盖 ctk_kit/core/*.pyd 失败：文件正被占用。\n"
+                "先关掉正在运行的示例窗口（python examples/basics/window.py），再重跑一次。"
+            ) from exc
+        raise
     finally:
         sys.argv = argv
 

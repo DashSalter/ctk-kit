@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import contextlib
+import tkinter as tk
 from typing import Any, Optional, Sequence
 
 from customtkinter import (
@@ -26,7 +27,7 @@ from customtkinter import (
     set_default_color_theme,
 )
 
-from .branding import set_window_icon
+from .branding import dim_ratio, set_dim_ratio, set_window_icon
 from .core.frost_layer import FrostLayer
 from .notify import Notifier
 from .theme import (
@@ -40,13 +41,18 @@ from .core.win32 import (
     DWMWA_BORDER_COLOR,
     DWMWA_CAPTION_COLOR,
     DWMWA_WINDOW_CORNER_PREFERENCE,
+    ICON_SMALL,
+    blank_icon,
+    caption_icon,
     clear_window_alpha,
     disable_acrylic,
     enable_acrylic,
     extended_frame_bounds,
+    set_caption_icon,
     set_dwm_attribute,
     set_frame_border_thickness,
     set_transitions_disabled,
+    set_window_text,
 )
 
 __all__ = ["App"]
@@ -145,7 +151,7 @@ class App(CTk):
             "state": 3,         # AccentState：0 关 / 2 透明 / 3 模糊 / 4 亚克力
             "backdrop": 0,      # DWMWA_SYSTEMBACKDROP_TYPE，0 表示不单独指定
             "corners": 0,       # 0 默认 / 1 不圆 / 2 圆 / 3 小圆
-            "border": None,     # 34：None 默认 / DWMWA_COLOR_NONE / 颜色
+            "border": 0xFFFFFFFE,  # 34：None 默认 / DWMWA_COLOR_NONE（默认无边框）
             "caption": None,    # 35：None 交给 DWM / 颜色
             "color": "#181A20",
             "veil": "#000000",  # 透明键色：窗口底/侧边栏/页面底铺它，纯黑才透明
@@ -166,6 +172,15 @@ class App(CTk):
             # 37 只有 Win11 22H2+ 支持；None 表示还没探测过。
             "frame_border_supported": None,
         }
+        # 标题栏左上角图标 / 标题文字是否显示（设置页的「标题栏」卡片）。
+        self._titlebar_items = {
+            "icon": True,
+            "title": True,
+        }
+        # 隐藏图标前记下的原始 HICON；0 表示原来用的就是窗口类图标。
+        self._caption_icon = 0
+        # 隐藏标题前记下的原始文字；空串表示当前没有隐藏。
+        self._titlebar_title = ""
 
         super().__init__(**kwargs)
 
@@ -330,6 +345,12 @@ class App(CTk):
             是否把标题栏交还给 DWM（``False`` 时刷成纯色，玻璃就糊不上去了）。
         ``dark``
             是否让标题栏跟随深色外观。
+        ``corners``
+            窗口圆角：``0`` 系统默认 / ``1`` 不圆 / ``2`` 圆 / ``3`` 小圆
+            （直接对应 ``DWMWCP_*``；小圆要 Win11 22H2+）。
+        ``border``
+            边框色（COLORREF），``0xFFFFFFFE`` 表示不要边框（默认），``None``
+            交还系统默认，其余为具体颜色。
         """
         if "kind" in kwargs and "state" not in kwargs:
             # 换合成方式时把 AccentState 一起带上，否则会沿用上一个方式的值。
@@ -337,6 +358,9 @@ class App(CTk):
             if "backdrop" not in kwargs:
                 self._glass["backdrop"] = 0
         self._glass.update(kwargs)
+        if "opacity" in kwargs:
+            # 整体透明度调低时，背景透明度自动跟着降，保证背景不比窗口更实。
+            self._clamp_frost_alpha()
         if "veil" in kwargs:
             self._apply_veil()
         else:
@@ -383,6 +407,85 @@ class App(CTk):
             self._debug["disable_transitions"] = bool(disable_transitions)
             set_transitions_disabled(self, bool(disable_transitions))
         return dict(self._debug)
+
+    def titlebar_items(self) -> dict:
+        """标题栏左上角的图标和标题文字是否显示。
+
+        返回 ``{"icon": bool, "title": bool}``，默认都是 ``True``；对应的
+        win32 操作见 :meth:`set_titlebar_items`。
+        """
+        return dict(self._titlebar_items)
+
+    def set_titlebar_items(
+        self,
+        *,
+        icon: Optional[bool] = None,
+        title: Optional[bool] = None,
+    ) -> dict:
+        """暂时隐藏或显示标题栏左上角的图标 / 标题文字，返回改完后的状态。
+
+        参数:
+            icon: ``False`` 把标题栏图标藏起来（图标区留空），``True`` 恢复；
+                ``None`` 不动。
+            title: ``False`` 清空标题栏文字，``True`` 恢复；``None`` 不动。
+
+        只动 Win32 的窗口文本和 ``WM_SETICON`` 的小图标槽。隐藏标题时会先
+        记住原标题，切回 ``title=True`` 再用它写回；隐藏期间 ``app.title()``
+        可能读到空串。任务栏的大图标不受影响；窗口文本清空后，任务栏按钮上
+        的文字也会跟着空。
+
+        注意:
+            隐藏状态只在当前窗口实例上有效，窗口重建后回到显示；非 Windows
+            平台调用静默无效。
+        """
+        if icon is not None and bool(icon) != self._titlebar_items["icon"]:
+            self._apply_titlebar_icon(bool(icon))
+            self._titlebar_items["icon"] = bool(icon)
+        if title is not None and bool(title) != self._titlebar_items["title"]:
+            self._apply_titlebar_text(bool(title))
+            self._titlebar_items["title"] = bool(title)
+        return dict(self._titlebar_items)
+
+    def _apply_titlebar_icon(self, visible: bool) -> None:
+        """按 ``visible`` 把标题栏小图标槽设成透明句柄或原始句柄。"""
+        try:
+            if visible:
+                set_caption_icon(self, self._caption_icon, ICON_SMALL)
+                self._caption_icon = 0
+            else:
+                if not self._caption_icon:
+                    self._caption_icon = caption_icon(self, ICON_SMALL)
+                set_caption_icon(self, blank_icon(), ICON_SMALL)
+        except Exception:  # noqa: BLE001 - 窗口已销毁 / 非 Windows
+            pass
+
+    def _apply_titlebar_text(self, visible: bool) -> None:
+        """按 ``visible`` 清空或写回标题栏文字。
+
+        隐藏前先把原标题存到 ``_titlebar_title``：``SetWindowTextW`` 改的是
+        HWND 上的同一份文本，清空后 Tk 的 ``wm title`` 也可能读到空串，靠
+        ``self.title()`` 取回原标题并不可靠。
+        """
+        try:
+            if visible:
+                title = self._titlebar_title or self.title()
+                if title:
+                    self.title(title)  # 同时恢复 Tk 的 wm title 和 HWND 文本
+                    set_window_text(self, title)
+                self._titlebar_title = ""
+            else:
+                if not self._titlebar_title:
+                    self._titlebar_title = self.title()
+                set_window_text(self, "")
+        except Exception:  # noqa: BLE001 - 窗口已销毁 / 非 Windows
+            pass
+
+    def _reapply_titlebar_items(self) -> None:
+        """窗口映射或重建标题栏之后，把隐藏状态再应用一次。"""
+        if not self._titlebar_items["icon"]:
+            self._apply_titlebar_icon(False)
+        if not self._titlebar_items["title"]:
+            self._apply_titlebar_text(False)
 
     def frame_bounds(self) -> Optional[tuple[int, int, int, int]]:
         """窗口含阴影的真实屏幕矩形 ``(left, top, right, bottom)``，物理像素。
@@ -447,11 +550,13 @@ class App(CTk):
         set_titlebar_dark(
             self, get_appearance_mode() == "Dark", glass=bool(opts["titlebar"])
         )
+        # DWMWCP_DEFAULT=0 / DONOTROUND=1 / ROUND=2 / ROUNDSMALL=3，
+        # 与 glass_options 里 0 默认 / 1 不圆 / 2 圆 / 3 小圆 一一对应。
         corners = int(opts.get("corners", 0) or 0)
         set_dwm_attribute(
             self,
             DWMWA_WINDOW_CORNER_PREFERENCE,
-            corners - 1 if corners else None,
+            corners if corners else None,
         )
         set_dwm_attribute(self, DWMWA_BORDER_COLOR, opts.get("border"))
         if bool(opts["titlebar"]):
@@ -502,6 +607,7 @@ class App(CTk):
         参数:
             color: 叠在模糊桌面上的颜色，``"#RRGGBB"``。
             alpha: 颜色浓度，``0``–``255``；``0x38`` 是「能看出颜色、还透」。
+                超过整体透明度（``opacity * 255``）时自动压到那个值。
             glass: ``True`` 时这一层自己也挂系统毛玻璃（而不是纯色块）。
             spread: 底层窗口比主窗口向外多出的逻辑像素（0 = 严丝合缝）。
             save: 预留参数，暂不写入配置。
@@ -510,6 +616,8 @@ class App(CTk):
             只有 Windows 提供系统亚克力；其他平台这一层就是一块纯色窗口。
         """
         del save  # 目前不持久化，留着是为了和 set_backdrop 的签名一致
+        # 背景透明度不能超过整体透明度，超了就自动降到整体透明度。
+        alpha = min(int(alpha), self._frost_cap())
         if self._frost_layer is None:
             self._frost_layer = FrostLayer(
                 self, color=color, alpha=alpha, glass=glass, spread=spread
@@ -519,6 +627,48 @@ class App(CTk):
             self._frost_layer.configure(
                 color=color, alpha=alpha, glass=glass, spread=spread
             )
+
+        # 背景越透，图片越需要压暗来抵消合成那层白：255 → 0，0 → 50%。
+        if set_dim_ratio(dim_ratio(alpha)):
+            self._refresh_dim_widgets()
+
+    def _refresh_dim_widgets(self) -> None:
+        """让所有压暗过图片的控件按新比例重画。"""
+        def walk(widget: tk.Misc) -> None:
+            try:
+                children = widget.winfo_children()
+            except tk.TclError:
+                return
+            for child in children:
+                hook = getattr(child, "_refresh_dim", None)
+                if callable(hook):
+                    try:
+                        hook()
+                    except tk.TclError:
+                        continue
+                walk(child)
+
+        walk(self)
+
+    def _frost_cap(self) -> int:
+        """背景透明度允许的最大值：等于整体透明度（都按 0–255 算）。"""
+        try:
+            opacity = max(0.0, min(1.0, float(self._glass.get("opacity", 1.0))))
+        except (TypeError, ValueError):
+            opacity = 1.0
+        return int(round(opacity * 255))
+
+    def _clamp_frost_alpha(self) -> None:
+        """整体透明度调低后，把背景透明度一起压到它的上限。"""
+        if self._frost_layer is None:
+            return
+        cap = self._frost_cap()
+        try:
+            current = int(getattr(self._frost_layer, "alpha", cap))
+        except (TypeError, ValueError):
+            return
+        if current > cap:
+            self._frost_layer.configure(alpha=cap)
 
     def clear_frost_backdrop(self) -> None:
         """关掉底层颜色窗口。"""
@@ -656,6 +806,13 @@ class App(CTk):
                 get_appearance_mode() == "Dark",
                 glass=self._backdrop == "acrylic",
             )
+        except Exception:  # noqa: BLE001 - 窗口可能已经销毁
+            pass
+        # 标题栏刚被重刷过，之前隐藏的图标 / 标题要再盖回去。
+        self._reapply_titlebar_items()
+        # set_titlebar_dark 会把 34 重写成描边色，这里把「边框色」选项盖回去。
+        try:
+            set_dwm_attribute(self, DWMWA_BORDER_COLOR, self._glass.get("border"))
         except Exception:  # noqa: BLE001 - 窗口可能已经销毁
             pass
 

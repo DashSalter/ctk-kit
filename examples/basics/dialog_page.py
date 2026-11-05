@@ -25,14 +25,15 @@ from ctk_kit import (
     SecondaryButton,
     tokens as T,
 )
-from ctk_kit.dialog import alert, confirm, prompt
+from ctk_kit.dialog import Dialog, alert, confirm, prompt
 
 ALERT_CODE = '''from ctk_kit import alert
 
 alert(app, "已保存到 D:/backup", title="完成", level="success")
 # level: "info" / "success" / "warn" / "error"，只影响图标颜色
 # detail="路径：D:/backup" 会在正文下面补一行灰色小字
-# ok="关闭" 换按钮文字；只有一个按钮，点了就关'''
+# ok="关闭" 换按钮文字；只有一个按钮，点了就关
+# 默认就是系统玻璃（acrylic）；想用截屏模糊传 backdrop="glass"'''
 
 CONFIRM_CODE = '''from ctk_kit import confirm
 
@@ -129,10 +130,13 @@ class DialogPageUI(PageBase):
             text_color=T.COLOR_ACCENT_TEXT,
         )
         self.danger_button.pack(side="left", padx=(8, 0))
+        self.small_corners_button = SecondaryButton(row, "小圆角", width=96)
+        self.small_corners_button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
-            "「危险操作」的确认按钮是红的，适合删除、清空这类不可恢复的动作。",
+            "本页弹窗都用系统玻璃（Win11 的 acrylic）；「危险操作」的确认按钮是红的，"
+            "适合删除、清空这类不可恢复的动作。「小圆角」把 DWM 圆角从 2 换成 3。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, CONFIRM_CODE, "confirm 返回布尔值，直接放进 if 里用。")
@@ -190,9 +194,11 @@ class DialogPageUI(PageBase):
             level="warn",
             ok="删除",
             danger=True,
-            backdrop="acrylic",
         )
         self._show("系统玻璃弹窗：确定" if ok else "系统玻璃弹窗：取消")
+
+    def _show_small_corners(self) -> None:
+        """小圆角弹窗：UI 类里空实现，由事件类覆写。"""
 
     def _show_prompt(self) -> None:
         """输入框：UI 类里空实现，由事件类覆写。"""
@@ -217,6 +223,7 @@ class DialogPage(DialogPageUI):
         self.confirm_button.configure(command=lambda: self._show_confirm(False))
         self.acrylic_button.configure(command=self._show_acrylic)
         self.danger_button.configure(command=lambda: self._show_confirm(True))
+        self.small_corners_button.configure(command=self._show_small_corners)
         self.prompt_button.configure(command=self._show_prompt)
         self.custom_button.configure(command=self._show_custom)
 
@@ -253,6 +260,19 @@ class DialogPage(DialogPageUI):
                 level="info",
             )
         self._show("确认结果：确定" if ok else "确认结果：取消")
+
+    def _show_small_corners(self) -> None:
+        """同一块确认框，只把窗口圆角换成 DWMWCP_ROUNDSMALL（3）。"""
+        choice = Dialog(
+            self,
+            title="小圆角确认",
+            message="这个弹窗把 DWM 圆角设成 3（小圆），默认是 2（圆）。",
+            level="warn",
+            detail="corners=3",
+            buttons=[("取消", False), ("确定", True)],
+            corners=3,
+        ).show()
+        self._show(f"小圆角弹窗：{'确定' if choice else '取消'}")
 
     def _show_prompt(self) -> None:
         """带输入框的弹窗；取消返回 None。"""

@@ -34,6 +34,7 @@ class SettingsPageUI(PageBase):
 
         self._build_appearance(area)
         self._build_glass(area)
+        self._build_titlebar(area)
         self._build_debug(area)
         self.refresh_theme()
         # App 的背景窗口是延迟创建的（启动后 ~40ms），构造函数里读到的还是
@@ -50,7 +51,11 @@ class SettingsPageUI(PageBase):
 
         FieldLabel(row, "主题", width=64).pack(side="left")
 
-        self.theme = Segmented(row, ["浅色", "深色", "毛玻璃"], width=270)
+        self.theme = Segmented(
+            row,
+            ["毛玻璃", "深空", "Acrylic", "Mica"],
+            width=380,
+        )
         self.theme.pack(side="left", padx=(4, 0))
 
         self.bg_box = box
@@ -77,18 +82,6 @@ class SettingsPageUI(PageBase):
         HintLabel(row, "0 全透，255 最实").pack(side="left", padx=(10, 0))
         self.bg_rows.append(row)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 14))
-        FieldLabel(row, "背景尺寸", width=110).pack(side="left")
-        self.bg_spread = Slider(row, from_=0, to=40, width=180)
-        self.bg_spread.pack(side="left", padx=(4, 8))
-        self.bg_spread_value = FieldLabel(row, "0", width=36)
-        self.bg_spread_value.pack(side="left")
-        HintLabel(row, "底层窗口比主窗口往外多出的像素，0 = 完全重合").pack(
-            side="left", padx=(10, 0)
-        )
-        self.bg_rows.append(row)
-
     def _build_glass(self, area: tk.Misc) -> None:
         """毛玻璃微调：DWM 的每一种手段单独一个控件，改完立即重挂。"""
         box = Card(area, title="毛玻璃微调")
@@ -96,36 +89,6 @@ class SettingsPageUI(PageBase):
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "合成方式", width=64).pack(side="left")
-        self.glass_kind = Segmented(
-            row, ["Accent", "Acrylic", "系统", "Mica"], width=250
-        )
-        self.glass_kind.pack(side="left", padx=(4, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "属性号", width=64).pack(side="left")
-        self.glass_wca = Segmented(row, ["30", "19"], width=120)
-        self.glass_wca.pack(side="left", padx=(4, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "Accent 状态", width=64).pack(side="left")
-        self.glass_state = Segmented(
-            row, ["0 关", "2 透明", "3 模糊", "4 亚克力"], width=300
-        )
-        self.glass_state.pack(side="left", padx=(4, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "系统背板", width=64).pack(side="left")
-        self.glass_backdrop = Segmented(
-            row, ["不设", "1 无", "2 Mica", "3 亚克力", "4 标签"], width=360
-        )
-        self.glass_backdrop.pack(side="left", padx=(4, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "窗口圆角", width=64).pack(side="left")
         self.glass_corners = Segmented(
             row, ["默认", "不圆", "圆", "小圆"], width=280
@@ -135,7 +98,7 @@ class SettingsPageUI(PageBase):
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "边框色", width=64).pack(side="left")
-        self.glass_border = Segmented(row, ["默认", "无", "黑", "白"], width=280)
+        self.glass_border = Segmented(row, ["灰", "无", "黑", "白"], width=280)
         self.glass_border.pack(side="left", padx=(4, 0))
 
         row = Frame(box)
@@ -143,14 +106,6 @@ class SettingsPageUI(PageBase):
         FieldLabel(row, "标题栏色", width=64).pack(side="left")
         self.glass_caption = Segmented(row, ["玻璃", "黑", "白"], width=210)
         self.glass_caption.pack(side="left", padx=(4, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "压暗", width=64).pack(side="left")
-        self.glass_alpha = Slider(row, from_=0, to=255, width=180)
-        self.glass_alpha.pack(side="left", padx=(4, 8))
-        self.glass_alpha_value = FieldLabel(row, "0", width=36)
-        self.glass_alpha_value.pack(side="left")
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
@@ -162,24 +117,17 @@ class SettingsPageUI(PageBase):
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "底色", width=64).pack(side="left")
-        self.glass_color = Segmented(row, ["黑", "暖黑", "深灰", "白"], width=270)
-        self.glass_color.pack(side="left", padx=(4, 0))
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "透明色", width=64).pack(side="left")
         self.glass_veil = Segmented(row, ["纯黑", "近黑", "深灰", "暖黑"], width=260)
         self.glass_veil.pack(side="left", padx=(4, 0))
 
-        self.glass_frame = self._glass_switch(box, "补边框", "frame")
-        self.glass_extend = self._glass_switch(box, "延伸客户区", "extend")
-        self.glass_titlebar = self._glass_switch(box, "标题栏玻璃", "titlebar")
-        self.glass_dark = self._glass_switch(box, "深色标题栏", "dark", last=True)
+        self.glass_extend = self._glass_switch(
+            box, "延伸客户区", "extend", last=True
+        )
 
         HintLabel(
             box,
-            "Accent / Acrylic 吃 tint；系统 / Mica 的亮度由 DWM 决定，压暗和底色不生效。"
+            "Accent / Acrylic 吃 tint；系统 / Mica 的亮度由 DWM 决定，tint 不生效。"
             "整体透明度低于 100% 时窗口变成 layered，DWM 会把玻璃摘掉。",
         ).pack(anchor="w", padx=16, pady=(0, 14))
 
@@ -192,13 +140,37 @@ class SettingsPageUI(PageBase):
         switch.pack(side="left", padx=(4, 0))
         return switch
 
+    def _build_titlebar(self, area: tk.Misc) -> None:
+        """标题栏：临时隐藏左上角的图标和标题文字。"""
+        box = Card(area, title="标题栏")
+        box.pack(fill="x", pady=(12, 0))
+
+        self.titlebar_icon = self._titlebar_switch(box, "显示图标", "icon")
+        self.titlebar_title = self._titlebar_switch(box, "显示标题", "title", last=True)
+
+        HintLabel(
+            box,
+            "只改系统标题栏：图标区留空、标题文字清空；任务栏图标不受影响，Tk 的窗口标题"
+            "不变，拨回开关立即恢复。",
+        ).pack(anchor="w", padx=16, pady=(0, 14))
+
+    def _titlebar_switch(
+        self, box: tk.Misc, label: str, key: str, *, last: bool = False
+    ) -> Switch:
+        """一行「标签 + 开关」，开关回调按 ``key`` 交给 ``set_titlebar_items``。"""
+        row = Frame(box)
+        row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
+        FieldLabel(row, label, width=64).pack(side="left")
+        switch = Switch(row, command=lambda k=key: self._on_titlebar_switch(k))
+        switch.pack(side="left", padx=(4, 0))
+        return switch
+
     def _build_debug(self, area: tk.Misc) -> None:
-        """窗口调试：DWM 的 37（去 1px 边框）、3（关过渡动画）、9（读真实边界）。"""
+        """窗口调试：DWM 的 3（关过渡动画）、9（读真实边界）。"""
         box = Card(area, title="窗口调试（DWM）")
         box.pack(fill="x", pady=(12, 0))
 
         self._debug_labels: dict[str, FieldLabel] = {}
-        self.debug_border = self._debug_switch(box, "去边框", "border")
         self.debug_transitions = self._debug_switch(box, "关过渡动画", "transitions")
 
         row = Frame(box)
@@ -235,11 +207,21 @@ class SettingsPageUI(PageBase):
         """按当前外观刷新标题说明和分段选中项。"""
         self.header.info.configure(text=f"当前：{get_appearance_mode()}")
         if theme.current_backdrop() == "acrylic":
-            self.theme.set("毛玻璃")
+            app = getattr(self, "app", None)
+            options = app.glass_options() if app is not None else {}
+            kind = options.get("kind", "")
+            if kind in ("acrylic", "mica"):
+                self.theme.set({"acrylic": "Acrylic", "mica": "Mica"}[kind])
+            elif options.get("backdrop", 0) == 1:
+                self.theme.set("深空")
+            else:
+                self.theme.set("毛玻璃")
         else:
-            self.theme.set("深色" if is_dark() else "浅色")
+            # 主题里只剩玻璃系；非玻璃状态下不硬选某一项，保留上次的选择。
+            pass
         self.refresh_background()
         self.refresh_glass()
+        self.refresh_titlebar()
         self.refresh_debug()
 
     def refresh_glass(self) -> None:
@@ -248,13 +230,6 @@ class SettingsPageUI(PageBase):
         options = app.glass_options() if app is not None else {}
         if not options:
             return
-        self.glass_kind.set(
-            {"accent": "Accent", "acrylic": "Acrylic", "system": "系统", "mica": "Mica"}.get(
-                options["kind"], "Accent"
-            )
-        )
-        self.glass_alpha.set(options["alpha"])
-        self.glass_alpha_value.configure(text=str(options["alpha"]))
         opacity = int(round(float(options.get("opacity", 1.0)) * 100))
         self.glass_opacity.set(opacity)
         self.glass_opacity_value.configure(text=f"{opacity}%")
@@ -264,17 +239,6 @@ class SettingsPageUI(PageBase):
                 veil, "纯黑"
             )
         )
-        self.glass_wca.set(str(options.get("wca", 30)))
-        self.glass_state.set(
-            {0: "0 关", 2: "2 透明", 3: "3 模糊", 4: "4 亚克力"}.get(
-                options.get("state", 3), "3 模糊"
-            )
-        )
-        self.glass_backdrop.set(
-            {0: "不设", 1: "1 无", 2: "2 Mica", 3: "3 亚克力", 4: "4 标签"}.get(
-                options.get("backdrop", 0), "不设"
-            )
-        )
         self.glass_corners.set(
             {0: "默认", 1: "不圆", 2: "圆", 3: "小圆"}.get(
                 options.get("corners", 0), "默认"
@@ -282,9 +246,9 @@ class SettingsPageUI(PageBase):
         )
         border = options.get("border")
         self.glass_border.set(
-            "默认"
-            if border is None
-            else {0xFFFFFFFE: "无", 0x000000: "黑", 0xFFFFFF: "白"}.get(border, "默认")
+            {0x808080: "灰", 0xFFFFFFFE: "无", 0x000000: "黑", 0xFFFFFF: "白"}.get(
+                border, "无"
+            )
         )
         caption = options.get("caption")
         self.glass_caption.set(
@@ -292,17 +256,24 @@ class SettingsPageUI(PageBase):
             if caption is None
             else {0x000000: "黑", 0xFFFFFF: "白"}.get(caption, "玻璃")
         )
-        self.glass_color.set(
-            {
-                "#000000": "黑",
-                "#181A20": "暖黑",
-                "#2A2D33": "深灰",
-                "#FFFFFF": "白",
-            }.get(options["color"], "暖黑")
-        )
-        for key in ("frame", "extend", "titlebar", "dark"):
+        for key in ("extend",):
             switch = getattr(self, f"glass_{key}")
             if options[key]:
+                switch.select()
+            else:
+                switch.deselect()
+
+    def refresh_titlebar(self) -> None:
+        """把 App 当前的图标 / 标题显隐状态回填到两个开关。"""
+        app = getattr(self, "app", None)
+        if app is None:
+            return
+        items = app.titlebar_items()
+        for key, switch in (
+            ("icon", self.titlebar_icon),
+            ("title", self.titlebar_title),
+        ):
+            if items.get(key):
                 switch.select()
             else:
                 switch.deselect()
@@ -313,27 +284,15 @@ class SettingsPageUI(PageBase):
         if app is None:
             return
         options = app.window_debug()
-        for key, switch in (
-            ("hide_frame_border", self.debug_border),
-            ("disable_transitions", self.debug_transitions),
-        ):
+        for key, switch in (("disable_transitions", self.debug_transitions),):
             if options.get(key):
                 switch.select()
             else:
                 switch.deselect()
-        # 37 在 Win10 / 旧版 Win11 上不存在：把说明换成「不支持」，免得拨了没反应。
-        if options.get("frame_border_supported") is False:
-            self.debug_border.deselect()
-            self.debug_hint.configure(
-                text="当前系统不支持「去边框」（DWM 27/37 未生效），这个开关无效；"
-                "动画（3）和边界（9）正常。"
-            )
-        else:
-            self.debug_hint.configure(
-                text="边框：37，Win11 22H2+ 才生效，0 去掉那条 1px 线；动画：3，关掉窗口"
-                "出现 / 重建时的过渡；边界：9，含阴影的真实屏幕矩形，和 winfo_rootx 那套"
-                "（客户区）对比。"
-            )
+        self.debug_hint.configure(
+            text="动画：3，关掉窗口出现 / 重建时的过渡；边界：9，含阴影的真实屏幕矩形，"
+            "和 winfo_rootx 那套（客户区）对比。"
+        )
 
 
 class SettingsPage(SettingsPageUI):
@@ -348,27 +307,37 @@ class SettingsPage(SettingsPageUI):
         self.theme.configure(command=self.on_theme)
         self.bg_color.configure(command=self.on_bg_color)
         self.bg_alpha.configure(command=self.on_bg_alpha)
-        self.bg_spread.configure(command=self.on_bg_spread)
-        self.glass_kind.configure(command=self.on_glass_kind)
-        self.glass_wca.configure(command=self.on_glass_wca)
-        self.glass_state.configure(command=self.on_glass_state)
-        self.glass_backdrop.configure(command=self.on_glass_backdrop)
         self.glass_corners.configure(command=self.on_glass_corners)
         self.glass_border.configure(command=self.on_glass_border)
         self.glass_caption.configure(command=self.on_glass_caption)
-        self.glass_alpha.configure(command=self.on_glass_alpha)
         self.glass_opacity.configure(command=self.on_glass_opacity)
-        self.glass_color.configure(command=self.on_glass_color)
         self.glass_veil.configure(command=self.on_glass_veil)
 
     def on_theme(self, value: str) -> None:
-        """切换浅色 / 深色 / 毛玻璃；有 SidebarNav 时只重建当前页。"""
+        """切换毛玻璃 / 深空 / Acrylic / Mica；有 SidebarNav 时只重建当前页。"""
         app = self.app
-        if value == "毛玻璃":
+        # Acrylic / Mica 是深色版的玻璃主题：深色外观 + 中性深色 tint，
+        # 不再沿用默认 #181A20 的蓝调。
+        deep_kinds = {"Acrylic": "acrylic", "Mica": "mica"}
+        if value in deep_kinds:
+            kind = deep_kinds[value]
+            if app.glass_options().get("kind") == kind:
+                return
+            # 只切合成方式和 tint，和「合成方式」里的按钮走同一条路：
+            # 不碰 set_appearance_mode / set_backdrop，这两个会重建外壳和当前页。
+            app.set_glass_options(kind=kind, color="#1A1A1A")
+            return
+        if value == "深空":
+            # 深色 + 系统背板「1 无」：DWM 不再画背板/模糊，窗口就是纯深的实底。
             wanted_mode, wanted_backdrop = "dark", "acrylic"
+            app.set_glass_options(kind="accent", backdrop=1, color="#1A1A1A")
+        elif value == "毛玻璃":
+            wanted_mode, wanted_backdrop = "dark", "acrylic"
+            # 从 Acrylic / Mica 切回来时把 tint 和合成方式还原成默认，
+            # 否则玻璃还带着上一种主题的中性深色。
+            app.set_glass_options(kind="accent", color="#181A20")
         else:
-            wanted_mode = "light" if value == "浅色" else "dark"
-            wanted_backdrop = "none"
+            return
         # 已经是这个状态就不要再走一遍：set_backdrop / set_appearance_mode
         # 都会重建当前页，连点同一个会白闪一下。
         if (
@@ -376,7 +345,7 @@ class SettingsPage(SettingsPageUI):
             and str(get_appearance_mode()).lower() == wanted_mode
         ):
             return
-        if value == "毛玻璃":
+        if value in ("毛玻璃", "深空"):
             app.set_appearance_mode(wanted_mode)
             app.set_backdrop(wanted_backdrop)
         else:
@@ -415,16 +384,13 @@ class SettingsPage(SettingsPageUI):
                 alpha = int(getattr(layer, "alpha", 56))
                 self.bg_alpha.set(alpha)
                 self.bg_alpha_value.configure(text=str(alpha))
-                spread = int(getattr(layer, "spread", 0))
-                self.bg_spread.set(spread)
-                self.bg_spread_value.configure(text=str(spread))
+                self._bg_spread = int(getattr(layer, "spread", 0))
             else:
                 # 没开的时候给一个跟当前外观搭的默认值：深色配黑、浅色配白。
                 self.bg_color.set("黑" if is_dark() else "白")
                 self.bg_alpha.set(56)
                 self.bg_alpha_value.configure(text="56")
-                self.bg_spread.set(0)
-                self.bg_spread_value.configure(text="0")
+                self._bg_spread = 0
         finally:
             self._syncing_bg = False
         self._set_bg_controls(acrylic)
@@ -446,7 +412,6 @@ class SettingsPage(SettingsPageUI):
     def _set_bg_controls(self, enabled: bool) -> None:
         self.bg_color.set_enabled(enabled)
         self.bg_alpha.configure(state="normal" if enabled else "disabled")
-        self.bg_spread.configure(state="normal" if enabled else "disabled")
 
     def _bg_request(self) -> tuple[str, bool]:
         """读当前选择，返回 ``(颜色, 是否用毛玻璃)``。
@@ -463,7 +428,7 @@ class SettingsPage(SettingsPageUI):
         app = self.app
         color, glass = self._bg_request()
         alpha = int(self.bg_alpha.get())
-        spread = int(self.bg_spread.get())
+        spread = int(getattr(self, "_bg_spread", 0))
         # 第一次进来时这一层可能还没建（App 的自动创建是延迟的），
         # set_frost_backdrop 自己会补建，所以这里不要求 frost_active。
         app.set_frost_backdrop(color, alpha=alpha, glass=glass, spread=spread)
@@ -480,8 +445,7 @@ class SettingsPage(SettingsPageUI):
         self._push_bg()
 
     def on_bg_spread(self, value: float) -> None:
-        spread = int(round(value))
-        self.bg_spread_value.configure(text=str(spread))
+        self._bg_spread = int(round(value))
         self._push_bg()
 
     def on_glass_kind(self, value: str) -> None:
@@ -492,7 +456,6 @@ class SettingsPage(SettingsPageUI):
     def on_glass_alpha(self, value: float) -> None:
         """拖动压暗滑块：0 最透、255 最黑。"""
         alpha = int(round(float(value)))
-        self.glass_alpha_value.configure(text=str(alpha))
         self._set_glass(alpha=alpha)
 
     def on_glass_opacity(self, value: float) -> None:
@@ -500,6 +463,8 @@ class SettingsPage(SettingsPageUI):
         percent = int(round(float(value)))
         self.glass_opacity_value.configure(text=f"{percent}%")
         self._set_glass(opacity=percent / 100)
+        # 核心会把背景透明度压到不超过整体透明度，这里同步一下显示。
+        self.refresh_background()
 
     def on_glass_wca(self, value: str) -> None:
         """切换 ``SetWindowCompositionAttribute`` 的属性号（30 是原来的值）。"""
@@ -522,8 +487,8 @@ class SettingsPage(SettingsPageUI):
 
     def on_glass_border(self, value: str) -> None:
         """写 ``DWMWA_BORDER_COLOR``（34）。"""
-        values = {"默认": None, "无": 0xFFFFFFFE, "黑": 0x000000, "白": 0xFFFFFF}
-        self._set_glass(border=values.get(value))
+        values = {"灰": 0x808080, "无": 0xFFFFFFFE, "黑": 0x000000, "白": 0xFFFFFF}
+        self._set_glass(border=values.get(value, 0xFFFFFFFE))
 
     def on_glass_caption(self, value: str) -> None:
         """写 ``DWMWA_CAPTION_COLOR``（35）；「玻璃」表示交还给 DWM。"""
@@ -549,6 +514,15 @@ class SettingsPage(SettingsPageUI):
         """某个开关被拨动：读它的新状态回写。"""
         switch = getattr(self, f"glass_{key}")
         self._set_glass(**{key: bool(switch.get())})
+
+    def _on_titlebar_switch(self, key: str) -> None:
+        """标题栏开关：隐藏 / 显示图标、标题文字，改完立即生效。"""
+        switch = getattr(self, f"titlebar_{key}")
+        value = bool(switch.get())
+        if key == "icon":
+            self.app.set_titlebar_items(icon=value)
+        else:
+            self.app.set_titlebar_items(title=value)
 
     def _on_debug_switch(self, key: str) -> None:
         """窗口调试开关：去 1px 边框 / 关过渡动画，改完立即生效。"""

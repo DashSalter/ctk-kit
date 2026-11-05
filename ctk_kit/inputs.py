@@ -39,6 +39,12 @@ SegmentCommand = Optional[Callable[[str], None]]
 SwitchCommand = Optional[Callable[[], None]]
 # 滑块回调：收到当前数值（float）。
 SliderCommand = Optional[Callable[[float], None]]
+# 滑块超采样倍数：先按 4 倍画，再 LANCZOS 缩回去，边缘才平滑。
+_SLIDER_SCALE = 4
+#: 滑块轨道高度（逻辑像素）。
+_SLIDER_TRACK = 4
+#: 滑块圆钮直径（逻辑像素）。
+_SLIDER_KNOB = 14
 # 单选组回调：收到被选中的那一项文字。
 RadioCommand = Optional[Callable[[str], None]]
 # 焦点边框的回调：改完边框后以新的 border_width 调一次（给需要同步内缩的容器用）。
@@ -310,19 +316,28 @@ class Segmented(ctk.CTkFrame):
         self._texts: list[int] = []
         self._inset = max(1, int(round(_SEGMENT_INSET * self._get_widget_scaling())))
 
-        self._canvas = tk.Canvas(
+        self._seg_canvas = tk.Canvas(
             self,
             highlightthickness=0,
             borderwidth=0,
             bg=color_of(T.COLOR_SOFT),
         )
-        # 内缩一个圆角：canvas 是方形，贴着圆角矩形的最外沿会把四角露出来。
-        margin = max(1, int(round(self._radius * self._get_widget_scaling())))
-        self._canvas.place(x=margin, y=0, relwidth=1, relheight=1, width=-2 * margin)
-        self._canvas.bind("<Button-1>", self._on_click)
-        self._canvas.bind("<Motion>", self._on_motion)
-        self._canvas.bind("<Leave>", self._on_leave)
-        self._canvas.bind("<Configure>", self._on_configure)
+        # canvas 是方形，四角要落在容器的圆角弧以内，否则会把圆角顶成直角。
+        # 圆心到角点的最短内缩约是 radius * (1 - 1/√2) ≈ 0.29R，这里取 0.35R 留余量。
+        radius_px = self._radius * self._get_widget_scaling()
+        margin = max(1, int(radius_px * 0.35 + 0.999))
+        self._seg_canvas.place(
+            x=margin,
+            y=margin,
+            relwidth=1,
+            relheight=1,
+            width=-2 * margin,
+            height=-2 * margin,
+        )
+        self._seg_canvas.bind("<Button-1>", self._on_click)
+        self._seg_canvas.bind("<Motion>", self._on_motion)
+        self._seg_canvas.bind("<Leave>", self._on_leave)
+        self._seg_canvas.bind("<Configure>", self._on_configure)
 
     # ------------------------------------------------------------ 公共 API
     def set_enabled(self, enabled: bool) -> None:
@@ -331,7 +346,7 @@ class Segmented(ctk.CTkFrame):
         base = T.COLOR_SOFT if self._enabled else T.COLOR_INPUT
         try:
             self.configure(fg_color=base)
-            self._canvas.configure(bg=color_of(base))
+            self._seg_canvas.configure(bg=color_of(base))
         except Exception:  # noqa: BLE001 - 窗口销毁中
             pass
 
@@ -392,12 +407,12 @@ class Segmented(ctk.CTkFrame):
 
     def _layout(self) -> None:
         """按 canvas 实际尺寸重排滑块与文字。"""
-        width = self._canvas.winfo_width()
-        height = self._canvas.winfo_height()
+        width = self._seg_canvas.winfo_width()
+        height = self._seg_canvas.winfo_height()
         if width <= 1 or height <= 1:
             return
         if not self._values:
-            self._canvas.delete("all")
+            self._seg_canvas.delete("all")
             self._slider = None
             self._texts = []
             return
@@ -420,22 +435,22 @@ class Segmented(ctk.CTkFrame):
         else:
             photo = None
         self._slider_photo = photo
-        if self._slider is None or not self._canvas.winfo_exists():
-            self._canvas.delete("slider")
+        if self._slider is None or not self._seg_canvas.winfo_exists():
+            self._seg_canvas.delete("slider")
             if photo is not None:
-                self._slider = self._canvas.create_image(
+                self._slider = self._seg_canvas.create_image(
                     0, inset, anchor="nw", image=photo, tags="slider"
                 )
             else:
                 self._slider = None
-                self._canvas.create_rectangle(
+                self._seg_canvas.create_rectangle(
                     0, inset, slider_w, inset + slider_h,
                     fill=color_of(T.COLOR_ACTIVE), width=0, tags="slider",
                 )
         else:
             if photo is not None:
-                self._canvas.itemconfig(self._slider, image=photo)
-            self._canvas.coords(
+                self._seg_canvas.itemconfig(self._slider, image=photo)
+            self._seg_canvas.coords(
                 self._slider,
                 self._progress * self._seg_w + inset,
                 inset,
@@ -446,15 +461,15 @@ class Segmented(ctk.CTkFrame):
         if self._slider is None:
             return
         x = self._progress * self._seg_w + self._inset
-        self._canvas.coords(self._slider, x, self._inset)
+        self._seg_canvas.coords(self._slider, x, self._inset)
 
     def _draw_texts(self, height: int) -> None:
         for item in self._texts:
-            self._canvas.delete(item)
+            self._seg_canvas.delete(item)
         self._texts = []
         for index, value in enumerate(self._values):
             center = (index + 0.5) * self._seg_w
-            item = self._canvas.create_text(
+            item = self._seg_canvas.create_text(
                 center,
                 height / 2,
                 text=value,
@@ -477,7 +492,7 @@ class Segmented(ctk.CTkFrame):
 
     def _paint_texts(self) -> None:
         for index, item in enumerate(self._texts):
-            self._canvas.itemconfig(item, fill=self._text_color(index))
+            self._seg_canvas.itemconfig(item, fill=self._text_color(index))
 
     # ------------------------------------------------------------ 交互
     def _segment_at(self, x: int) -> int:
@@ -504,15 +519,15 @@ class Segmented(ctk.CTkFrame):
         if index != self._hover:
             self._hover = index
             self._paint_texts()
-            self._canvas.configure(cursor="hand2")
-        elif event.widget is self._canvas:
-            self._canvas.configure(cursor="hand2")
+            self._seg_canvas.configure(cursor="hand2")
+        elif event.widget is self._seg_canvas:
+            self._seg_canvas.configure(cursor="hand2")
 
     def _on_leave(self, _event: tk.Event) -> None:
         if self._hover != -1:
             self._hover = -1
             self._paint_texts()
-        self._canvas.configure(cursor="")
+        self._seg_canvas.configure(cursor="")
 
     # ------------------------------------------------------------ 动画
     def _animate_to(self, target: float) -> None:
@@ -912,16 +927,23 @@ def radio_group(
     return frame, var
 
 
-def Slider(
-        master: tk.Misc,
-        command: SliderCommand = None,
-        *,
-        from_: float = 0.0,
-        to: float = 100.0,
-        steps: int = 0,
-        width: int = 220,
-) -> ctk.CTkSlider:
+def _slider_bg(master: tk.Misc) -> str:
+    """给 canvas 找一个实际背景色：canvas 不认 ``transparent``。"""
+    try:
+        value = master.cget("fg_color")
+    except Exception:  # noqa: BLE001
+        value = None
+    if isinstance(value, (tuple, list)) and len(value) == 2:
+        return color_of(value)
+    if isinstance(value, str) and value and value != "transparent":
+        return value
+    return color_of(T.COLOR_CARD)
+
+
+class Slider(ctk.CTkFrame):
     """滑块：轨道底色淡，已滑过的部分和圆钮是主色。
+
+    自绘（Pillow 4 倍超采样再 LANCZOS 缩放），圆钮和轨道两端没有锯齿。
 
     参数:
         master: 父容器。
@@ -931,31 +953,197 @@ def Slider(
         steps: 分段数；``0`` 表示连续，正整数表示只能停在等分点上。
         width: 宽度（像素），默认 220。
 
-    返回:
-        尚未摆位的 ``CTkSlider``；读数用 ``get()``。
+    方法:
+        get(): 当前值。
+        set(value, notify=False): 改值，``notify=True`` 时也回调。
     """
-    return ctk.CTkSlider(
-        master,
-        from_=from_,
-        to=to,
-        number_of_steps=steps if steps > 0 else None,
-        width=width,
-        # 高度就是把手的直径：12 比默认的 16 轻，轨道仍靠 border_width 压成 4px。
-        height=12,
-        # 圆角给大值让轨道和把手都成胶囊/正圆；button_length=0 表示把手是正圆。
-        # 别把 border_width 设成 0：CTkSlider 是「整高画一圈 border、内层再画 fg」，
-        # 轨道 = height - 2 * border_width，改成 0 会变成一根粗条。
-        # 12 高配 4px 边框，正好留出 4px 轨道，和改小把手前的观感一致。
-        border_width=4,
-        corner_radius=1000,
-        fg_color=T.COLOR_BORDER_STRONG,
-        progress_color=T.COLOR_ACTIVE,
-        button_color=T.COLOR_ACTIVE,
-        button_hover_color=T.COLOR_ACTIVE_HOVER,
-        button_corner_radius=1000,
-        button_length=0,
-        command=command,
-    )
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        command: SliderCommand = None,
+        *,
+        from_: float = 0.0,
+        to: float = 100.0,
+        steps: int = 0,
+        width: int = 220,
+        state: str = "normal",
+        **kwargs: Any,
+    ) -> None:
+        """建滑块；初值在 ``from_``。"""
+        super().__init__(master, fg_color="transparent", **kwargs)
+
+        self._from = float(from_)
+        self._to = float(to) if float(to) != float(from_) else float(from_) + 1.0
+        self._steps = max(0, int(steps))
+        self._command = command
+        self._width = max(_SLIDER_KNOB + 8, int(width))
+        self._height = _SLIDER_KNOB + 4
+        self._pad = _SLIDER_KNOB / 2 + 1
+        self._value = self._clamp(self._from)
+        self._state = str(state or "normal")
+        self._photo = None
+
+        self._canvas = tk.Canvas(
+            self,
+            width=self._width,
+            height=self._height,
+            bg=_slider_bg(self),
+            highlightthickness=0,
+            bd=0,
+            cursor="hand2",
+        )
+        self._canvas.pack()
+        self._canvas.bind("<Button-1>", self._press)
+        self._canvas.bind("<B1-Motion>", self._drag)
+        self._canvas.bind("<ButtonRelease-1>", self._release)
+        self._render()
+
+    # ---- 取值 / 赋值 ----------------------------------------------------
+
+    def get(self) -> float:
+        """当前值。"""
+        return self._value
+
+    def set(self, value: float, notify: bool = False) -> None:
+        """改值并重画；``notify=True`` 时也触发回调。"""
+        wrapped = self._clamp(value)
+        if wrapped == self._value:
+            return
+        self._value = wrapped
+        self._render()
+        if notify and self._command is not None:
+            self._command(self._value)
+
+    def configure(self, **kwargs: Any) -> None:
+        """支持 ``command`` / ``state``，其余交给 ``CTkFrame``。"""
+        if "command" in kwargs:
+            self._command = kwargs.pop("command")
+        if "state" in kwargs:
+            self._state = str(kwargs.pop("state") or "normal")
+            self._render()
+        if kwargs:
+            super().configure(**kwargs)
+
+    config = configure
+
+    # ---- 坐标换算 ------------------------------------------------------
+
+    def _clamp(self, value: float) -> float:
+        """夹到区间并按 ``steps`` 吸附。"""
+        value = max(self._from, min(self._to, float(value)))
+        if self._steps > 0:
+            step = (self._to - self._from) / self._steps
+            if step > 0:
+                value = self._from + round((value - self._from) / step) * step
+        return max(self._from, min(self._to, value))
+
+    def _track_width(self) -> float:
+        return max(1.0, self._width - 2 * self._pad)
+
+    def _value_to_x(self, value: float) -> float:
+        """值 → 画布上的 x 坐标。"""
+        ratio = (value - self._from) / (self._to - self._from)
+        return self._pad + ratio * self._track_width()
+
+    def _x_to_value(self, x: float) -> float:
+        """画布 x 坐标 → 值。"""
+        ratio = (x - self._pad) / self._track_width()
+        return self._clamp(self._from + ratio * (self._to - self._from))
+
+    # ---- 鼠标 ----------------------------------------------------------
+
+    def _press(self, event: tk.Event) -> None:
+        """按下：立刻跳到点击位置。"""
+        if self._state == "disabled":
+            return
+        self._value = self._x_to_value(event.x)
+        self._render()
+        if self._command is not None:
+            self._command(self._value)
+
+    def _drag(self, event: tk.Event) -> None:
+        """拖动：连续更新。"""
+        if self._state == "disabled":
+            return
+        value = self._x_to_value(event.x)
+        if value == self._value:
+            return
+        self._value = value
+        self._render()
+        if self._command is not None:
+            self._command(self._value)
+
+    def _release(self, _event: tk.Event) -> None:
+        """松开：无需额外动作（拖动时已经回调过）。"""
+
+    # ---- 绘制 ----------------------------------------------------------
+
+    def _render(self) -> None:
+        """画轨道、已滑过段和圆钮。"""
+        canvas = self._canvas
+        canvas.delete("all")
+        track = color_of(T.COLOR_BORDER_STRONG)
+        active = color_of(
+            T.COLOR_MUTED if self._state == "disabled" else T.COLOR_ACTIVE
+        )
+
+        if not _HAS_PIL:
+            self._render_plain(track, active)
+            return
+
+        scale = _SLIDER_SCALE
+        w, h = self._width, self._height
+        image = Image.new("RGBA", (w * scale, h * scale), (0, 0, 0, 0))
+        pen = ImageDraw.Draw(image)
+        center = h * scale / 2
+        bar = _SLIDER_TRACK * scale
+        x0 = self._pad * scale
+        x1 = (w - self._pad) * scale
+        knob_x = self._value_to_x(self._value) * scale
+
+        pen.rounded_rectangle(
+            (x0, center - bar / 2, x1, center + bar / 2),
+            radius=bar / 2,
+            fill=track,
+        )
+        if knob_x > x0:
+            pen.rounded_rectangle(
+                (x0, center - bar / 2, knob_x, center + bar / 2),
+                radius=bar / 2,
+                fill=active,
+            )
+        radius = _SLIDER_KNOB * scale / 2
+        pen.ellipse(
+            (knob_x - radius, center - radius, knob_x + radius, center + radius),
+            fill=active,
+        )
+
+        self._photo = ImageTk.PhotoImage(image.resize((w, h), Image.LANCZOS))
+        canvas.create_image(0, 0, anchor="nw", image=self._photo)
+
+    def _render_plain(self, track: str, active: str) -> None:
+        """没装 Pillow 时的退路：直角轨道 + 硬边圆钮。"""
+        canvas = self._canvas
+        center = self._height / 2
+        half = _SLIDER_TRACK / 2
+        x0 = self._pad
+        x1 = self._width - self._pad
+        knob_x = self._value_to_x(self._value)
+        canvas.create_rectangle(x0, center - half, x1, center + half, fill=track, outline="")
+        if knob_x > x0:
+            canvas.create_rectangle(
+                x0, center - half, knob_x, center + half, fill=active, outline=""
+            )
+        radius = _SLIDER_KNOB / 2
+        canvas.create_oval(
+            knob_x - radius,
+            center - radius,
+            knob_x + radius,
+            center + radius,
+            fill=active,
+            outline="",
+        )
 
 
 def ProgressBar(

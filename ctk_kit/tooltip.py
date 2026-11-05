@@ -24,7 +24,7 @@ import tkinter as tk
 from typing import Any, Callable, Optional, Union
 
 from . import tokens as T
-from .popup import round_window_corners
+from .popup import enable_popup_glass, glass_veil, round_window_corners
 from .fonts import get_font
 from .theme import color_of
 
@@ -125,22 +125,29 @@ class Tooltip:
 
         self._ensure_window()
         assert self._tip is not None and self._label is not None
+        veil = glass_veil()
         self._label.configure(
             text=text,
             font=get_font(self._font),
-            bg=color_of(T.COLOR_CARD),
+            bg=veil or color_of(T.COLOR_CARD),
             fg=color_of(T.COLOR_TEXT),
             wraplength=self._wraplength,
             padx=self._padding[0],
             pady=self._padding[1],
         )
-        self._tip.configure(bg=color_of(T.COLOR_BORDER))
+        self._tip.configure(bg=veil or color_of(T.COLOR_BORDER))
         self._tip.update_idletasks()
         self._place()
         _round_corners(self._tip)
+        if veil:
+            # 和下拉面板同一路：显示前先把系统玻璃挂好，第一帧就是模糊背景。
+            enable_popup_glass(self._tip)
         with contextlib.suppress(tk.TclError):
             self._tip.attributes("-alpha", 0.0)
         self._tip.deiconify()
+        if veil:
+            # 映射之后再补一次，窗口刚出来时 DWM 合成还没稳定。
+            enable_popup_glass(self._tip)
         self._tip.lift()
         self._tip.attributes("-topmost", True)
         self._shown = True
@@ -264,7 +271,7 @@ class Tooltip:
         tip = tk.Toplevel(self._widget)
         tip.withdraw()
         tip.overrideredirect(True)
-        tip.configure(bg=color_of(T.COLOR_BORDER))
+        tip.configure(bg=glass_veil() or color_of(T.COLOR_BORDER))
         label = tk.Label(
             tip,
             text="",

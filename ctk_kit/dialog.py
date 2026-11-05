@@ -40,15 +40,52 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageTk
 
 from . import tokens as T
+from .branding import dim_image
 from .fonts import get_font
 from .core.glass import backdrop_image, excluding_from_capture, gradient_image
 from .inputs import FormEntry
 from .paint import cached
 from .popup import round_window_corners, scaled_geometry
-from .core.win32 import acrylic_window, client_frame_inset, set_client_rect
-from .theme import color_of
+from .core.win32 import (
+    acrylic_window,
+    client_frame_inset,
+    enable_acrylic,
+    set_client_rect,
+    set_dwm_attribute,
+)
+from .theme import color_of, is_win11
 
 __all__ = ["Dialog", "alert", "confirm", "prompt"]
+
+#: Win11 上 ``SetWindowCompositionAttribute`` 只有 30 号属性有效，
+#: 19 号（``WCA_ACCENT_POLICY``）会被忽略，窗口保持纯黑。pywinstyles 的
+#: ``acrylic`` 也是这么调的，Win10 走原来的 19 + tint。
+_WCA_ACCENT_WIN11 = 30
+#: pywinstyles 给亚克力用的渐变底色；不带 alpha 字节，模糊强弱交给系统。
+_ACRYLIC_TINT = 0x292929
+#: accent=3 的玻璃会给窗口内容叠一层约 25% 的白；acrylic 版把图标预先压暗
+#: 同样的比例，合成后颜色回到原样，不至于发白。
+_GLASS_DIM = 0.25
+
+
+def _apply_acrylic(window: tk.Misc, corners: int = 2) -> bool:
+    """Win11 上挂原生亚克力（accent 30 + extend + WS_THICKFRAME）。"""
+    ok = enable_acrylic(
+        window,
+        tint=_ACRYLIC_TINT,
+        accent=3,
+        attribute=_WCA_ACCENT_WIN11,
+        dark=True,
+        frame=True,
+        extend=True,
+    )
+    # 33 = DWMWA_WINDOW_CORNER_PREFERENCE：0 默认 / 1 不圆 / 2 圆 / 3 小圆。
+    # 无边框窗口 DWM 不会自己切圆角，得显式要一次，否则玻璃卡片是直角。
+    try:
+        set_dwm_attribute(window, 33, int(corners))
+    except Exception:  # noqa: BLE001 - 老系统没有这个属性
+        pass
+    return ok
 
 #: 各层级用的主色。
 _LEVEL_COLORS = {
@@ -80,11 +117,12 @@ _ANIM_STEP = 16
 _OPEN_SLIDE = 6
 
 
-def _badge(level: str, size: int = 34) -> Image.Image:
+def _badge(level: str, size: int = 34, dim: float = 0.0) -> Image.Image:
     """画一枚圆形图标：底是层级色，上面一个白色符号。
 
     ``size`` 是**物理像素**；4 倍尺寸画完再缩放，圆边和符号才不会有
-    canvas 那种阶梯。
+    canvas 那种阶梯。``dim`` 是预先压暗的比例（0~1），只在系统玻璃上
+    用：玻璃会给内容叠一层白，先压暗同样比例，合成后颜色才回到原样。
     """
     scale = 4
     side = max(8, int(size)) * scale
@@ -129,7 +167,10 @@ def _badge(level: str, size: int = 34) -> Image.Image:
         )
         pen.line((cx, cy - side * 0.02, cx, cy + side * 0.19), fill=white, width=stroke)
 
-    return image.resize((int(size), int(size)), Image.LANCZOS)
+    image = image.resize((int(size), int(size)), Image.LANCZOS)
+    if dim > 0:
+        image = dim_image(image, dim)
+    return image
 
 
 def _round_corners(window: tk.Misc, radius: int = 12) -> None:
@@ -233,8 +274,9 @@ class Dialog(ctk.CTkToplevel):
         glass_refresh_ms: 背景重截间隔（毫秒）；0 表示每帧连轴刷新（最快）。
         glass_blur / glass_upscale / glass_blur_scale:
             模糊半径（逻辑像素）、升采样倍数、模糊范围系数。
-        backdrop: ``"glass"``（截屏模糊，默认）/ ``"gradient"``（固定竖向渐变）/
-            ``"none"``（纯卡片色）。
+        backdrop: ``"acrylic"``（系统玻璃，默认）/ ``"glass"``（截屏模糊）/
+            ``"gradient"``（固定竖向渐变）/ ``"none"``（纯卡片色）。
+            非 Win11 上 ``"acrylic"`` 会回落到截屏模糊。
     """
 
     def __init__(
@@ -254,7 +296,8 @@ class Dialog(ctk.CTkToplevel):
         glass_blur: int = 20,
         glass_upscale: float = 2.0,
         glass_blur_scale: float = 0.5,
-        backdrop: str = "glass",
+        backdrop: str = "acrylic",
+        corners: int = 0,
         gradient_top: Optional[str] = None,
         gradient_bottom: Optional[str] = None,
     ) -> None:
@@ -282,9 +325,11 @@ class Dialog(ctk.CTkToplevel):
         self._glass_upscale = max(1.0, float(glass_upscale))
         self._glass_blur_scale = max(0.05, min(2.0, float(glass_blur_scale)))
         self._acrylic_tint = 0xCC201A18
+        # 0 默认（按圆角画）/ 1 不圆 / 2 圆 / 3 小圆，对应 DWMWCP_*。
+        self._corners = int(corners or 0)
         style = str(backdrop or "none").lower()
         if style not in {"glass", "gradient", "acrylic", "none"}:
-            style = "glass"
+            style = "acrylic"
         # glass=False 是旧参数，等效于关掉背景
         self._backdrop_style = style if glass else "none"
         self._gradient_top = gradient_top
@@ -482,7 +527,9 @@ class Dialog(ctk.CTkToplevel):
         head = ctk.CTkFrame(inner, fg_color="transparent")
         head.pack(fill="x")
         icon_size = int(round(34 * (self._get_window_scaling() or 1.0)))
-        self._acrylic_icon = ImageTk.PhotoImage(_badge(self._level, icon_size))
+        self._acrylic_icon = ImageTk.PhotoImage(
+            _badge(self._level, icon_size, dim=_GLASS_DIM)
+        )
         # 用 tk.Label：CTkLabel 会抱怨 PhotoImage 不能随 DPI 缩放；图片已经是
         # 物理像素，黑底又正好等于“透明”，不会挡玻璃。
         tk.Label(
@@ -671,7 +718,10 @@ class Dialog(ctk.CTkToplevel):
                 return
         except tk.TclError:
             return
-        acrylic_window(self, tint=self._acrylic_tint)
+        if is_win11():
+            _apply_acrylic(self, self._corners or 2)
+        else:
+            acrylic_window(self, tint=self._acrylic_tint)
         width, height = self._frame_size
         if width > 2 and height > 2:
             set_client_rect(self, width, height, *self._frame_pos)
@@ -763,7 +813,10 @@ class Dialog(ctk.CTkToplevel):
             self._frame_size = (width_px, max(1, self.winfo_reqheight()))
             # 顺序不能反：挂玻璃会给窗口补上 WS_THICKFRAME，客户区因此比外框
             # 少一圈边框；先挂再定位，_apply_geometry() 才能按实际边框校正。
-            acrylic_window(self, tint=self._acrylic_tint)
+            if is_win11():
+                _apply_acrylic(self, self._corners or 2)
+            else:
+                acrylic_window(self, tint=self._acrylic_tint)
             self.update()
             self._place_over(self._master)
             self.update()
@@ -779,7 +832,7 @@ class Dialog(ctk.CTkToplevel):
             self.update()
             # 窗口刚映射时 DWM 的合成还没稳定，先挂一次、稍后再补一次。
             self.after(60, self._refresh_acrylic)
-        else:
+        elif self._corners != 1:
             _round_corners(self, T.RADIUS_SMALL)
         self.grab_set()
 
@@ -908,8 +961,11 @@ class Dialog(ctk.CTkToplevel):
         elif self._backdrop_style == "acrylic":
             # alpha 动画期间窗口是 layered 的，系统玻璃会被摘掉；等 alpha
             # 稳定在 1.0 之后再挂一次。
-            acrylic_window(self, tint=self._acrylic_tint)
-        else:
+            if is_win11():
+                _apply_acrylic(self, self._corners or 2)
+            else:
+                acrylic_window(self, tint=self._acrylic_tint)
+        elif self._corners != 1:
             _round_corners(self, T.RADIUS_SMALL)
 
     def destroy(self) -> None:

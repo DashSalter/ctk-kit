@@ -20,6 +20,7 @@ from ctk_kit import (
     Card,
     Carousel,
     CodePanel,
+    ColorDialog,
     ColorPicker,
     CTkLabel,
     FormEntry,
@@ -112,7 +113,7 @@ split.pack(fill="x")
 CTkLabel(split.first, text="左侧").pack(expand=True)
 CTkLabel(split.second, text="右侧").pack(expand=True)'''
 
-POPOVER_COLOR_CODE = '''from ctk_kit import ColorPicker, FormEntry, Popover
+POPOVER_COLOR_CODE = '''from ctk_kit import ColorDialog, ColorPicker, FormEntry, Popover
 
 
 def build_form(parent):
@@ -120,7 +121,10 @@ def build_form(parent):
 
 
 popover = Popover(button, content=build_form)   # 点按钮切换
-ColorPicker(card, value="#2563eb", command=lambda color: print(color))'''
+ColorPicker(card, value="#2563eb", command=lambda color: print(color))
+
+# 完整取色面板：阻塞到关闭，返回 #rrggbb，取消返回 None
+picked = ColorDialog(card, value="#2563eb").show()'''
 
 ACRYLIC_POPOVER_CODE = '''from ctk_kit import Popover
 
@@ -477,7 +481,8 @@ class ExtrasPageUI(PageBase):
 
         HintLabel(
             box,
-            "Popover 点按钮弹出，点外面关闭；ColorPicker 选完色回显 hex。",
+            "Popover 点按钮弹出，点外面关闭；ColorPicker 选完色回显 hex；"
+            "「取色面板…」打开完整色板，支持 RGB / HSV / HSL 与 hex 输入。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
         row = Frame(box)
@@ -490,6 +495,13 @@ class ExtrasPageUI(PageBase):
         self.color_picker.pack(side="left", padx=(12, 0))
         self.color_hint = HintLabel(row, "#2563eb")
         self.color_hint.pack(side="left", padx=(10, 0))
+
+        dialog_row = Frame(box)
+        dialog_row.pack(fill="x", padx=16, pady=(0, 10))
+        self.color_dialog_button = SoftButton(dialog_row, "取色面板…")
+        self.color_dialog_button.pack(side="left")
+        self.color_dialog_hint = HintLabel(dialog_row, "#2563eb")
+        self.color_dialog_hint.pack(side="left", padx=(10, 0))
 
         self.popover = Popover(
             self.filter_button,
@@ -616,6 +628,7 @@ class ExtrasPage(ExtrasPageUI):
         self.steps.configure(command=self._on_step)
         self.wizard.configure(command=self._on_finish)
         self.skeleton_btn.configure(command=self._toggle_skeleton)
+        self.color_dialog_button.configure(command=self._on_color_dialog)
         self.menubar.add_menu(
             "文件",
             [
@@ -709,6 +722,17 @@ class ExtrasPage(ExtrasPageUI):
         """色板里选了一个颜色。"""
         self.color_hint.configure(text=color)
         self.feedback.configure(text=f"选中颜色 {color}")
+
+    def _on_color_dialog(self) -> None:
+        """打开完整取色面板，选完回显。"""
+        color = ColorDialog(
+            self,
+            value=self.color_picker.get(),
+            title="选择颜色",
+        ).show()
+        if color:
+            self.color_dialog_hint.configure(text=color)
+            self.feedback.configure(text=f"取色面板选中 {color}")
 
     def _on_split(self, ratio: float) -> None:
         """拖动分栏手柄松开。"""

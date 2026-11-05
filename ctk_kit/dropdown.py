@@ -35,6 +35,11 @@ _FOLLOW_MS = 60
 # 窗口正在被拖动缩放时，面板保持不动，停手这么久之后再归位（秒）
 _RESIZE_QUIET = 0.30
 # 面板与输入框之间的间隙（逻辑像素）
+# 面板底色和悬停色，跟右键菜单（context_menu._MENU_BG / _MENU_HOVER）保持一致。
+_PANEL_BG = "#2B2B2B"
+_PANEL_HOVER = "#575A63"
+
+
 _PANEL_GAP = 2
 # 打开面板的入场动画：淡入 + 从下方滑入（毫秒 / 每次间隔 / 滑入距离逻辑像素）
 _OPEN_ANIM_MS = 130
@@ -120,7 +125,9 @@ class DropField(ctk.CTkFrame):
             fg_color=T.COLOR_INPUT,
             border_width=1,
             border_color=T.COLOR_BORDER_INPUT,
-            corner_radius=T.RADIUS_SMALL,
+            # 圆角调小一档：CTk 的圆角是多边形画的，125% 缩放下大半径的右侧
+            # 会露出明显的像素阶梯，小半径时肉眼基本看不出来。
+            corner_radius=6,
             height=height,
         )
         self.pack_propagate(False)
@@ -218,13 +225,15 @@ class DropField(ctk.CTkFrame):
                 height=32,
                 corner_radius=T.RADIUS_SMALL,
                 fg_color="transparent",
-                hover_color=T.COLOR_CARD if disabled else T.COLOR_SOFT_HOVER,
+                hover_color=_PANEL_BG if disabled else _PANEL_HOVER,
                 text_color=T.COLOR_TEXT,
                 text_color_disabled=T.COLOR_FAINT,
                 font=get_font(T.FONT_SMALL),
                 command=lambda v=value: self._pick(v),
                 state="disabled" if disabled else "normal",
             )
+            # 左右 10：左边和层级树行的文字缩进（listing 5 + 10）对齐，
+            # 右边这 10 正好给滚动条让位，出不出滚动条都不挤文字。
             button.pack(fill="x", pady=1)
             listing.bind_wheel(button)
 
@@ -282,13 +291,9 @@ class DropField(ctk.CTkFrame):
         if not values:
             return
 
-        # 玻璃只对纯黑透明键生效；浅色外观的玻璃底是亮的，面板保持实色
-        # 卡片更好读，所以这里只认「深色 + 毛玻璃」。
+        # 面板不挂玻璃：右键菜单就是这么做的，展开时不会惊动 DWM，
+        # 主窗口不会跟着闪一下。底色统一用 _PANEL_BG。
         veil = None
-        if current_backdrop() == "acrylic" and (
-            ctk.get_appearance_mode().lower() == "dark"
-        ):
-            veil = "#000000"
         popup = ctk.CTkToplevel(self)
         popup.withdraw()
         popup.overrideredirect(True)
@@ -299,7 +304,7 @@ class DropField(ctk.CTkFrame):
 
         body = ctk.CTkFrame(
             popup,
-            fg_color=veil or T.COLOR_CARD,
+            fg_color=veil or _PANEL_BG,
             # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
@@ -310,7 +315,7 @@ class DropField(ctk.CTkFrame):
         self._backdrop = ctk.CTkLabel(body, text="", fg_color="transparent")
         self._backdrop.place(x=0, y=0, relwidth=1, relheight=1)
 
-        listing = _PopupList(body, veil or color_of(T.COLOR_CARD))
+        listing = _PopupList(body, veil or _PANEL_BG)
         listing.pack(fill="both", expand=True, padx=5, pady=5)
         self._build_rows(listing)
 

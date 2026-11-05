@@ -20,7 +20,19 @@ from . import tokens as T
 from .fonts import get_font
 from .theme import color_of
 
-__all__ = ["LOGO_DIR", "LOGO_PATH", "ICON_PATH", "load_logo", "logo_path", "set_window_icon"]
+__all__ = [
+    "LOGO_DIR",
+    "LOGO_PATH",
+    "ICON_PATH",
+    "DIM_MAX",
+    "dim_image",
+    "dim_ratio",
+    "get_dim_ratio",
+    "load_logo",
+    "logo_path",
+    "set_dim_ratio",
+    "set_window_icon",
+]
 
 #: logo 资源目录。
 LOGO_DIR = Path(__file__).resolve().parent / "logo"
@@ -31,6 +43,70 @@ ICON_PATH = LOGO_DIR / "logo.ico"
 
 #: 已经读过的 ``PhotoImage``：tk 的图片对象没有别的引用就会被回收，变成一片空白。
 _PHOTO_CACHE: dict = {}
+
+#: 背景透明度为 0 时图片最多减多少亮度（0–1）。
+DIM_MAX = 0.25
+#: 当前生效的压暗比例，由 App 按「背景透明度」更新。
+_DIM = 0.20
+
+
+def dim_ratio(alpha: int = 255, max_dim: float = DIM_MAX) -> float:
+    """把「背景透明度」（0–255）换算成压暗比例。
+
+    255（最实）→ 0，0（全透）→ `max_dim`，中间线性。
+
+    参数:
+        alpha: 背景透明度，0–255；255 表示完全实色、不压暗。
+        max_dim: 透明度为 0 时的压暗上限，默认 0.5（50%）。
+    """
+    value = max(0, min(255, int(alpha)))
+    return max(0.0, min(1.0, float(max_dim) * (1.0 - value / 255.0)))
+
+
+def set_dim_ratio(value: float) -> bool:
+    """设置全局压暗比例；值变了返回 `True`，调用方据此决定是否重画。"""
+    global _DIM
+    value = max(0.0, min(1.0, float(value)))
+    if abs(value - _DIM) < 1e-4:
+        return False
+    _DIM = value
+    return True
+
+
+def get_dim_ratio() -> float:
+    """当前全局压暗比例。"""
+    return _DIM
+
+
+def dim_image(image, dim: Optional[float] = None):
+    """把图片整体压暗，只动 RGB、保留 alpha。
+
+    玻璃模式下 DWM 会给窗口内容叠一层白（约 64/255），彩色图像看起来
+    发灰。先把 RGB 按同样的量减掉，叠完才接近原色。
+
+    参数:
+        image: 任意 PIL 图，内部会转成 RGBA。
+        dim: 压暗比例，0–1；默认 0.25，即每通道减 25% 的 255。
+    """
+    if dim is None:
+        dim = _DIM
+    if dim <= 0:
+        return image
+    from PIL import Image
+
+    delta = int(round(255 * min(1.0, float(dim))))
+    if not delta:
+        return image
+    red, green, blue, alpha = image.convert("RGBA").split()
+    return Image.merge(
+        "RGBA",
+        (
+            red.point(lambda value: max(0, value - delta)),
+            green.point(lambda value: max(0, value - delta)),
+            blue.point(lambda value: max(0, value - delta)),
+            alpha,
+        ),
+    )
 
 
 def logo_path(size: int = 0) -> Path:

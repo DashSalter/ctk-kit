@@ -40,7 +40,7 @@ from typing import Any, Callable, Dict, Mapping, Optional, Tuple, Union
 import customtkinter as ctk
 
 from . import tokens as T
-from .branding import logo_path
+from .branding import dim_image, logo_path
 from .buttons import SecondaryButton
 from .fonts import get_font
 from .pages import PageRebuilder
@@ -58,11 +58,12 @@ PageBuilder = Callable[[tk.Misc], tk.Misc]
 _THAW_MS = 320
 
 
-def _load_logo(spec: Union[bool, str], size: int):
+def _load_logo(spec: Union[bool, str], size: int, dim: Optional[float] = None):
     """把 ``logo`` 参数变成 ``CTkImage``：``True`` 用内置图，``False`` 不显示。
 
     传字符串时读自定义图片。用 ``CTkImage`` 而不是裸 ``PhotoImage``，HighDPI
-    缩放下才会跟着一起缩放。
+    缩放下才会跟着一起缩放。`dim` 是预先压暗的比例，默认 0.25，用来抵消
+    玻璃合成那层白。
     """
     if spec is False or not spec:
         return None
@@ -70,7 +71,7 @@ def _load_logo(spec: Union[bool, str], size: int):
     from PIL import Image
 
     path = logo_path(size) if spec is True else spec
-    image = Image.open(path).convert("RGBA")
+    image = dim_image(Image.open(path).convert("RGBA"), dim)
     return ctk.CTkImage(light_image=image, dark_image=image, size=(size, size))
 
 
@@ -140,6 +141,7 @@ class SidebarNav(ctk.CTkFrame):
         subtitle: str = "",
         logo: Union[bool, str] = True,
         logo_size: int = 32,
+        logo_dim: Optional[float] = None,
         width: Union[int, float] = 200,
         padding: Tuple[int, int] = (16, 16),
         bottom_pages: Optional[Mapping[str, PageBuilder]] = None,
@@ -222,7 +224,9 @@ class SidebarNav(ctk.CTkFrame):
 
         # 顶部品牌区：logo 在左，大标题 / 小标题在右，两行字整体与 logo 垂直居中。
         self._logo_size = max(16, int(logo_size))
-        self._logo_image = _load_logo(logo, self._logo_size)
+        self._logo = logo
+        self._logo_dim = logo_dim
+        self._logo_image = _load_logo(logo, self._logo_size, logo_dim)
         self._head = ctk.CTkFrame(
             self.sidebar, fg_color="transparent", bg_color=T.COLOR_SIDE
         )
@@ -645,6 +649,13 @@ class SidebarNav(ctk.CTkFrame):
         footer = getattr(self, "bottom", None)
         if footer is not None:
             _repaint_subtree(footer, "Light" if mode == "light" else "Dark")
+
+    def _refresh_dim(self) -> None:
+        """背景透明度变了：按新比例重画 logo。"""
+        if self._logo_image is None:
+            return
+        self._logo_image = _load_logo(self._logo, self._logo_size, self._logo_dim)
+        self.logo_label.configure(image=self._logo_image)
 
     def set_appearance_mode(self, mode: str) -> None:
         """切换外观：外壳原地换色，只重建当前页。

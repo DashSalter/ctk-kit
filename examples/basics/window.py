@@ -14,6 +14,7 @@ import customtkinter as ctk
 from PIL import Image
 
 from ctk_kit import (
+    __version__ as _ctk_version,
     App,
     Avatar,
     CTkLabel,
@@ -59,15 +60,18 @@ def _tinted_icon(name: str, color: str) -> Image.Image:
 
 class DemoApp(App):
     def __init__(self) -> None:
+        # 状态持久化是使用方的事：核心库不再自带配置文件，这里接示例
+        # 自己的实现（~/.ctk-kit/window.json）。不传就什么都不记。
+        state = WindowStateStore()
         super().__init__(
             title="ctk-kit 组件总栏",
             size=(1200, 800),
             min_size=(380, 220),
             center=True,
-            # 状态持久化是使用方的事：核心库不再自带配置文件，这里接示例
-            # 自己的实现（~/.ctk-kit/window.json）。不传就什么都不记。
-            state=WindowStateStore(),
+            state=state,
         )
+        # 设置页要写回底色 / 透明度，先把 store 挂出来给它用。
+        self.state_store = state
         # 先藏起来：建页面、盖遮罩期间不要让用户看到半成品的第一帧。
         self.withdraw()
 
@@ -76,7 +80,7 @@ class DemoApp(App):
         self.nav = SidebarNav(
             self,
             title="ctk-kit",
-            subtitle="v0.9.2 · 示例",
+            subtitle=f"v{_ctk_version} · 示例",
             pages={
                 "总览": OverviewPage,
                 "按钮": ButtonPage,
@@ -118,6 +122,27 @@ class DemoApp(App):
             )
         finally:
             splash.finish()
+
+        # App 在毛玻璃模式下会自动建一层默认底色的背景窗口；这里把上次存的
+        # 颜色 / 透明度 / 尺寸盖回去（晚于 App 内部那次 40ms 的自动创建）。
+        self.after(120, self._restore_frost)
+
+    def _restore_frost(self) -> None:
+        """恢复持久化的背景窗口设置；没记录或不是毛玻璃就跳过。"""
+        store = getattr(self, "state_store", None)
+        record = store.read_frost() if store is not None else None
+        if not record or not getattr(self, "frost_active", False):
+            return
+        self.set_frost_backdrop(
+            record["color"],
+            alpha=record["alpha"],
+            spread=record["spread"],
+        )
+
+    def set_backdrop(self, mode, *, save: bool = True):
+        """切到毛玻璃后，把上次存的底色盖回自动创建的那一层。"""
+        super().set_backdrop(mode, save=save)
+        self.after(120, self._restore_frost)
 
     def _build_account(self, parent: tk.Misc) -> None:
         """侧边栏底部一行：左边头像 + 名字进个人中心，右边齿轮进设置。"""

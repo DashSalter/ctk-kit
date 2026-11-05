@@ -36,6 +36,9 @@ class SettingsPageUI(PageBase):
         self._build_glass(area)
         self._build_debug(area)
         self.refresh_theme()
+        # App 的背景窗口是延迟创建的（启动后 ~40ms），构造函数里读到的还是
+        # None。等一拍再回填一次，界面才和真实的底色对齐。
+        self.after(260, self.refresh_background)
 
     def _build_appearance(self, area: tk.Misc) -> None:
         """外观模式：主题三项 + 毛玻璃时的背景窗口设置。"""
@@ -52,14 +55,6 @@ class SettingsPageUI(PageBase):
 
         self.bg_box = box
         self.bg_rows: list[tk.Frame] = []
-
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "启用背景颜色", width=110).pack(side="left")
-        self.bg_enable = Switch(row, command=self.on_bg_enable)
-        self.bg_enable.pack(side="left", padx=(4, 8))
-        HintLabel(row, "开启后在窗口下面垫一层颜色窗口").pack(side="left")
-        self.bg_rows.append(row)
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
@@ -351,7 +346,6 @@ class SettingsPage(SettingsPageUI):
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""
         self.theme.configure(command=self.on_theme)
-        self.bg_enable.configure(command=self.on_bg_enable)
         self.bg_color.configure(command=self.on_bg_color)
         self.bg_alpha.configure(command=self.on_bg_alpha)
         self.bg_spread.configure(command=self.on_bg_spread)
@@ -371,17 +365,33 @@ class SettingsPage(SettingsPageUI):
         """切换浅色 / 深色 / 毛玻璃；有 SidebarNav 时只重建当前页。"""
         app = self.app
         if value == "毛玻璃":
-            app.set_appearance_mode("dark")
-            app.set_backdrop("acrylic")
+            wanted_mode, wanted_backdrop = "dark", "acrylic"
         else:
-            app.set_backdrop("none")
-            app.set_appearance_mode("light" if value == "浅色" else "dark")
+            wanted_mode = "light" if value == "浅色" else "dark"
+            wanted_backdrop = "none"
+        # 已经是这个状态就不要再走一遍：set_backdrop / set_appearance_mode
+        # 都会重建当前页，连点同一个会白闪一下。
+        if (
+            theme.current_backdrop() == wanted_backdrop
+            and str(get_appearance_mode()).lower() == wanted_mode
+        ):
+            return
+        if value == "毛玻璃":
+            app.set_appearance_mode(wanted_mode)
+            app.set_backdrop(wanted_backdrop)
+        else:
+            app.set_backdrop(wanted_backdrop)
+            app.set_appearance_mode(wanted_mode)
         # 不在这里 refresh：set_backdrop 会重建当前页，这个实例马上就要被丢掉，
         # 再碰它的控件只会拿到 "invalid command name"。
 
     # ------------------------------------------------------------------ 背景窗口
     def refresh_background(self) -> None:
-        """把「背景窗口」那三行同步到 App 的当前状态。"""
+        """把「背景窗口」那几行同步到 App 的当前状态。
+
+        背景窗口在毛玻璃模式下总是开启（不再有「启用」开关），所以这里只
+        负责：毛玻璃时显示这几行并回填当前值，其它模式整块收起。
+        """
         app = getattr(self, "app", None)
         if app is None or not self.winfo_exists():
             return
@@ -391,36 +401,33 @@ class SettingsPage(SettingsPageUI):
                 row.pack(fill="x", padx=16, pady=(0, 8))
             else:
                 row.pack_forget()
-        active = bool(getattr(app, "frost_active", False))
+        layer = getattr(app, "frost_layer", None)
+        # 回填时 set() 会触发 command，不挡住就会把界面的默认值反推回 App，
+        # 把启动时刚恢复的持久化颜色覆盖掉。
         self._syncing_bg = True
         try:
-            if active:
-                self.bg_enable.select()
+            if layer is not None:
+                color = str(getattr(layer, "color", "#FFFFFF")).upper()
+                for name, value in self._bg_colors().items():
+                    if value.upper() == color:
+                        self.bg_color.set(name)
+                        break
+                alpha = int(getattr(layer, "alpha", 56))
+                self.bg_alpha.set(alpha)
+                self.bg_alpha_value.configure(text=str(alpha))
+                spread = int(getattr(layer, "spread", 0))
+                self.bg_spread.set(spread)
+                self.bg_spread_value.configure(text=str(spread))
             else:
-                self.bg_enable.deselect()
+                # 没开的时候给一个跟当前外观搭的默认值：深色配黑、浅色配白。
+                self.bg_color.set("黑" if is_dark() else "白")
+                self.bg_alpha.set(56)
+                self.bg_alpha_value.configure(text="56")
+                self.bg_spread.set(0)
+                self.bg_spread_value.configure(text="0")
         finally:
             self._syncing_bg = False
-        layer = getattr(app, "frost_layer", None)
-        if layer is not None:
-            color = str(getattr(layer, "color", "#FFFFFF")).upper()
-            for name, value in self._bg_colors().items():
-                if value.upper() == color:
-                    self.bg_color.set(name)
-                    break
-            alpha = int(getattr(layer, "alpha", 56))
-            self.bg_alpha.set(alpha)
-            self.bg_alpha_value.configure(text=str(alpha))
-            spread = int(getattr(layer, "spread", 0))
-            self.bg_spread.set(spread)
-            self.bg_spread_value.configure(text=str(spread))
-        else:
-            # 没开的时候给一个跟当前外观搭的默认值：深色配黑、浅色配白。
-            self.bg_color.set("黑" if is_dark() else "白")
-            self.bg_alpha.set(56)
-            self.bg_alpha_value.configure(text="56")
-            self.bg_spread.set(0)
-            self.bg_spread_value.configure(text="0")
-        self._set_bg_controls(active)
+        self._set_bg_controls(acrylic)
 
     def _bg_colors(self) -> dict:
         """底层窗口的九种底色：黑、白 + 七个彩色。"""
@@ -450,37 +457,19 @@ class SettingsPage(SettingsPageUI):
         return self._bg_colors().get(self.bg_color.get(), "#FFFFFF"), False
 
     def _push_bg(self) -> None:
-        """把当前颜色 + 透明度推给 App。"""
-        app = self.app
-        if not getattr(app, "frost_active", False):
-            return
-        color, glass = self._bg_request()
-        app.set_frost_backdrop(
-            color,
-            alpha=int(self.bg_alpha.get()),
-            glass=glass,
-            spread=int(self.bg_spread.get()),
-        )
-
-    def on_bg_enable(self) -> None:
-        """勾选 = 显示背景颜色窗口；取消 = 收起。"""
+        """把当前颜色 + 透明度推给 App，并写进配置文件。"""
         if getattr(self, "_syncing_bg", False):
             return
-        enabled = bool(self.bg_enable.get())
-        self._set_bg_controls(enabled)
-        if enabled:
-            # 直接建，不走 _push_bg：它要求 frost_active 已经是 True，
-            # 而第一次勾选时恰好事 False。
-            app = self.app
-            color, glass = self._bg_request()
-            app.set_frost_backdrop(
-                color,
-                alpha=int(self.bg_alpha.get()),
-                glass=glass,
-                spread=int(self.bg_spread.get()),
-            )
-        else:
-            self.app.clear_frost_backdrop()
+        app = self.app
+        color, glass = self._bg_request()
+        alpha = int(self.bg_alpha.get())
+        spread = int(self.bg_spread.get())
+        # 第一次进来时这一层可能还没建（App 的自动创建是延迟的），
+        # set_frost_backdrop 自己会补建，所以这里不要求 frost_active。
+        app.set_frost_backdrop(color, alpha=alpha, glass=glass, spread=spread)
+        store = getattr(app, "state_store", None)
+        if store is not None:
+            store.write_frost(color, alpha, spread)
 
     def on_bg_color(self, _value: str) -> None:
         self._push_bg()

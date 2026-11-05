@@ -19,6 +19,8 @@
     state.write_color_theme(name)
     state.read_backdrop()   -> str      none / acrylic
     state.write_backdrop(mode)
+    state.read_frost()      -> Optional[dict]   {"color", "alpha", "spread"}
+    state.write_frost(color, alpha, spread)
 
 不想记就直接不传 ``state``。
 """
@@ -59,6 +61,12 @@ class WindowState(ConfigBase):
     mode = appearance.field(default="system")   # light / dark / system
     color = appearance.field(default="")        # 颜色主题名或文件路径
     backdrop = appearance.field(default="none")  # none / acrylic（毛玻璃）
+
+    frost = Section("frost")
+    #: 底层颜色窗口：底色、透明度（0 全透 / 255 最实）、外扩尺寸。
+    frost_color = frost.field(default="#000000")
+    frost_alpha = frost.field(default=56, validator=lambda v: 0 <= int(v) <= 255)
+    frost_spread = frost.field(default=0, validator=lambda v: 0 <= int(v) <= 40)
 
 
 class WindowStateStore:
@@ -125,3 +133,29 @@ class WindowStateStore:
         WindowState.backdrop.value = "acrylic" if str(mode).lower() in (
             "acrylic", "glass", "毛玻璃", "玻璃"
         ) else "none"
+
+    def read_frost(self) -> Optional[dict]:
+        """读取底层颜色窗口的设置；没有记录或配置损坏时返回 ``None``。
+
+        返回值形如 ``{"color": "#2F6FED", "alpha": 160, "spread": 6}``。
+        """
+        try:
+            color = str(WindowState.frost_color.value or "").strip()
+            alpha = int(WindowState.frost_alpha.value)
+            spread = int(WindowState.frost_spread.value)
+        except Exception:  # noqa: BLE001 - 配置损坏时回到默认
+            return None
+        if not color.startswith("#") or len(color) != 7:
+            return None
+        return {
+            "color": color,
+            "alpha": max(0, min(255, alpha)),
+            "spread": max(0, min(40, spread)),
+        }
+
+    def write_frost(self, color: str, alpha: int, spread: int) -> None:
+        """记住底层颜色窗口的底色、透明度和外扩尺寸。"""
+        with WindowState.frost.batch():
+            WindowState.frost_color.value = color
+            WindowState.frost_alpha.value = int(alpha)
+            WindowState.frost_spread.value = int(spread)

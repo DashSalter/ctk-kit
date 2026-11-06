@@ -15,6 +15,8 @@ from typing import Callable, Dict, Optional, Sequence, Set
 
 import customtkinter as ctk
 
+from . import theming
+from .page import set_prewarm
 from .theme import apply_appearance_fast
 
 # 建页函数：给页面名，返回一个已建好的页面容器。
@@ -73,6 +75,8 @@ class PageRebuilder:
         self._frames: Dict[str, ctk.CTkFrame] = {}
         self._stale: Set[str] = set()
         self._current: Optional[str] = None
+        self._prewarm_pending: list = []
+        self._prewarm_job: Optional[str] = None
 
     # ------------------------------------------------------------------ 查询
 
@@ -102,6 +106,67 @@ class PageRebuilder:
             self._build(name)
         return self._frames[name]
 
+    def prewarm(self, names: Sequence[str]) -> None:
+        """把还没建的页面先建好（不显示），下次切过去直接 ``lift``。
+
+        只建不 ``place``：未显示的页面一旦 ``place`` 就会参与窗口布局，
+        窗口一改尺寸十几页一起重排，启动后第一次拖动会卡好几秒。这里只
+        想免掉「切过去时要等构造」的那一段。
+
+        一页建完再建下一页：两页的分帧队列同时跑会互相抢时间片，
+        正在看的页面就会一顿一顿的。
+        """
+        pending = [n for n in names if n not in self._frames and n in self._pages]
+        if pending:
+            self._prewarm_pending = pending
+            self._prewarm_next()
+
+    def cancel_prewarm(self) -> None:
+        """放弃还在排队的相邻页预建（用户已经切页，别再抢主线程）。"""
+        self._prewarm_pending = []
+        job = self._prewarm_job
+        self._prewarm_job = None
+        if job is not None:
+            try:
+                self._host.after_cancel(job)
+            except tk.TclError:
+                pass
+
+    def _prewarm_next(self) -> None:
+        """建 ``_prewarm_pending`` 里的第一页，建完再约下一页。"""
+        self._prewarm_job = None
+        pending = self._prewarm_pending
+        if not pending:
+            return
+        try:
+            if not self._host.winfo_exists():
+                return
+        except tk.TclError:
+            return
+        name = pending.pop(0)
+        set_prewarm(True)
+        try:
+            page = self._build(name)
+        except Exception:  # noqa: BLE001 - 预建失败不该影响当前页
+            page = None
+        finally:
+            set_prewarm(False)
+        if not pending:
+            return
+
+        def later() -> None:
+            """留一帧给当前页上屏，再建下一页。"""
+            self._prewarm_job = None
+            try:
+                self._prewarm_job = self._host.after(80, self._prewarm_next)
+            except tk.TclError:
+                self._prewarm_job = None
+
+        if page is not None and hasattr(page, "when_built"):
+            page.when_built(later)
+        else:
+            later()
+
     # ------------------------------------------------------------------ 建页
 
     def _build(self, name: str) -> ctk.CTkFrame:
@@ -115,7 +180,29 @@ class PageRebuilder:
         page = self._factory(name)
         self._frames[name] = page
         self._stale.discard(name)
+        # 新页用的是当前令牌，记下版本号，切回来时不用再补刷
+        page._painted_version = theming.color_version()
         return page
+
+    def hidden_roots(self) -> list:
+        """已经建好、但当前没在显示的页面容器。
+
+        换色时把它们交给 :func:`ctk_kit.theming.apply_palette` 的 ``skip``，
+        省掉看不见那部分的遍历；切过去时按版本号补刷。
+        """
+        roots = []
+        current = self._current
+        for name, page in self._frames.items():
+            if name == current:
+                continue
+            try:
+                # 切页只改 z 序，隐藏页也保持 place，不能再用 winfo_manager
+                # 判断可见性。
+                if page.winfo_exists():
+                    roots.append(page)
+            except Exception:  # noqa: BLE001 - 页面正在销毁
+                continue
+        return roots
 
     def build_all(
         self,
@@ -148,6 +235,11 @@ class PageRebuilder:
 
         if names is None:
             candidates = [name for name in self._pages if not deferred(name)]
+            if not candidates:
+                # 页面全都改成「第一次显示再建」了（``cards_first > 0``）：
+                # 至少把当前页建出来，否则启动后是一片空白。
+                seed = self._current or (self._pages[0] if self._pages else None)
+                candidates = [seed] if seed else []
         else:
             # 显式点名时不做 deferred 过滤：调用方要建就建
             candidates = [name for name in names if name in self._pages]
@@ -217,6 +309,7 @@ class PageRebuilder:
         )
         page = self._factory(name)
         self._frames[name] = page
+        page._painted_version = theming.color_version()
         page.place(relx=0, rely=0, relwidth=1, relheight=1)
         if visible:
             page.lift()
@@ -249,12 +342,23 @@ class PageRebuilder:
         """
         if name not in self._pages:
             raise ValueError(f"未知页面：{name!r}；可选 {list(self._pages)}")
+        # 用户已经在切页了，后台排队建的邻居页先让开主线程。
+        self.cancel_prewarm()
         if name in self._stale:
             self.rebuild(name)
         elif name not in self._frames:
             self._build(name)
 
         page = self._frames[name]
+        # 换色时只刷了当时可见的页，这一页可能还停在旧色上；按版本号补一次。
+        if getattr(page, "_painted_version", -1) != theming.color_version():
+            theming.repaint_page(page)
+            page._painted_version = theming.color_version()
+        self._swap(page, name)
+        return page
+
+    def _swap(self, page: ctk.CTkFrame, name: str) -> None:
+        """把 ``page`` 摆到最上层、撤掉其它页。"""
         if page.winfo_manager() != "place":
             # 首次显示（或外部把页面拿掉了）：摆满父容器并等布局完成
             page.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -267,10 +371,19 @@ class PageRebuilder:
         page.lift()
         self._current = name
 
-        for key, other in self._frames.items():
-            if other is page or other.winfo_manager() != "place":
+        for other in list(self._frames.values()):
+            if other is page:
                 continue
-            other.place_forget()
+            try:
+                if other.winfo_manager() != "place":
+                    continue
+                # 切页只改 z 序，不把旧页从布局里摘掉：place_forget 会让
+                # 旧页的窗口立刻消失，父容器收到重绘请求时新页可能还没画
+                # 完，中间那一帧就会露出横条。留在栈里压下去，整块画面由
+                # 系统一次性合成。
+                other.lower()
+            except tk.TclError:
+                continue
             if self._on_hide is not None:
                 try:
                     self._on_hide(other)
@@ -279,7 +392,6 @@ class PageRebuilder:
             self._call_hook(other, "on_hide")
         # 先让旧页收尾，再通知新页「已经上场」，顺序符合直觉。
         self._call_hook(page, "on_show")
-        return page
 
     @staticmethod
     def _call_hook(page: tk.Misc, name: str) -> None:

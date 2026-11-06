@@ -2,11 +2,26 @@
 
 from __future__ import annotations
 
+import time
 import tkinter as tk
 from typing import Callable, Iterable, List, Optional
 
 from . import tokens as T
 from .frames import Frame
+
+#: 分帧构建每个时间片的预算（秒）。单张卡片超过它时这一帧会被撑长，
+#: 但至少保证队列会推进一张，不会卡死。
+_BUILD_SLICE = 0.012
+
+#: 预建模式：相邻页在后台建时不占用当前帧，全部卡片排队，
+#: 否则预建会把正在看的页面卡住半秒。
+_PREWARM = False
+
+
+def set_prewarm(enabled: bool) -> None:
+    """打开/关闭预建模式（只影响 ``build_cards`` 的同步建卡数量）。"""
+    global _PREWARM
+    _PREWARM = bool(enabled)
 
 
 class PageBase(Frame):
@@ -21,8 +36,10 @@ class PageBase(Frame):
     """
 
     #: 页内分帧：0 = 整页同步建；N > 0 = 前 N 张同步、其余分帧。
-    #: 启动遮罩会跳过 ``cards_first > 0`` 的页面，切过去时再建。
-    cards_first: int = 0
+    #: 默认 1：首次切过去先出页头和第一张卡片，剩下的按时间片补建，
+    #: 不会为了一张大页面把整个窗口冻住。启动遮罩会跳过这样的页面，
+    #: 第一次切过去时再建。
+    cards_first: int = 1
 
     def __init__(self, master: tk.Misc) -> None:
         """建页面容器，并把根窗口存到 ``self.app``。"""
@@ -32,7 +49,7 @@ class PageBase(Frame):
         self.app = master.winfo_toplevel()
         self._build_queue: List[Callable[[], None]] = []
         self._build_job: Optional[str] = None
-        self._built_callback: Optional[Callable[[], None]] = None
+        self._built_callbacks: List[Callable[[], None]] = []
 
     # ------------------------------------------------------------ 分帧构建
 
@@ -57,7 +74,10 @@ class PageBase(Frame):
         builders = list(builders)
         if first is None:
             first = self.cards_first
-        if first <= 0:
+        if _PREWARM:
+            # 预建：一张都不同步建，全部交给时间片，别卡住当前页
+            first = 0
+        elif first <= 0:
             first = len(builders)
         for builder in builders[:first]:
             builder(area)
@@ -85,11 +105,13 @@ class PageBase(Frame):
         """所有排队任务都完成后调用一次 ``callback``。
 
         队列已经空了就立刻调用；构建被销毁打断时回调不会执行。
+        可以登记多个回调，按登记顺序依次调用（比如事件绑定之外还要
+        在建完后刷新一次页面状态）。
         """
         if not self._build_queue and self._build_job is None:
             callback()
             return
-        self._built_callback = callback
+        self._built_callbacks.append(callback)
 
     def _alive(self) -> bool:
         """页面窗口还在不在；根窗口已经销毁时 ``winfo_exists`` 自己会抛。"""
@@ -99,24 +121,29 @@ class PageBase(Frame):
             return False
 
     def _run_build_step(self) -> None:
-        """建一张排队的卡片，让出一帧，再排下一张。"""
+        """在一个时间片里尽量多建几张卡，然后让出一帧。
+
+        预算（``_BUILD_SLICE``）用完就让出，避免一帧占住事件循环太久；
+        至少建一张，所以单张卡片超预算时队列仍会推进。
+        """
         self._build_job = None
         if not self._alive() or not self._build_queue:
             self._finish_build()
             return
-        step = self._build_queue.pop(0)
+        deadline = time.perf_counter() + _BUILD_SLICE
         try:
-            step()
-            # 这一帧只建一张：此时队列里没有自己的 after，update() 不会
-            # 重入本方法；建好的部分立即上屏，不会等全部建完才出现。
-            self.update()
+            while self._build_queue:
+                self._build_queue.pop(0)()
+                if time.perf_counter() >= deadline:
+                    break
         except tk.TclError:
             # 页面在构建中途被销毁：剩下的任务没有意义了
             self._build_queue.clear()
             self._resume_scrollbars()
             return
-        # update() 会处理事件循环：切页重建可能在这期间把本页销毁了，
-        # 这时候不能再遍历控件去恢复滚动条，也不能再排下一次 after。
+        # 这里不调 update_idletasks：after 回调返回后 Tk 自己会跑一次 idle，
+        # 布局和重绘就在那一轮完成。手动更新会让每张卡片都排一次布局，
+        # 分帧反而比同步建更慢（实测输入页 660ms → 1037ms）。
         if not self._alive():
             self._build_queue.clear()
             return
@@ -131,8 +158,8 @@ class PageBase(Frame):
             self._build_queue.clear()
             return
         self._resume_scrollbars()
-        if self._built_callback is not None:
-            callback, self._built_callback = self._built_callback, None
+        callbacks, self._built_callbacks = self._built_callbacks, []
+        for callback in callbacks:
             callback()
 
     def _walk_scrollables(self):
@@ -171,7 +198,7 @@ class PageBase(Frame):
                 pass
             self._build_job = None
         self._build_queue.clear()
-        self._built_callback = None
+        self._built_callbacks.clear()
         try:
             self._resume_scrollbars()
         except tk.TclError:

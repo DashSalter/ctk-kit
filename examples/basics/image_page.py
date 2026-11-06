@@ -162,8 +162,13 @@ class ImagePageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_preview(area)
-        self._build_source(area)
+        self.build_cards(
+            area,
+            [
+                self._build_preview,
+                self._build_source,
+            ],
+        )
 
     def _build_preview(self, area: tk.Misc) -> None:
         """主预览区：缩放 / 平移 / 双击复位，右上角实时显示倍率。"""
@@ -258,7 +263,7 @@ class ImagePage(ImagePageUI):
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
         self.variant = 1
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """必须实现：注册按钮、换图与缩放回调。"""

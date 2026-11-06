@@ -57,8 +57,13 @@ class OverviewPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_layers(area)
-        self._build_index(area)
+        self.build_cards(
+            area,
+            [
+                self._build_layers,
+                self._build_index,
+            ],
+        )
 
     def _build_layers(self, area: tk.Misc) -> None:
         """三层结构：tokens → theme → 组件。"""
@@ -105,7 +110,7 @@ class OverviewPage(OverviewPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """给每个「查看」按钮绑跳转。"""

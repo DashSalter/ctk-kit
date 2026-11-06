@@ -138,10 +138,15 @@ class TablePageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_table(area)
-        self._build_empty(area)
-        self._build_paged(area)
-        self._build_tree(area)
+        self.build_cards(
+            area,
+            [
+                self._build_table,
+                self._build_empty,
+                self._build_paged,
+                self._build_tree,
+            ],
+        )
 
     def _build_table(self, area: tk.Misc) -> None:
         """固定表头 + 隔行底色 + 超行滚动。"""
@@ -306,7 +311,7 @@ class TablePage(TablePageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""

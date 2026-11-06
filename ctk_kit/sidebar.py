@@ -58,6 +58,10 @@ PageBuilder = Callable[[tk.Misc], tk.Misc]
 # 要比一帧的重排耗时更长，否则拖到一半就解冻、再冻结，反而更卡。
 _THAW_MS = 320
 
+# 切页后隔多久开始预建相邻页（毫秒）。留出当前页首帧上屏的时间，
+# 别和「刚切过去」的分帧构建抢同一批帧。
+_PREWARM_MS = 140
+
 
 def _load_logo(spec: Union[bool, str], size: int, dim: Optional[float] = None):
     """把 ``logo`` 参数变成 ``CTkImage``：``True`` 用内置图，``False`` 不显示。
@@ -311,7 +315,8 @@ class SidebarNav(ctk.CTkFrame):
             first_of=self._first_of,
         )
         # 启动时不把所有页面一起建出来：先只建当前页，其余页交给
-        # _prewarm_pages 在空闲时间逐帧补，窗口能更快显示出来。
+        # _prewarm_neighbours 在空闲时间逐帧补，窗口能更快显示出来。
+        self._prewarm_job: Optional[str] = None
         self.show(initial if initial is not None else self._names[0])
 
         # 侧边栏宽度：先钉一次，窗口尺寸变化时再按比例重算。
@@ -527,6 +532,37 @@ class SidebarNav(ctk.CTkFrame):
         self._paint_nav(name)
         if self._on_change is not None:
             self._on_change(name)
+        self._schedule_prewarm()
+
+    # -------------------------------------------------------------- 相邻预建
+
+    def _schedule_prewarm(self) -> None:
+        """切页后在空闲时间预建相邻页；连续切页时只保留最后一次。"""
+        job = getattr(self, "_prewarm_job", None)
+        if job is not None:
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                pass
+        try:
+            self._prewarm_job = self.after(_PREWARM_MS, self._prewarm_neighbours)
+        except tk.TclError:
+            self._prewarm_job = None
+
+    def _prewarm_neighbours(self) -> None:
+        """建当前页前后各一页（不显示）。已经在建或建好的页会跳过。"""
+        self._prewarm_job = None
+        names = list(self.rebuilder.pages)
+        current = self.rebuilder.current
+        if current not in names:
+            return
+        index = names.index(current)
+        targets = []
+        for offset in (1, -1):
+            target = index + offset
+            if 0 <= target < len(names):
+                targets.append(names[target])
+        self.rebuilder.prewarm(targets)
 
     def page(self, name: str) -> tk.Misc:
         """取某一页的容器；还没建出来就先建出来（但不显示）。"""

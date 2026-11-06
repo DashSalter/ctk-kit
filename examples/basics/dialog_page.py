@@ -78,10 +78,15 @@ class DialogPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_alerts(area)
-        self._build_confirm(area)
-        self._build_prompt(area)
-        self._build_custom(area)
+        self.build_cards(
+            area,
+            [
+                self._build_alerts,
+                self._build_confirm,
+                self._build_prompt,
+                self._build_custom,
+            ],
+        )
 
     def _build_alerts(self, area: tk.Misc) -> None:
         """四种级别的信息框。"""
@@ -212,7 +217,7 @@ class DialogPage(DialogPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """几个按钮挂上回调；对话框本身在回调里现建现用。"""

@@ -130,10 +130,15 @@ class MenuPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_attach(area)
-        self._build_params(area)
-        self._build_manual(area)
-        self._build_inputs(area)
+        self.build_cards(
+            area,
+            [
+                self._build_attach,
+                self._build_params,
+                self._build_manual,
+                self._build_inputs,
+            ],
+        )
 
     def _build_attach(self, area: tk.Misc) -> None:
         """一行 attach_menu 挂上菜单。"""
@@ -262,7 +267,7 @@ class MenuPage(MenuPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件（菜单在这里挂）。"""

@@ -109,10 +109,15 @@ class ChoicesPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_segmented(area)
-        self._build_switches(area)
-        self._build_checks(area)
-        self._build_radio(area)
+        self.build_cards(
+            area,
+            [
+                self._build_segmented,
+                self._build_switches,
+                self._build_checks,
+                self._build_radio,
+            ],
+        )
 
     def _build_segmented(self, area: tk.Misc) -> None:
         """分段选择：常规、紧凑与空列表三种。"""
@@ -221,7 +226,7 @@ class ChoicesPage(ChoicesPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """注册开关、勾选与单选的 command。"""

@@ -91,9 +91,14 @@ class MiscPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_progress(area)
-        self._build_ring(area)
-        self._build_divider(area)
+        self.build_cards(
+            area,
+            [
+                self._build_progress,
+                self._build_ring,
+                self._build_divider,
+            ],
+        )
 
     def _build_progress(self, area: tk.Misc) -> None:
         """进度条：连续 / 分格 / 百分比 / 不确定态。"""
@@ -224,7 +229,7 @@ class MiscPage(MiscPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """进度条的拖动回调在构造时已经挂好，这里只留一个占位。"""

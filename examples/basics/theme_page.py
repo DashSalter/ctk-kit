@@ -69,9 +69,15 @@ class ThemePageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_preview(area)
-        self._build_palette(area)
-        self.refresh_palette()
+        self.build_cards(
+            area,
+            [
+                self._build_preview,
+                self._build_palette,
+            ],
+        )
+        # refresh_palette 要读两张卡里建的控件，等分帧队列清空再跑
+        self.when_built(self.refresh_palette)
 
     def _build_preview(self, area: tk.Misc) -> None:
         """一块预览：改下面的颜色时，这里的控件要跟着变。"""
@@ -164,7 +170,7 @@ class ThemePage(ThemePageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         for token, _title, _usage in _PALETTE_FIELDS:

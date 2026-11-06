@@ -84,10 +84,16 @@ class ButtonPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_basic(area)
-        self._build_micro(area)
-        self._build_sizes(area)
-        self._build_disabled(area)
+        # 每张卡单独构造，切过来先出页头和前两张，其余随后补上
+        self.build_cards(
+            area,
+            [
+                self._build_basic,
+                self._build_micro,
+                self._build_sizes,
+                self._build_disabled,
+            ],
+        )
 
     def _build_basic(self, area: tk.Misc) -> None:
         """基础按钮：主 / 次要 / 描边 / 危险。"""
@@ -221,7 +227,7 @@ class ButtonPage(ButtonPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""

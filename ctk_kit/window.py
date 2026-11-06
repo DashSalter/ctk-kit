@@ -371,6 +371,7 @@ class App(Bindable, CTk):
             边框色（COLORREF），``0xFFFFFFFE`` 表示不要边框（默认），``None``
 
         """
+        before = dict(self._glass)
         if "kind" in kwargs and "state" not in kwargs:
             # 换合成方式时把 AccentState 一起带上，否则会沿用上一个方式的值。
             self._glass["state"] = {"acrylic": 4}.get(kwargs["kind"], 3)
@@ -380,6 +381,10 @@ class App(Bindable, CTk):
         if "opacity" in kwargs:
             # 整体透明度调低时，背景透明度自动跟着降，保证背景不比窗口更实。
             self._clamp_frost_alpha()
+        if self._glass == before:
+            # 参数一个都没变就别重挂：每次 enable_acrylic 都会让 DWM 重算
+            # 一次背板，窗口中间会丢一帧。连点同一个主题就能看出反复闪。
+            return dict(self._glass)
         if "veil" in kwargs:
             self._apply_veil()
         else:
@@ -953,14 +958,32 @@ class App(Bindable, CTk):
         返回:
 
         """
-        changed = theming.apply_palette(updates, root=self)
+        changed = theming.apply_palette(
+            updates, root=self, skip=self._palette_skip()
+        )
         if changed and save and getattr(self, "_remember_theme", False):
             self._state_call("write_palette", theming.palette_changes())
         return changed
 
+    def _palette_skip(self) -> set:
+        """换色时可以跳过的页面容器：已经建好、但当前看不见的那些。
+
+        它们的颜色由 :meth:`ctk_kit.pages.PageRebuilder.show` 在切过去时按
+        版本号补刷。省掉的正是整棵树里占比最大的部分。
+        """
+        nav = getattr(self, "nav", None)
+        rebuilder = getattr(nav, "rebuilder", None)
+        hidden = getattr(rebuilder, "hidden_roots", None)
+        if not callable(hidden):
+            return set()
+        try:
+            return set(hidden())
+        except Exception:  # noqa: BLE001 - 页面正在销毁
+            return set()
+
     def reset_palette(self, *, save: bool = True) -> list:
         """把配色恢复成默认值，返回被改动的令牌名。"""
-        changed = theming.reset_palette(root=self)
+        changed = theming.reset_palette(root=self, skip=self._palette_skip())
         if changed and save and getattr(self, "_remember_theme", False):
             self._state_call("write_palette", theming.palette_changes())
         return changed

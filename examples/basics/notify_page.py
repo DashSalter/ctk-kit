@@ -93,11 +93,16 @@ class NotifyPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_level(area)
-        self._build_style(area)
-        self._build_position(area)
-        self._build_stack(area)
-        self._build_tooltip(area)
+        self.build_cards(
+            area,
+            [
+                self._build_level,
+                self._build_style,
+                self._build_position,
+                self._build_stack,
+                self._build_tooltip,
+            ],
+        )
 
     def _build_level(self, area: tk.Misc) -> None:
         """级别：四种状态色。"""
@@ -240,7 +245,7 @@ class NotifyPage(NotifyPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""

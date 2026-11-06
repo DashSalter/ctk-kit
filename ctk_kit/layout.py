@@ -486,14 +486,16 @@ class Scrollable(ctk.CTkScrollableFrame):
         style_scrollable(self)
         self._auto_hide = bool(auto_hide)
         self._scrollbar_hidden = False
+        self._auto_hide_job: Optional[str] = None
         if self._auto_hide:
             self._reserve_scrollbar_lane()
-            self.after_idle(self._reserve_scrollbar_lane)
             self.bind("<Configure>", self._on_auto_hide_configure, add="+")
             self._parent_canvas.bind(
                 "<Configure>", self._on_auto_hide_configure, add="+"
             )
-            self.after_idle(self._sync_auto_hide)
+            # 构造期只排一次 idle：尺寸和滚动条宽度都要等布局出来才准，
+            # 排两次会和分帧构建的每一帧叠在一起，白算一遍。
+            self.after_idle(self._initial_layout)
 
     def _reserve_scrollbar_lane(self) -> None:
         """给滚动条留一条和它原本一样宽的 lane，隐藏时内容宽度不变。"""
@@ -502,9 +504,26 @@ class Scrollable(ctk.CTkScrollableFrame):
             lane = int(round(self._apply_widget_scaling(T.SCROLLBAR_WIDTH)))
         self._parent_frame.grid_columnconfigure(1, minsize=int(lane))
 
+    def _initial_layout(self) -> None:
+        """首帧后补一次：重算 lane 宽度并判断要不要隐藏滚动条。"""
+        if not self.winfo_exists():
+            return
+        self._reserve_scrollbar_lane()
+        self._sync_auto_hide()
+
     def _on_auto_hide_configure(self, _event: Any = None) -> None:
-        """内容尺寸变化后延迟判断一次，避免在布局过程中反复重排。"""
-        self.after_idle(self._sync_auto_hide)
+        """内容尺寸变化后延迟判断一次，同一帧里只排一次。"""
+        if self._auto_hide_job is not None:
+            return
+        try:
+            self._auto_hide_job = self.after_idle(self._run_auto_hide)
+        except tk.TclError:
+            self._auto_hide_job = None
+
+    def _run_auto_hide(self) -> None:
+        """跑一次延迟判断，并清掉排队标记。"""
+        self._auto_hide_job = None
+        self._sync_auto_hide()
 
     def _sync_auto_hide(self) -> None:
         """内容放得下就隐藏滚动条，放不下再显示。"""

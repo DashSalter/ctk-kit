@@ -33,11 +33,17 @@ class SettingsPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_appearance(area)
-        self._build_glass(area)
-        self._build_titlebar(area)
-        self._build_debug(area)
-        self.refresh_theme()
+        self.build_cards(
+            area,
+            [
+                self._build_appearance,
+                self._build_glass,
+                self._build_titlebar,
+                self._build_debug,
+            ],
+        )
+        # refresh_theme 要读上面几张卡里建的控件，等分帧队列清空再跑
+        self.when_built(self.refresh_theme)
         # App 的背景窗口是延迟创建的（启动后 ~40ms），构造函数里读到的还是
         # None。等一拍再回填一次，界面才和真实的底色对齐。
         self.after(260, self.refresh_background)
@@ -301,7 +307,7 @@ class SettingsPage(SettingsPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""
@@ -332,18 +338,21 @@ class SettingsPage(SettingsPageUI):
             if app.glass_options().get("kind") == kind:
                 return
             # 只切合成方式和 tint，不碰 set_appearance_mode / set_backdrop，
-            # 这两个会重建外壳和当前页。
-            app.set_glass_kind(kind).set_tint("#1A1A1A")
+            # 这两个会重建外壳和当前页。kind 和 color 合成一次重挂，
+            # 分开调会让 DWM 连续重算两次背板，看着就是闪一下。
+            app.set_glass_options(kind=kind, color="#1A1A1A")
             return
         if value == "深空":
             # 深色 + 系统背板「1 无」：DWM 不再画背板/模糊，窗口就是纯深的实底。
             wanted_mode, wanted_backdrop = "dark", "acrylic"
-            app.set_glass_kind("accent").set_system_backdrop(1).set_tint("#1A1A1A")
+            # kind / backdrop / tint 一次性写进去：分开三次调就是三次
+            # enable_acrylic，每次 DWM 都要重算背板，连点「深空」时最明显。
+            app.set_glass_options(kind="accent", backdrop=1, color="#1A1A1A")
         elif value == "毛玻璃":
             wanted_mode, wanted_backdrop = "dark", "acrylic"
             # 从 Acrylic / Mica 切回来时把 tint 和合成方式还原成默认，
             # 否则玻璃还带着上一种主题的中性深色。
-            app.set_glass_kind("accent").set_tint("#181A20")
+            app.set_glass_options(kind="accent", color="#181A20")
         else:
             return
         # 已经是这个状态就不要再走一遍：set_backdrop / set_appearance_mode

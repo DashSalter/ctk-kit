@@ -118,13 +118,32 @@ class DemoApp(App):
         splash = LoadingOverlay(self)
         self.deiconify()
         self.update()
+        closed = False
+
+        def _close_splash() -> None:
+            """撤遮罩，只撤一次（finish 不幂等，重复调用会重复排 destroy）。"""
+            nonlocal closed
+            if closed:
+                return
+            closed = True
+            splash.finish()
+
         try:
             # 启动时只等首页：其余页第一次切过去再建，遮罩不用陪着等十几页。
             self.nav.rebuilder.build_all(
                 progress=splash.set_progress, names=[self.nav.current]
             )
         finally:
-            splash.finish()
+            # 首页现在是分帧建的：等它把排队卡片建完再撤遮罩，否则用户会
+            # 看到一页空白逐块长出来。队列已经空了时 when_built 会立刻回调。
+            page = self.nav.page(self.nav.current)
+            when_built = getattr(page, "when_built", None)
+            if callable(when_built):
+                when_built(_close_splash)
+                # 页面构建被切页/关窗打断时 when_built 不会回调，兜底撤一次
+                self.after(3000, _close_splash)
+            else:
+                _close_splash()
 
         # App 在毛玻璃模式下会自动建一层默认底色的背景窗口；这里把上次存的
         # 颜色 / 透明度 / 尺寸盖回去（晚于 App 内部那次 40ms 的自动创建）。
@@ -168,7 +187,7 @@ class DemoApp(App):
             cursor="hand2",
         )
         name.pack(side="left", fill="x", expand=True, padx=(8, 0))
-        name.on_click(self._open_profile)
+        name.on_click(lambda _event: self._open_profile())
 
         # 设置入口靠右，和头像同一行。图标只放一版深色稿，深色主题下按 alpha
         # 换成浅色线条，不用单独再下一份浅色图。

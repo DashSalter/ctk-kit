@@ -209,13 +209,18 @@ class InputsPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_entries(area)
-        self._build_spinner(area)
-        self._build_edit_menu(area)
-        self._build_paths(area)
-        self._build_drop(area)
-        self._build_dropdown(area)
-        self._build_text(area)
+        self.build_cards(
+            area,
+            [
+                self._build_entries,
+                self._build_spinner,
+                self._build_edit_menu,
+                self._build_paths,
+                self._build_drop,
+                self._build_dropdown,
+                self._build_text,
+            ],
+        )
 
     def _build_entries(self, area: tk.Misc) -> None:
         """表单输入：普通、密码、两种高度。"""
@@ -533,7 +538,7 @@ class InputsPage(InputsPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """注册输入、路径选择、下拉与拖入的事件。"""

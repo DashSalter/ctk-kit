@@ -36,6 +36,7 @@ from .theme import color_of
 
 __all__ = [
     "apply_palette",
+    "color_version",
     "current_palette",
     "describe_usage",
     "find_usage",
@@ -43,6 +44,7 @@ __all__ = [
     "palette_changes",
     "register_redraw",
     "refresh",
+    "repaint_page",
     "reset_palette",
     "save_palette",
     "set_darken",
@@ -61,6 +63,34 @@ _DARKEN: float = 1.0
 
 #: 自绘控件的重绘回调：``{widget 路径: (弱引用, 回调)}``。
 _REDRAW: Dict[str, Tuple[weakref.ref, Callable[[], Any]]] = {}
+
+#: 配色被改过多少次。页面用它判断自己是不是「落后版本」：换色时为了不刷
+#: 看不见的页，只把当前页刷一遍，其余页记下这个版本号，切过去时再补。
+_COLOR_VERSION: int = 0
+
+#: 累计的「旧色 → 新色」替换表。落后页面靠它一次追平，不用重放历史变更。
+_TOTAL_MAP: Dict[str, str] = {}
+
+
+def color_version() -> int:
+    """当前配色版本号；每次真正改到颜色都会 +1。"""
+    return _COLOR_VERSION
+
+
+def _merge_total(before: Palette, after: Palette) -> None:
+    """把本次变更并进累计替换表，并把链接到旧色的历史映射接到新色上。"""
+    for name, new in after.items():
+        old = before.get(name)
+        if old is None or old == new:
+            continue
+        old_single = _single_color(old)
+        new_single = _single_color(new)
+        if not old_single or not new_single or old_single == new_single:
+            continue
+        _TOTAL_MAP[old_single] = new_single
+        for key, value in list(_TOTAL_MAP.items()):
+            if value == old_single:
+                _TOTAL_MAP[key] = new_single
 
 
 def _token_values() -> Palette:
@@ -169,15 +199,21 @@ def _patch_widget(widget: tk.Misc, singles: Mapping[str, str]) -> bool:
     return changed
 
 
-def _walk(widget: tk.Misc):
-    """前序遍历控件树（父先子后，父的底色变完再让子跟着变）。"""
+def _walk(widget: tk.Misc, *, skip: Optional[set] = None):
+    """前序遍历控件树（父先子后，父的底色变完再让子跟着变）。
+
+    ``skip`` 里的控件连同整棵子树一起跳过：换色时那些看不见的页面不需要
+    刷，省下来的时间通常比看得见的那部分还多。
+    """
+    if skip and widget in skip:
+        return
     yield widget
     try:
         children = widget.winfo_children()
     except Exception:  # noqa: BLE001 - 已销毁的控件
         return
     for child in children:
-        yield from _walk(child)
+        yield from _walk(child, skip=skip)
 
 
 def _walk_all(root: Optional[tk.Misc] = None):
@@ -263,11 +299,21 @@ def _targets(root: Optional[tk.Misc]) -> List[tk.Misc]:
     return [default] if default is not None else []
 
 
-def _run_redraws() -> None:
-    """跑一遍登记过的自绘控件重绘回调。"""
+def _run_redraws(skip: Optional[set] = None) -> None:
+    """跑一遍登记过的自绘控件重绘回调。
+
+    ``skip`` 里的控件（及其子树）不重绘，和 :func:`_walk` 的剪枝保持一致。
+    """
+    prefixes: Tuple[str, ...] = ()
+    if skip:
+        prefixes = tuple(f"{widget}." for widget in skip) + tuple(
+            str(widget) for widget in skip
+        )
     for key, (ref, callback) in list(_REDRAW.items()):
         if ref() is None:
             _REDRAW.pop(key, None)
+            continue
+        if prefixes and key.startswith(prefixes):
             continue
         try:
             callback()
@@ -275,11 +321,17 @@ def _run_redraws() -> None:
             _REDRAW.pop(key, None)
 
 
-def _repaint(before: Palette, after: Palette, root: Optional[tk.Misc]) -> None:
+def _repaint(
+    before: Palette,
+    after: Palette,
+    root: Optional[tk.Misc],
+    *,
+    skip: Optional[set] = None,
+) -> None:
     """按 before → after 的对应关系刷一遍控件树。"""
     singles = _single_map(before, after)
     for top in _targets(root):
-        for widget in _walk(top):
+        for widget in _walk(top, skip=skip):
             # 自绘组件（Segmented / 表格 / 圆环…）的颜色画在 canvas 图元或
             # Pillow 图上，换属性没用，得让它按当前令牌整块重画。
             hook = getattr(widget, "apply_theme", None)
@@ -290,7 +342,7 @@ def _repaint(before: Palette, after: Palette, root: Optional[tk.Misc]) -> None:
                     pass
             if _patch_widget(widget, singles):
                 _redraw(widget)
-    _run_redraws()
+    _run_redraws(skip)
 
 
 def _sync_sheets(before: Palette, after: Palette) -> None:
@@ -322,6 +374,7 @@ def apply_palette(
     root: Optional[tk.Misc] = None,
     repaint: bool = True,
     shade: bool = True,
+    skip: Optional[set] = None,
 ) -> List[str]:
     """把一批颜色令牌换成新值，并让界面就地更新。
 
@@ -333,6 +386,9 @@ def apply_palette(
             控件时用。
         shade: 传 ``True``（默认）时按 :data:`_DARKEN` 压暗自定义色，毛玻璃
             主题下就是「用户挑的颜色实际显示暗 20%」；重置还原时传 ``False``。
+        skip: 这些控件连同子树跳过不刷。切页时看不见的页面由调用方放进来，
+            省掉整棵树遍历的开销；它们记下当前的 :func:`color_version`，
+            切过去时用 :func:`repaint_page` 一次追平。
 
     返回:
         实际改掉的令牌名列表（值没变化的不会出现在里面）。
@@ -376,12 +432,18 @@ def apply_palette(
                 setattr(T, name, veil)
 
     _sync_sheets(before, after)
+    # 记一笔累计映射：这次没刷的页面切过去时按它一次追平
+    _merge_total(before, after)
+    global _COLOR_VERSION
+    _COLOR_VERSION += 1
     if repaint:
-        _repaint(before, after, root)
+        _repaint(before, after, root, skip=skip)
     return list(changed)
 
 
-def reset_palette(*, root: Optional[tk.Misc] = None) -> List[str]:
+def reset_palette(
+    *, root: Optional[tk.Misc] = None, skip: Optional[set] = None
+) -> List[str]:
     """把覆盖过的令牌还原成导入时的值。返回还原了哪些令牌。"""
     if not _OVERRIDES:
         return []
@@ -393,7 +455,7 @@ def reset_palette(*, root: Optional[tk.Misc] = None) -> List[str]:
     }
     if not updates:
         return []
-    changed = apply_palette(updates, root=root, shade=False)
+    changed = apply_palette(updates, root=root, shade=False, skip=skip)
     for name in changed:
         _OVERRIDES.pop(name, None)
     return changed
@@ -405,7 +467,7 @@ def set_darken(factor: float, *, root: Optional[tk.Misc] = None) -> None:
     毛玻璃主题下传 ``0.8``（用户挑的颜色实际显示暗 20%），切回其它主题传
     ``1.0`` 还原。只影响被 :func:`apply_palette` 覆盖过的令牌，默认配色不动。
     """
-    global _DARKEN
+    global _DARKEN, _COLOR_VERSION
     _DARKEN = max(0.0, min(1.0, float(factor)))
     if not _OVERRIDES:
         return
@@ -426,6 +488,8 @@ def set_darken(factor: float, *, root: Optional[tk.Misc] = None) -> None:
                 after[name] = veil
                 setattr(T, name, veil)
     _sync_sheets(before, after)
+    _merge_total(before, after)
+    _COLOR_VERSION += 1
     _repaint(before, after, root)
 
 
@@ -437,6 +501,37 @@ def palette_changes() -> Palette:
 def current_palette() -> Palette:
     """``tokens`` 此刻的全部颜色令牌（含覆盖后的值）。"""
     return _token_values()
+
+
+def repaint_page(page: tk.Misc) -> None:
+    """把一页按当前配色整页刷一遍。
+
+    换色时为了省时间跳过了看不见的页面，它们留在旧色上；切过去时用这个
+    函数一次追平。用累计替换表 :data:`_TOTAL_MAP`，不依赖换色当时的 diff。
+    """
+    if not _TOTAL_MAP:
+        return
+    singles = dict(_TOTAL_MAP)
+    for widget in _walk(page):
+        hook = getattr(widget, "apply_theme", None)
+        if callable(hook):
+            try:
+                hook()
+            except Exception:  # noqa: BLE001 - 组件正在销毁或还没布局
+                pass
+        if _patch_widget(widget, singles):
+            _redraw(widget)
+    page_key = str(page)
+    for key, (ref, callback) in list(_REDRAW.items()):
+        if ref() is None:
+            _REDRAW.pop(key, None)
+            continue
+        if key != page_key and not key.startswith(page_key + "."):
+            continue
+        try:
+            callback()
+        except Exception:  # noqa: BLE001 - 已经销毁的自绘控件
+            _REDRAW.pop(key, None)
 
 
 def refresh(root: Optional[tk.Misc] = None) -> None:

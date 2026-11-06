@@ -113,11 +113,16 @@ class CollapsePageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_buttons(area)
-        self._build_mixed(area)
-        self._build_texts(area)
-        self._build_nested(area)
-        self._build_expanded(area)
+        self.build_cards(
+            area,
+            [
+                self._build_buttons,
+                self._build_mixed,
+                self._build_texts,
+                self._build_nested,
+                self._build_expanded,
+            ],
+        )
 
     def _build_buttons(self, area: tk.Misc) -> None:
         """面板里放按钮组。"""
@@ -317,7 +322,7 @@ class CollapsePage(CollapsePageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """注册面板里的按钮、开关、勾选和折叠回调。"""

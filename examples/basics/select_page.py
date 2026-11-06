@@ -148,9 +148,14 @@ class SelectPageUI(PageBase):
         area = Scrollable(self)
         area.pack(fill="both", expand=True, pady=(14, 0))
 
-        self._build_single(area)
-        self._build_tags(area)
-        self._build_tree(area)
+        self.build_cards(
+            area,
+            [
+                self._build_single,
+                self._build_tags,
+                self._build_tree,
+            ],
+        )
 
     def _build_single(self, area: tk.Misc) -> None:
         """单选：普通与带预设值两种。"""
@@ -192,23 +197,6 @@ class SelectPageUI(PageBase):
         self.disabled_field.pack(side="left", fill="x", expand=True)
         self.disabled_button = FlatButton(row, "解除 Beta", self._on_toggle_disabled)
         self.disabled_button.pack(side="left", padx=(8, 0))
-
-        # 禁用项下面铺一行红块，用来对照「铺满整行」的排法
-        swatches = Frame(box)
-        swatches.pack(fill="x", padx=16, pady=(0, 8))
-        for index in range(5):
-            tk.Frame(
-                swatches,
-                bg=color_of(T.COLOR_DANGER),
-                height=34,
-                highlightthickness=0,
-                bd=0,
-            ).pack(
-                side="left",
-                fill="x",
-                expand=True,
-                padx=(0 if index == 0 else 6, 0),
-            )
 
         HintLabel(
             box,
@@ -301,7 +289,7 @@ class SelectPage(SelectPageUI):
 
     def __init__(self, master: tk.Misc) -> None:
         super().__init__(master)
-        self.bind_events()
+        self.when_built(self.bind_events)
 
     def bind_events(self) -> None:
         """三个下拉的 command 都在构造时传好了，这里只补输入框的实时回显。"""

@@ -117,9 +117,10 @@ class PageRebuilder:
         正在看的页面就会一顿一顿的。
         """
         pending = [n for n in names if n not in self._frames and n in self._pages]
-        if pending:
-            self._prewarm_pending = pending
-            self._prewarm_next()
+        if not pending:
+            return
+        self._prewarm_pending = pending
+        self._prewarm_next()
 
     def cancel_prewarm(self) -> None:
         """放弃还在排队的相邻页预建（用户已经切页，别再抢主线程）。"""
@@ -155,7 +156,7 @@ class PageRebuilder:
             return
 
         def later() -> None:
-            """留一帧给当前页上屏，再建下一页。"""
+            """一页建完，留一帧给当前页上屏，再建下一页。"""
             self._prewarm_job = None
             try:
                 self._prewarm_job = self._host.after(80, self._prewarm_next)

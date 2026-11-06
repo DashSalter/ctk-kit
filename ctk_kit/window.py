@@ -1227,7 +1227,16 @@ class App(Bindable, CTk):
         self.destroy()
 
     def destroy(self) -> None:
-        """销毁前补存一次几何，并清掉还挂着的 after 定时器。"""
+        """销毁前补存一次几何，清掉 after 定时器，然后整棵树一次销毁。
+
+        逐控件走 Python 的 ``destroy`` 每个控件要一次 Tk 往返，十几页全建过
+        之后三千多个控件要 2~3 秒——关窗后窗口已经没了，用户却还要盯着一个
+        不退出的进程。这里先 ``withdraw`` 让窗口立刻从屏幕上消失，再让 Tk
+        一次性销毁整棵控件树（实测 4 页 90ms 量级），最后 ``quit`` 退出主循环。
+        """
+        if getattr(self, "_closing", False):
+            return
+        self._closing = True
         if (
             getattr(self, "_remember_geometry", False)
             and not getattr(self, "_geometry_written", False)
@@ -1239,7 +1248,16 @@ class App(Bindable, CTk):
             with contextlib.suppress(Exception):
                 self._frost_layer.stop()
             self._frost_layer = None
-        super().destroy()
+        # 窗口先消失：即使下面销毁还要几十毫秒，用户也看不到。
+        with contextlib.suppress(Exception):
+            tk.Wm.withdraw(self)
+        try:
+            self.tk.call("destroy", ".")
+        except Exception:  # noqa: BLE001 - 退回到逐个控件的慢路径
+            super().destroy()
+            return
+        with contextlib.suppress(Exception):
+            self.quit()
 
     def _cancel_pending_afters(self) -> None:
         """取消解释器里所有待触发的 after。

@@ -3,7 +3,25 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## 未发布
+## 0.12.0 — 2026-11-07
+
+- 性能：首次切到某一页不再整窗冻结
+  - `PageBase.cards_first` 默认改成 1：先出页头和第一张卡，其余卡按 12ms
+    时间片分帧建，首帧从 0.6~1.7s 降到 30~190ms
+  - 分帧改为「时间预算内连续建卡、每帧只刷一次」：原来每建一张卡就
+    `update()` 一次整窗，比同步建还慢
+  - 新增 `PageRebuilder.prewarm(names)` / `cancel_prewarm()`：把页面先建好但
+    不显示；`SidebarNav` 切页后在空闲时按「相邻页 → 其余页」串行预建
+  - `App.apply_palette()` / `reset_palette()` 只重刷可见页，被跳过的页在切
+    过去时由 `theming.repaint_page()` 按颜色版本补齐（18 页全建后换色
+    735ms → 134ms）
+  - `Scrollable` 构造期的两次 `after_idle` 合成一次，自动隐藏滚动条的重算
+    合并到同一帧
+- 性能：关闭窗口不再逐控件销毁。`App.destroy()` 先 `withdraw` 让窗口立刻
+  消失，再一次性销毁整棵控件树并 `quit()`：18 页全建（三千多控件）从约
+  2.5s 降到 360ms
+- 示例启动：遮罩里建「当前页 + 左右相邻」，其余页交给侧边栏后台串行预建；
+  `CTK_DEMO_PAGES=组件,按钮` 只建指定页，`CTK_DEMO_NO_WARM=1` 只建当前页
 
 - 新增 `ctk_kit.sugar`：把 `configure(...)` / `cget(...)` 收成短方法。
   - `enable()` / `disable()` / `toggle_enabled()` / `set_enabled(bool)` / `is_enabled()`：

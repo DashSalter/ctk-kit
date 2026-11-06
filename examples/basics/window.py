@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import os
 import tkinter as tk
 from pathlib import Path
 
@@ -128,22 +129,47 @@ class DemoApp(App):
             closed = True
             splash.finish()
 
+        # 遮罩里先建「当前页 + 左右相邻」，其余页交给侧边栏在后台慢慢补。
+        #   CTK_DEMO_PAGES=组件,按钮   只建这几页（测试单页时用）
+        #   CTK_DEMO_NO_WARM=1        只建当前页、不在后台预建（最快启动）
+        names = list(self.nav.rebuilder.pages)
+        current = self.nav.current
+        index = names.index(current) if current in names else 0
+        preload = [names[i] for i in (index - 1, index, index + 1) if 0 <= i < len(names)]
+        wanted = [
+            part.strip()
+            for part in os.environ.get("CTK_DEMO_PAGES", "").split(",")
+            if part.strip()
+        ]
+        if wanted:
+            preload = [name for name in wanted if name in names]
+        elif os.environ.get("CTK_DEMO_NO_WARM", "").strip() not in ("", "0"):
+            self.nav._warm_enabled = False
+            preload = [current] if current in names else []
+
         try:
-            # 启动时只等首页：其余页第一次切过去再建，遮罩不用陪着等十几页。
-            self.nav.rebuilder.build_all(
-                progress=splash.set_progress, names=[self.nav.current]
-            )
+            self.nav.rebuilder.build_all(progress=splash.set_progress, names=preload)
         finally:
-            # 首页现在是分帧建的：等它把排队卡片建完再撤遮罩，否则用户会
-            # 看到一页空白逐块长出来。队列已经空了时 when_built 会立刻回调。
-            page = self.nav.page(self.nav.current)
-            when_built = getattr(page, "when_built", None)
-            if callable(when_built):
-                when_built(_close_splash)
-                # 页面构建被切页/关窗打断时 when_built 不会回调，兜底撤一次
-                self.after(3000, _close_splash)
-            else:
+            # 遮罩要等这几页真正建完才撤（首屏那两张同步卡不够看），
+            # 关窗或其他异常导致回调没跑也要兜底撤一次。
+            # 先把计数加满再登记回调：有的页（整页同步建的）会在
+            # when_built 里立刻回调，边加边登记会提前把遮罩撤掉。
+            pages = [self.nav.rebuilder.frame(name) for name in preload]
+            remaining = [
+                sum(1 for page in pages if hasattr(page, "when_built"))
+            ]
+
+            def _one_done() -> None:
+                remaining[0] -= 1
+                if remaining[0] <= 0:
+                    _close_splash()
+
+            if remaining[0] <= 0:
                 _close_splash()
+            else:
+                for page in pages:
+                    page.when_built(_one_done)
+            self.after(8000, _close_splash)
 
         # App 在毛玻璃模式下会自动建一层默认底色的背景窗口；这里把上次存的
         # 颜色 / 透明度 / 尺寸盖回去（晚于 App 内部那次 40ms 的自动创建）。

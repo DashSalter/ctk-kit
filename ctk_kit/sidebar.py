@@ -317,6 +317,8 @@ class SidebarNav(ctk.CTkFrame):
         # 启动时不把所有页面一起建出来：先只建当前页，其余页交给
         # _prewarm_neighbours 在空闲时间逐帧补，窗口能更快显示出来。
         self._prewarm_job: Optional[str] = None
+        # 置 False 就完全不做后台预建（示例里用环境变量关掉，方便单页调试）。
+        self._warm_enabled = True
         self.show(initial if initial is not None else self._names[0])
 
         # 侧边栏宽度：先钉一次，窗口尺寸变化时再按比例重算。
@@ -550,8 +552,15 @@ class SidebarNav(ctk.CTkFrame):
             self._prewarm_job = None
 
     def _prewarm_neighbours(self) -> None:
-        """建当前页前后各一页（不显示）。已经在建或建好的页会跳过。"""
+        """空闲时把页面逐个建出来：先相邻页，再其余按导航顺序。
+
+        ``rebuilder.prewarm`` 是串行的——一页建完才动下一页，所以这条链会
+        在用户不操作时慢慢把十几页热完，切页时被 :meth:`show` 取消重排，
+        已经建好的页会跳过。
+        """
         self._prewarm_job = None
+        if not getattr(self, "_warm_enabled", True):
+            return
         names = list(self.rebuilder.pages)
         current = self.rebuilder.current
         if current not in names:
@@ -562,6 +571,7 @@ class SidebarNav(ctk.CTkFrame):
             target = index + offset
             if 0 <= target < len(names):
                 targets.append(names[target])
+        targets.extend(name for name in names if name not in targets)
         self.rebuilder.prewarm(targets)
 
     def page(self, name: str) -> tk.Misc:

@@ -1,9 +1,12 @@
 # ctk-kit
 
+[![Docs](https://img.shields.io/badge/docs-ctk--kit-4f46e5.svg)](https://dashsalter.github.io/ctk-kit/)
 [![CI](https://github.com/DashSalter/ctk-kit/actions/workflows/ci.yml/badge.svg)](https://github.com/DashSalter/ctk-kit/actions/workflows/ci.yml)
 [![PyPI](https://img.shields.io/pypi/v/ctk-kit.svg)](https://pypi.org/project/ctk-kit/)
 [![Python](https://img.shields.io/pypi/pyversions/ctk-kit.svg)](https://pypi.org/project/ctk-kit/)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
+📖 **完整文档：<https://dashsalter.github.io/ctk-kit/>** —— 每个控件的参数、方法、可复制示例。
 
 面向 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 的界面基件：
 一套毛玻璃设计令牌和一批开箱即用的控件。支持 Python 3.8 – 3.14。

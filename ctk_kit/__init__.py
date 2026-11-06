@@ -28,6 +28,7 @@
 
     python examples/basics/window.py
 
+文档: https://dashsalter.github.io/ctk-kit/
 仓库: https://gitee.com/kuangjianke/ctk-kit
 镜像: https://github.com/DashSalter/ctk-kit
 """

@@ -48,6 +48,7 @@ dnd = ["tkinterdnd2>=0.3"]
 
 [project.urls]
 Homepage = "https://gitee.com/kuangjianke/ctk-kit"
+Documentation = "https://dashsalter.github.io/ctk-kit/"
 Repository = "https://gitee.com/kuangjianke/ctk-kit"
 Issues = "https://gitee.com/kuangjianke/ctk-kit/issues"
 Changelog = "https://gitee.com/kuangjianke/ctk-kit/blob/main/CHANGELOG.md"

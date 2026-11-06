@@ -1,0 +1,84 @@
+site_name: ctk-kit
+site_description: 基于 CustomTkinter 的 Python 桌面 UI 组件库，自绘控件、运行时换色、Windows 毛玻璃
+site_author: ctk-kit
+
+# 部署到 GitHub Pages 后改成自己的地址，例如
+# https://<你的用户名>.github.io/ctk-kit/
+site_url: https://dashsalter.github.io/ctk-kit/
+
+repo_url: https://github.com/DashSalter/ctk-kit
+repo_name: DashSalter/ctk-kit
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  language: zh
+  logo: assets/logo.png
+  favicon: assets/logo.png
+  palette:
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: 切换到浅色
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: black
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: 切换到深色
+  features:
+    - navigation.instant
+    - navigation.sections
+    - navigation.top
+    - navigation.indexes
+    - content.code.copy
+    - content.code.annotate
+    - search.suggest
+    - search.highlight
+    - toc.follow
+
+nav:
+  - 首页: index.md
+  - 组件:
+      - 按钮: components/buttons.md
+
+# docs/requirements.txt 只给 CI 用，不要当成页面发布出去
+exclude_docs: |
+  requirements.txt
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.keys
+
+plugins:
+  - search:
+      lang:
+        - zh
+        - en
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/DashSalter/ctk-kit
+    - icon: fontawesome/solid/cube
+      link: https://pypi.org/project/ctk-kit/
+
+copyright: 版本 0.11.0 · MIT License

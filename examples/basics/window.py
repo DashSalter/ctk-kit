@@ -11,6 +11,7 @@ import os
 import tkinter as tk
 from pathlib import Path
 
+import customtkinter as ctk
 from PIL import Image
 
 from ctk_kit import (

@@ -180,6 +180,94 @@ def set_titlebar_dark(window: tk.Misc, dark: bool, *, glass: bool = False) -> No
     _set_dwm_color(hwnd, 36, T.COLOR_TEXT)      # DWMWA_TEXT_COLOR
 
 
+#: 标题栏右侧三个按钮对应的窗口样式位（``GWL_STYLE``）。
+_WS_MINIMIZEBOX = 0x00020000
+_WS_MAXIMIZEBOX = 0x00010000
+_WS_SYSMENU = 0x00080000
+_GWL_STYLE = -16
+#: ``SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_FRAMECHANGED``
+_SWP_CAPTION = 0x0001 | 0x0002 | 0x0004 | 0x0010 | 0x0020
+
+
+def set_caption_buttons(
+    window: tk.Misc,
+    visible: bool = True,
+    *,
+    minimize: Optional[bool] = None,
+    maximize: Optional[bool] = None,
+) -> bool:
+    """显示 / 隐藏系统标题栏右侧的最小化、最大化、关闭按钮（仅 Windows）。
+
+    改的是窗口的 ``WS_MINIMIZEBOX`` / ``WS_MAXIMIZEBOX`` / ``WS_SYSMENU`` 三个
+    样式位，之后 ``SetWindowPos(..., SWP_FRAMECHANGED)`` 让系统重算非客户区，
+    标题栏会立刻重画。
+
+    三个按钮的粒度不一样：最小化、最大化各自只是一位，可以单独关；关闭按钮
+    跟 ``WS_SYSMENU``（系统菜单）绑在一起，一旦去掉，Windows 会把三个按钮
+    连左上角的图标一起撤掉。所以 ``minimize`` / ``maximize`` 传 ``False``
+    只影响各自那一个按钮，而 ``visible=False`` 是一次关掉整组。
+
+    参数:
+        window: 任意顶层窗口（``CTk`` / ``CTkToplevel`` / ``tk.Toplevel``）。
+        visible: ``False`` 整组隐藏，``True`` 恢复。
+        minimize: 单独控制最小化按钮；``None`` 跟随 ``visible``。
+        maximize: 单独控制最大化按钮；``None`` 跟随 ``visible``。
+
+    返回:
+        ``True`` 表示样式改成功；非 Windows 或调用失败返回 ``False``。
+
+    注意:
+        整组隐藏之后窗口只能靠 ``Alt+F4`` 或程序里的按钮关闭；系统菜单也不再
+        弹出。开关放在应用内，随时能拨回来。
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        user32 = ctypes.windll.user32
+        hwnd = user32.GetParent(window.winfo_id())
+        if not hwnd:
+            hwnd = window.winfo_id()
+        getter = getattr(user32, "GetWindowLongPtrW", user32.GetWindowLongW)
+        setter = getattr(user32, "SetWindowLongPtrW", user32.SetWindowLongW)
+        getter.restype = ctypes.c_ssize_t
+        getter.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        setter.restype = ctypes.c_ssize_t
+        setter.argtypes = [ctypes.c_void_p, ctypes.c_int, ctypes.c_ssize_t]
+        style = int(getter(ctypes.c_void_p(hwnd), _GWL_STYLE) or 0)
+        show_min = bool(visible) if minimize is None else bool(minimize)
+        show_max = bool(visible) if maximize is None else bool(maximize)
+        bits = (
+            (_WS_MINIMIZEBOX, show_min),
+            (_WS_MAXIMIZEBOX, show_max),
+            (_WS_SYSMENU, bool(visible)),
+        )
+        for bit, on in bits:
+            style = (style | bit) if on else (style & ~bit)
+        setter(ctypes.c_void_p(hwnd), _GWL_STYLE, style)
+        user32.SetWindowPos.argtypes = [
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_int,
+            ctypes.c_uint,
+        ]
+        user32.SetWindowPos.restype = ctypes.c_int
+        user32.SetWindowPos(
+            ctypes.c_void_p(hwnd),
+            ctypes.c_void_p(0),
+            0,
+            0,
+            0,
+            0,
+            _SWP_CAPTION,
+        )
+        return True
+    except Exception:  # noqa: BLE001 - 非 Windows，或窗口样式被别的程序接管
+        return False
+
+
 def repaint_window(window: tk.Misc, mode: str) -> None:
     """让窗口自己按新外观重绘一次，不碰它的子控件。
 

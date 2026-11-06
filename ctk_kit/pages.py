@@ -359,7 +359,7 @@ class PageRebuilder:
         return page
 
     def _swap(self, page: ctk.CTkFrame, name: str) -> None:
-        """把 ``page`` 摆到最上层、撤掉其它页。"""
+        """把 ``page`` 摆到最上层，其它页压到下面。"""
         if page.winfo_manager() != "place":
             # 首次显示（或外部把页面拿掉了）：摆满父容器并等布局完成
             page.place(relx=0, rely=0, relwidth=1, relheight=1)
@@ -367,10 +367,21 @@ class PageRebuilder:
                 page.update_idletasks()
             except Exception:  # noqa: BLE001 - 控件可能在回调里被销毁
                 pass
+        else:
+            # 它上一轮可能被当成后台页钉成了固定像素尺寸，切回来要恢复跟随窗口。
+            page.place_configure(
+                relx=0, rely=0, relwidth=1, relheight=1, width=0, height=0
+            )
         # 已经 place 过的页面直接抬到最上层即可：重复 place 会触发页面内
         # 重新布局，切页就多花几十毫秒。
         page.lift()
         self._current = name
+
+        try:
+            width = max(1, self._host.winfo_width())
+            height = max(1, self._host.winfo_height())
+        except tk.TclError:
+            width = height = 1
 
         for other in list(self._frames.values()):
             if other is page:
@@ -382,6 +393,12 @@ class PageRebuilder:
                 # 旧页的窗口立刻消失，父容器收到重绘请求时新页可能还没画
                 # 完，中间那一帧就会露出横条。留在栈里压下去，整块画面由
                 # 系统一次性合成。
+                #
+                # 但留在栈里的页要钉成固定像素尺寸：``relwidth=1`` 会让
+                # 十几页都跟着窗口 resize 重排，拖拽窗口时肉眼可见地卡。
+                other.place_configure(
+                    relwidth=0, relheight=0, width=width, height=height
+                )
                 other.lower()
             except tk.TclError:
                 continue

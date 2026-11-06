@@ -148,26 +148,40 @@ class SettingsPageUI(PageBase):
         return switch
 
     def _build_titlebar(self, area: tk.Misc) -> None:
-        """标题栏：临时隐藏左上角的图标和标题文字。"""
+        """标题栏：图标 / 标题 / 三个窗口按钮，最小化和最大化能单独关。"""
         box = Card(area, title="标题栏")
         box.pack(fill="x", pady=(12, 0))
 
         self.titlebar_icon = self._titlebar_switch(box, "显示图标", "icon")
-        self.titlebar_title = self._titlebar_switch(box, "显示标题", "title", last=True)
+        self.titlebar_title = self._titlebar_switch(box, "显示标题", "title")
+        self.titlebar_buttons = self._titlebar_switch(box, "显示窗口按钮", "buttons")
+        self.titlebar_minimize = self._titlebar_switch(box, "显示最小化按钮", "minimize")
+        self.titlebar_maximize = self._titlebar_switch(
+            box, "显示最大化按钮", "maximize", last=True, width=90
+        )
 
         HintLabel(
             box,
-            "只改系统标题栏：图标区留空、标题文字清空；任务栏图标不受影响，Tk 的窗口标题"
-            "不变，拨回开关立即恢复。",
+            "前三项改系统标题栏：图标区留空、标题文字清空、三个按钮整组去掉。"
+            "后两项单独关掉最小化 / 最大化；关闭按钮和系统菜单绑定，没法单独"
+            "隐藏，只能随整组一起关。整组关掉时图标也会一起消失（Windows 没有"
+            "系统菜单就不画图标槽），恢复后自动回来。隐藏窗口按钮后仍可用"
+            " Alt+F4 关闭窗口。",
         ).pack(anchor="w", padx=16, pady=(0, 14))
 
     def _titlebar_switch(
-        self, box: tk.Misc, label: str, key: str, *, last: bool = False
+        self,
+        box: tk.Misc,
+        label: str,
+        key: str,
+        *,
+        last: bool = False,
+        width: int = 64,
     ) -> Switch:
-        """一行「标签 + 开关」，开关回调按 ``key`` 交给标题栏的两个专用方法。"""
+        """一行「标签 + 开关」，开关回调按 ``key`` 交给标题栏的专用方法。"""
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
-        FieldLabel(row, label, width=64).pack(side="left")
+        FieldLabel(row, label, width=width).pack(side="left")
         switch = Switch(row, command=lambda k=key: self._on_titlebar_switch(k))
         switch.pack(side="left", padx=(4, 0))
         return switch
@@ -271,16 +285,29 @@ class SettingsPageUI(PageBase):
                 switch.deselect()
 
     def refresh_titlebar(self) -> None:
-        """把 App 当前的图标 / 标题显隐状态回填到两个开关。"""
+        """把图标 / 标题 / 三个窗口按钮的状态回填到五个开关。"""
         app = getattr(self, "app", None)
         if app is None:
             return
         items = app.titlebar_items()
         for key, switch in (
-            ("icon", self.titlebar_icon),
-            ("title", self.titlebar_title),
+            ("icon", getattr(self, "titlebar_icon", None)),
+            ("title", getattr(self, "titlebar_title", None)),
         ):
+            if switch is None:
+                continue
             if items.get(key):
+                switch.select()
+            else:
+                switch.deselect()
+        for switch, visible in (
+            (getattr(self, "titlebar_buttons", None), app.window_buttons_visible()),
+            (getattr(self, "titlebar_minimize", None), app.minimize_button_visible()),
+            (getattr(self, "titlebar_maximize", None), app.maximize_button_visible()),
+        ):
+            if switch is None:
+                continue
+            if visible:
                 switch.select()
             else:
                 switch.deselect()
@@ -548,13 +575,19 @@ class SettingsPage(SettingsPageUI):
             self.app.set_extend(bool(switch.get()))
 
     def _on_titlebar_switch(self, key: str) -> None:
-        """标题栏开关：隐藏 / 显示图标、标题文字，改完立即生效。"""
+        """标题栏开关：图标 / 标题 / 三个窗口按钮，改完立即生效。"""
         switch = getattr(self, f"titlebar_{key}")
         value = bool(switch.get())
         if key == "icon":
             self.app.show_titlebar_icon(value)
-        else:
+        elif key == "title":
             self.app.show_titlebar_title(value)
+        elif key == "buttons":
+            self.app.show_window_buttons(value)
+        elif key == "minimize":
+            self.app.show_minimize_button(value)
+        elif key == "maximize":
+            self.app.show_maximize_button(value)
 
     def _on_debug_switch(self, key: str) -> None:
         """窗口调试开关：去 1px 边框 / 关过渡动画，改完立即生效。"""

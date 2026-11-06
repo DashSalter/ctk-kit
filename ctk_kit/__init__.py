@@ -182,6 +182,7 @@ from .theme import (
     is_dark,
     recolor_tree,
     repaint_native,
+    set_caption_buttons,
     set_titlebar_dark,
     set_window_brush,
 )
@@ -310,6 +311,7 @@ __all__ = [
     "recolor_tree",
     "repaint_native",
     "set_appearance_mode",
+    "set_caption_buttons",
     "set_default_color_theme",
     "set_titlebar_dark",
     "set_window_brush",

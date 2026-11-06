@@ -86,6 +86,10 @@ class _Unchanged:
 
 _UNCHANGED = _Unchanged()
 
+# 尺寸稳定多久之后才重算滚动条显隐。拖动窗口时每帧都会触发 <Configure>，
+# 立刻重算等于每帧跨一次 canvas 的 item 链表，拖起来就顿。
+_AUTO_HIDE_MS = 120
+
 
 class Card(ctk.CTkFrame):
     """圆角卡片容器，可选在上方带标题。
@@ -512,11 +516,15 @@ class Scrollable(ctk.CTkScrollableFrame):
         self._sync_auto_hide()
 
     def _on_auto_hide_configure(self, _event: Any = None) -> None:
-        """内容尺寸变化后延迟判断一次，同一帧里只排一次。"""
+        """尺寸停稳后再判断，拖动过程中反复触发只留最后一次。"""
         if self._auto_hide_job is not None:
-            return
+            try:
+                self.after_cancel(self._auto_hide_job)
+            except tk.TclError:
+                pass
+            self._auto_hide_job = None
         try:
-            self._auto_hide_job = self.after_idle(self._run_auto_hide)
+            self._auto_hide_job = self.after(_AUTO_HIDE_MS, self._run_auto_hide)
         except tk.TclError:
             self._auto_hide_job = None
 

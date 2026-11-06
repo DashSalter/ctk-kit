@@ -37,6 +37,7 @@ from .theme import (
     apply_appearance,
     apply_backdrop,
     freeze_redraw,
+    set_caption_buttons,
     set_titlebar_dark,
     set_window_brush,
 )
@@ -198,6 +199,10 @@ class App(Bindable, CTk):
         self._caption_icon = 0
         # 隐藏标题前记下的原始文字；空串表示当前没有隐藏。
         self._titlebar_title = ""
+        # 标题栏右侧的最小化 / 最大化 / 关闭按钮是否显示，以及前两个的单独状态。
+        self._caption_buttons = True
+        self._caption_minimize = True
+        self._caption_maximize = True
 
         super().__init__(**kwargs)
 
@@ -557,6 +562,83 @@ class App(Bindable, CTk):
         self.set_titlebar_items(title=bool(visible))
         return self
 
+    def show_window_buttons(self, visible: bool = True) -> "App":
+        """整组显示 / 隐藏标题栏右侧的三个窗口按钮，返回自己。
+
+        ``False`` 一次关掉最小化、最大化、关闭；``True`` 按最小化 / 最大化各自
+        的开关状态恢复。
+
+        Windows 的标题栏图标和系统菜单绑在一起：去掉 ``WS_SYSMENU``（隐藏关闭
+        按钮必须去掉它）之后，系统把图标槽宽度算成 0，写回图标句柄也不画。
+        所以整组隐藏期间左上角看不到图标；恢复按钮时这里会按「显示图标」的
+        状态再写一次图标句柄，图标跟着回来。
+
+        隐藏后窗口只能靠 ``Alt+F4`` 或程序里的按钮关闭；这个选择不写进
+        配置，下次启动默认重新显示。非 Windows 上调用无效果。
+        """
+        self._caption_buttons = bool(visible)
+        if not visible and not self._caption_icon:
+            # 趁系统菜单还在、图标槽还有内容，先把句柄抓下来：清掉 WS_SYSMENU
+            # 之后 WM_GETICON 就取不到了。
+            try:
+                self._caption_icon = caption_icon(self, ICON_SMALL)
+            except Exception:  # noqa: BLE001 - 非 Windows / 窗口已销毁
+                pass
+        self._apply_caption_style()
+        # 整组隐藏期间系统不画图标槽，恢复按钮后重新挂一次窗口图标。
+        if visible and self._titlebar_items["icon"]:
+            try:
+                set_window_icon(self)
+            except Exception:  # noqa: BLE001 - 窗口已销毁 / 非 Windows
+                pass
+            self._caption_icon = 0
+        return self
+
+    def show_minimize_button(self, visible: bool = True) -> "App":
+        """单独显示 / 隐藏最小化按钮，返回自己。
+
+        只影响这一个按钮，关闭按钮和图标都不动；整组按钮被
+        :meth:`show_window_buttons` 关掉时，这里的状态先记着，整组恢复时生效。
+        """
+        self._caption_minimize = bool(visible)
+        self._apply_caption_style()
+        return self
+
+    def show_maximize_button(self, visible: bool = True) -> "App":
+        """单独显示 / 隐藏最大化按钮，返回自己（规则同 :meth:`show_minimize_button`）。"""
+        self._caption_maximize = bool(visible)
+        self._apply_caption_style()
+        return self
+
+    def window_buttons_visible(self) -> bool:
+        """标题栏右侧三个窗口按钮是否整组显示（默认 ``True``）。"""
+        return bool(getattr(self, "_caption_buttons", True))
+
+    def minimize_button_visible(self) -> bool:
+        """最小化按钮当前是否显示（整组关掉时也算不显示）。"""
+        return self.window_buttons_visible() and bool(
+            getattr(self, "_caption_minimize", True)
+        )
+
+    def maximize_button_visible(self) -> bool:
+        """最大化按钮当前是否显示（整组关掉时也算不显示）。"""
+        return self.window_buttons_visible() and bool(
+            getattr(self, "_caption_maximize", True)
+        )
+
+    def _apply_caption_style(self) -> None:
+        """按三个开关把样式位重新算一遍。
+
+        整组关闭会清掉 ``WS_SYSMENU``，Windows 随即不再画标题栏图标槽（写回
+        ``WM_SETICON`` 也无效），这是系统行为，这里不做补偿。
+        """
+        set_caption_buttons(
+            self,
+            self.window_buttons_visible(),
+            minimize=getattr(self, "_caption_minimize", True),
+            maximize=getattr(self, "_caption_maximize", True),
+        )
+
     # ------------------------------------------------------------------ 调试
     def hide_frame_border(self, hidden: bool = True) -> "App":
         """去掉窗口四周那条 1px 系统边框（Win11 22H2+），返回自己。"""
@@ -648,14 +730,24 @@ class App(Bindable, CTk):
         return dict(self._titlebar_items)
 
     def _apply_titlebar_icon(self, visible: bool) -> None:
-        """按 ``visible`` 把标题栏小图标槽设成透明句柄或原始句柄。"""
+        """按 ``visible`` 把标题栏小图标槽设成透明句柄或原始句柄。
+
+        ``WM_GETICON`` 在整组窗口按钮隐藏（没有 ``WS_SYSMENU``）时读不到图标，
+        退回窗口类上登记的 ``GCLP_HICONSM`` / ``GCLP_HICON`` 再试一次；写回后
+        让窗口重算一次非客户区，图标槽有机会重新画出来。
+        """
         try:
             if visible:
-                set_caption_icon(self, self._caption_icon, ICON_SMALL)
+                handle = self._caption_icon or caption_icon(self, ICON_SMALL)
+                if not handle:
+                    handle = _class_icon(self)
+                if handle:
+                    set_caption_icon(self, handle, ICON_SMALL)
+                    _redraw_caption(self)
                 self._caption_icon = 0
             else:
                 if not self._caption_icon:
-                    self._caption_icon = caption_icon(self, ICON_SMALL)
+                    self._caption_icon = caption_icon(self, ICON_SMALL) or _class_icon(self)
                 set_caption_icon(self, blank_icon(), ICON_SMALL)
         except Exception:  # noqa: BLE001 - 窗口已销毁 / 非 Windows
             pass
@@ -1110,6 +1202,9 @@ class App(Bindable, CTk):
             pass
         # 标题栏刚被重刷过，之前隐藏的图标 / 标题要再盖回去。
         self._reapply_titlebar_items()
+        # 重刷标题栏会让系统按新样式重算非客户区，隐藏的按钮也一起盖回去。
+        if not self._caption_buttons or not self._caption_minimize or not self._caption_maximize:
+            self._apply_caption_style()
         # set_titlebar_dark 会把 34 重写成描边色，这里把「边框色」选项盖回去。
         try:
             set_dwm_attribute(self, DWMWA_BORDER_COLOR, self._glass.get("border"))
@@ -1281,3 +1376,46 @@ class App(Bindable, CTk):
                 self.tk.call("after", "cancel", job)
             except Exception:  # noqa: BLE001 - 已经被别的路径取消
                 pass
+
+
+def _class_icon(widget: tk.Misc) -> int:
+    """窗口类上登记的图标句柄；``WM_GETICON`` 取不到时用它兜底。"""
+    try:
+        import ctypes
+
+        user32 = ctypes.WinDLL("user32")
+        user32.GetParent.restype = ctypes.c_void_p
+        user32.GetParent.argtypes = [ctypes.c_void_p]
+        user32.GetClassLongPtrW.restype = ctypes.c_ssize_t
+        user32.GetClassLongPtrW.argtypes = [ctypes.c_void_p, ctypes.c_int]
+        hwnd = user32.GetParent(ctypes.c_void_p(widget.winfo_id()))
+        if not hwnd:
+            hwnd = widget.winfo_id()
+        for index in (-34, -14):  # GCLP_HICONSM / GCLP_HICON
+            handle = user32.GetClassLongPtrW(ctypes.c_void_p(hwnd), index)
+            if handle:
+                return int(handle)
+    except Exception:  # noqa: BLE001 - 非 Windows / 窗口已销毁
+        return 0
+    return 0
+
+
+def _redraw_caption(widget: tk.Misc) -> None:
+    """让系统重算一次非客户区，写回的图标才会重新画出来。"""
+    try:
+        import ctypes
+
+        user32 = ctypes.WinDLL("user32")
+        user32.GetParent.restype = ctypes.c_void_p
+        user32.GetParent.argtypes = [ctypes.c_void_p]
+        user32.SetWindowPos.argtypes = [
+            ctypes.c_void_p, ctypes.c_void_p, ctypes.c_int, ctypes.c_int,
+            ctypes.c_int, ctypes.c_int, ctypes.c_uint,
+        ]
+        hwnd = user32.GetParent(ctypes.c_void_p(widget.winfo_id()))
+        if not hwnd:
+            hwnd = widget.winfo_id()
+        # SWP_NOSIZE | SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED
+        user32.SetWindowPos(ctypes.c_void_p(hwnd), None, 0, 0, 0, 0, 0x0001 | 0x0002 | 0x0004 | 0x0020)
+    except Exception:  # noqa: BLE001 - 非 Windows / 窗口已销毁
+        pass

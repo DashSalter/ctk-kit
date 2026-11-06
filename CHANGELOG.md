@@ -3,6 +3,19 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+- 新增 `theme.set_caption_buttons(window, visible=True, *, minimize=None, maximize=None)`、
+  `App.show_window_buttons(visible)` / `show_minimize_button(visible)` /
+  `show_maximize_button(visible)` 与对应的三个 `*_visible()`：隐藏 / 恢复系统标题栏右侧的
+  最小化、最大化、关闭按钮（改 Win32 的 `WS_MINIMIZEBOX` / `WS_MAXIMIZEBOX` / `WS_SYSMENU`
+  样式位后 `SetWindowPos(SWP_FRAMECHANGED)`，立即重画）。最小化、最大化各自单独一位，可以
+  单独隐藏；关闭按钮与系统菜单绑定，只能随整组一起关。隐藏后仍可用 `Alt+F4` 关闭；示例
+  设置页的「标题栏」卡片加了「显示窗口按钮」「显示最小化按钮」「显示最大化按钮」三个开关
+- 说明：整组隐藏窗口按钮会清掉 `WS_SYSMENU`，Windows 随即不再绘制标题栏图标槽，
+  左上角图标会跟着消失（写回 `WM_SETICON` 无效，属系统行为）；恢复整组按钮时
+  会重新挂一次窗口图标，图标随即回来
+
 ## 0.12.0 — 2026-11-07
 
 - 性能：首次切到某一页不再整窗冻结

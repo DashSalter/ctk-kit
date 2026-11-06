@@ -16,6 +16,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .buttons import SecondaryButton
 from .fonts import get_font
+from .sugar import Valuable
 from .inputs import FormEntry
 
 try:  # pragma: no cover - 取决于有没有装可选依赖
@@ -117,7 +118,7 @@ def register_drop(widget: tk.Misc, on_path: Callable[[str], None]) -> bool:
     return registered
 
 
-class PathField(ctk.CTkFrame):
+class PathField(Valuable, ctk.CTkFrame):
     """输入框 + 浏览按钮，选好路径后直接覆盖输入框内容。
 
     ``mode="file"`` 选文件，``mode="folder"`` 选文件夹；``accept_drop=True``

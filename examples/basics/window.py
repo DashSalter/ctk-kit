@@ -10,15 +10,16 @@ from __future__ import annotations
 import tkinter as tk
 from pathlib import Path
 
-import customtkinter as ctk
 from PIL import Image
 
 from ctk_kit import (
     __version__ as _ctk_version,
     App,
     Avatar,
-    CTkLabel,
+    CTkButton,
+    CTkImage,
     Frame,
+    Label,
     LoadingOverlay,
     SidebarNav,
     tokens as T,
@@ -159,25 +160,24 @@ class DemoApp(App):
             command=self._open_profile,
         ).pack(side="left")
 
-        name = CTkLabel(
+        name = Label(
             row,
             text="加点盐",
             font=get_font((T.FONT_NAME, 13, "bold")),
-            text_color=T.COLOR_TEXT,
             anchor="w",
             cursor="hand2",
         )
         name.pack(side="left", fill="x", expand=True, padx=(8, 0))
-        name.bind("<Button-1>", lambda _event: self._open_profile())
+        name.on_click(self._open_profile)
 
         # 设置入口靠右，和头像同一行。图标只放一版深色稿，深色主题下按 alpha
         # 换成浅色线条，不用单独再下一份浅色图。
-        self._gear = ctk.CTkImage(
+        self._gear = CTkImage(
             light_image=_tinted_icon("setting.png", "#3a3f47"),
             dark_image=_tinted_icon("setting.png", "#c9cfd8"),
             size=(17, 17),
         )
-        self.settings_button = ctk.CTkButton(
+        self.settings_button = CTkButton(
             row,
             text="",
             image=self._gear,

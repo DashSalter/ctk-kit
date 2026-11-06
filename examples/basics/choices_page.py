@@ -56,13 +56,14 @@ Segmented(
 
 SWITCH_CODE = '''from ctk_kit import Switch
 
-toggle = Switch(row, command, text="启用", width=44)
-# Switch(master, command=None, *, text="", width=44)
-# text 留空就只显示轨道；command 不接收参数，读状态用 toggle.get()
+toggle = Switch(row, command, text="启用", width=44, value=True)
+# Switch(master, command=None, *, text="", width=44, value=False)
+# text 留空就只显示轨道；value 是初始状态；command 不接收参数
 
-toggle.select()      # 拨到右边
-toggle.deselect()    # 拨回左边
-toggle.toggle()
+toggle.set_value(True)    # 打开（不触发 command）
+toggle.set_value(False)   # 关闭
+toggle.get_value()        # True / False
+toggle.toggle()           # 拨动一次，会触发 command
 
 # 圆球色共用 COLOR_KNOB（和勾选框的勾、单选框的中心点同色），在 tokens 里改'''
 
@@ -71,9 +72,9 @@ CHECKBOX_CODE = '''from ctk_kit import Checkbox
 check = Checkbox(row, "记住这台设备", command)
 # Checkbox(master, text="", command=None, *, width=20, height=20)
 
-check.select()      # 勾上
-check.deselect()
-check.get()         # 0 / 1
+check.set_value(True)   # 勾上
+check.set_value(False)  # 取消
+check.get_value()       # True / False
 
 # 选中后填 COLOR_ACTIVE 并打勾；方块圆角是 RADIUS_SMALL - 2'''
 
@@ -154,9 +155,8 @@ class ChoicesPageUI(PageBase):
         CTkLabel(
             row, text="启用某项设置", font=T.FONT_BODY, text_color=T.COLOR_TEXT
         ).pack(side="left")
-        self.toggle = Switch(row)
+        self.toggle = Switch(row, value=True)
         self.toggle.pack(side="left", padx=(12, 0))
-        self.toggle.select()
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
@@ -170,7 +170,7 @@ class ChoicesPageUI(PageBase):
             fill="x", padx=16, pady=(0, 10)
         )
 
-        CodePanel(box, SWITCH_CODE, "command 不接收参数，状态用 toggle.get() 读。")
+        CodePanel(box, SWITCH_CODE, "command 不接收参数，状态用 toggle.get_value() 读。")
 
     def _build_checks(self, area: tk.Misc) -> None:
         """勾选：选中后填主色并打勾。"""
@@ -181,7 +181,7 @@ class ChoicesPageUI(PageBase):
         row.pack(fill="x", padx=16, pady=(14, 8))
         self.device_check = Checkbox(row, "记住这台设备")
         self.device_check.pack(side="left")
-        self.device_check.select()
+        self.device_check.set_value(True)
 
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 8))
@@ -237,7 +237,7 @@ class ChoicesPage(ChoicesPageUI):
 
     def _on_toggle(self) -> None:
         """开关只回调、不带参数，状态自己读。"""
-        self._show("开关已开启" if self.toggle.get() else "开关已关闭")
+        self._show("开关已开启" if self.toggle.get_value() else "开关已关闭")
 
     def _on_compact_switch(self) -> None:
         """紧凑开关没有文字，只回显一次切换。"""
@@ -245,7 +245,7 @@ class ChoicesPage(ChoicesPageUI):
 
     def _on_device_check(self) -> None:
         """勾选框同样返回 0/1。"""
-        self._show(f"勾选：{bool(self.device_check.get())}")
+        self._show(f"勾选：{self.device_check.get_value()}")
 
     def _on_sync_check(self) -> None:
         """第二个勾选框：只说切换了。"""

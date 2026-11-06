@@ -36,6 +36,58 @@ ctk.SecondaryButton(app, "取消", command=app.destroy).pack(padx=24)
 app.mainloop()
 ```
 
+## 切换主题
+
+主题用 `set_theme()` 换，颜色可以单独改：
+
+```python
+app.set_theme("dark")                        # frosted / dark / acrylic / mica
+app.set_theme("acrylic", color="#20222a")    # 顺便指定底色
+app.set_theme_color("#2b2b3a")               # 只改底色，主题不变
+```
+
+| 主题 | 效果 | 默认底色 |
+|---|---|---|
+| `mica` | 黑灰，只糊壁纸（默认） | `#1A1A1A` |
+| `frosted` | 毛玻璃：透出桌面，带模糊 | `#181A20` |
+| `dark` | 深空：纯深色实底，不透桌面 | `#1A1A1A` |
+| `acrylic` | 黑色偏蓝，Win10 亚克力 | `#1A1A1A` |
+
+窗口默认就是 `mica`；主题名不区分大小写，中文别名「毛玻璃」「深空」也可以。
+`app.get_theme()` / `app.get_theme_color()` 读当前值；名字写错会抛 `ValueError`。
+
+## 窗口外观
+
+`set_theme` 之外，每一项也都有单独的方法，全部返回 `App`，可以连写：
+
+```python
+app.set_window_corners(2).set_border_color("#3b3e4a").set_opacity(1.0)
+```
+
+| 方法 | 作用 | 取值 |
+|---|---|---|
+| `set_glass_kind(kind)` | DWM 合成方式 | `accent` / `acrylic` / `system` / `mica` |
+| `set_glass_state(state)` | AccentState | `0` 关 / `2` 透明 / `3` 模糊 / `4` 亚克力 |
+| `set_system_backdrop(value)` | 系统背板类型 | `0` 不设 / `1` 无 / `2` Mica / `3` 亚克力 / `4` 标签 |
+| `set_tint("#RRGGBB")` | 玻璃 tint 底色 | 颜色 |
+| `set_tint_alpha(0–255)` | tint 压暗程度 | 越高越黑 |
+| `set_window_corners(value)` | 窗口圆角 | `0` 默认 / `1` 不圆 / `2` 圆 / `3` 小圆 |
+| `set_border_color(color)` | 窗口边框 | `"#RRGGBB"`；`None` = 不要边框 |
+| `set_caption_color(color)` | 标题栏颜色 | `"#RRGGBB"`；`None` = 交还 DWM（玻璃能糊上去） |
+| `set_opacity(0.1–1.0)` | 整体透明度 | 低于 1 会变 layered，玻璃失效 |
+| `set_veil(color)` | 透明键色 | 一般保持 `#000000` |
+| `set_extend(bool)` | 客户区延伸到整个窗口 | `True` / `False` |
+| `set_titlebar_glass(bool)` | 标题栏是否交还 DWM | `True` / `False` |
+| `set_glass_dark(bool)` | 标题栏是否用深色 | `True` / `False` |
+| `set_wca(value)` | 合成属性号 | 默认 `19` |
+| `show_titlebar_icon(bool)` | 显示 / 隐藏标题栏图标 | `True` / `False` |
+| `show_titlebar_title(bool)` | 显示 / 隐藏标题文字 | `True` / `False` |
+| `hide_frame_border(bool)` | 去掉 1px 系统边框 | Win11 22H2+ |
+| `set_transitions(bool)` | 窗口过渡动画 | `False` 关掉 |
+
+读当前状态用 `app.glass_options()`、`app.titlebar_items()`、`app.window_debug()`；
+原来那种一次传多个关键字的 `app.set_glass_options(kind=..., alpha=...)` 也还能用。
+
 ## 文档约定
 
 - 每个组件页按 **构造函数 → 参数表 → 方法表 → 示例** 组织；

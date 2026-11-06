@@ -1,4 +1,4 @@
-"""搜索框：左侧放大镜、右侧清空按钮，输入带防抖。
+﻿"""搜索框：左侧放大镜、右侧清空按钮，输入带防抖。
 
 用法::
 
@@ -25,6 +25,7 @@ from . import tokens as T
 from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .paint import cached
+from .sugar import Bindable, Enablable
 from .theme import color_of
 
 try:  # Pillow 是可选依赖
@@ -77,7 +78,7 @@ def _magnifier(color: str):
     return image.resize((size, size), Image.LANCZOS)
 
 
-class SearchBox(ctk.CTkFrame):
+class SearchBox(Enablable, Bindable, ctk.CTkFrame):
     """带放大镜和清空按钮的搜索输入框。
 
     参数:
@@ -189,6 +190,29 @@ class SearchBox(ctk.CTkFrame):
     def focus(self) -> None:
         """让输入框获得焦点。"""
         self._entry.focus_set()
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时输入框和清除按钮都不响应。"""
+        try:
+            self._entry.configure(state="normal" if enabled else "disabled")
+            self._clear.configure(state="normal" if enabled else "disabled")
+        except (tk.TclError, ValueError):
+            return
+
+    def is_enabled(self) -> bool:
+        """当前是否可输入。"""
+        try:
+            return str(self._entry.cget("state")) != "disabled"
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return True
+
+    def set_text(self, text: Any) -> None:
+        """同 :meth:`set`。"""
+        self.set("" if text is None else str(text))
+
+    def get_text(self) -> str:
+        """读回文字，等价于 ``get()``。"""
+        return self.get()
 
     def configure(self, **kwargs: Any) -> None:
         """``command=`` / ``placeholder=`` 换回调或占位文字。"""

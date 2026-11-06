@@ -100,7 +100,7 @@ from customtkinter import (
     set_default_color_theme,
 )
 
-from . import theming, tokens, theme
+from . import sugar, theming, tokens, theme
 from .avatar import Avatar
 from .badge import Badge, Tag
 from .breadcrumb import Breadcrumb
@@ -144,6 +144,7 @@ from .layout import (
     empty_hint,
     FieldLabel,
     HintLabel,
+    Label,
     PageHeader,
     Scrollable,
     SectionTitle,
@@ -244,6 +245,7 @@ __all__ = [
     "ICON_PATH",
     "ImageViewer",
     "LOGO_PATH",
+    "Label",
     "LazyList",
     "LoadingOverlay",
     "MenuBar",
@@ -314,6 +316,7 @@ __all__ = [
     "set_window_icon",
     "style_scrollable",
     "style_scrollbar",
+    "sugar",
     "theme",
     "theming",
     "tokens",

@@ -35,6 +35,7 @@ from .context_menu import attach_menu
 from .core.win32 import enable_acrylic
 from .fonts import get_font
 from .inputs import FormEntry, Segmented
+from .sugar import Enablable
 from .theme import is_win11, set_titlebar_dark
 
 __all__ = ["ColorPicker", "ColorDialog"]
@@ -58,7 +59,7 @@ _SWATCHES = [
 ]
 
 
-class ColorPicker(ctk.CTkFrame):
+class ColorPicker(Enablable, ctk.CTkFrame):
     """带色块预览的下拉选色控件。
 
     参数:
@@ -144,6 +145,25 @@ class ColorPicker(ctk.CTkFrame):
             "粘贴颜色", self._paste_color, enabled=self._clipboard_is_color
         )
 
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时点不开取色面板，文字与箭头变灰。"""
+        self._enabled = bool(enabled)
+        try:
+            self._swatch.configure(state="normal" if enabled else "disabled")
+            self._arrow.configure(
+                state="normal" if enabled else "disabled",
+                text_color=T.COLOR_MUTED if enabled else T.COLOR_FAINT,
+            )
+            self._label.configure(
+                text_color=T.COLOR_TEXT if enabled else T.COLOR_FAINT
+            )
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            pass
+
+    def is_enabled(self) -> bool:
+        """取色器当前是否可点。"""
+        return bool(getattr(self, "_enabled", True))
+
     def _copy_color(self) -> None:
         """复制当前颜色的 hex 字符串。"""
         value = self.get()
@@ -195,6 +215,8 @@ class ColorPicker(ctk.CTkFrame):
 
     def open(self) -> None:
         """打开取色面板。面板是模态的，关掉之后才返回。"""
+        if not self.is_enabled():
+            return
         self._open_dialog()
 
     def close(self) -> None:
@@ -202,6 +224,8 @@ class ColorPicker(ctk.CTkFrame):
 
     def toggle(self) -> None:
         """点色块或箭头都直接打开面板。"""
+        if not self.is_enabled():
+            return
         self._open_dialog()
 
     def _open_dialog(self) -> None:

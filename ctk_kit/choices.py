@@ -17,6 +17,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .fonts import get_font
 from .paint import blend_hex, cached
+from .sugar import Enablable, Textual
 from .theme import color_of
 
 try:  # Pillow 是可选依赖
@@ -170,7 +171,7 @@ def _round_image_at(
     return Image.alpha_composite(image, layer).resize((size, size), Image.LANCZOS)
 
 
-class _Mark(ctk.CTkFrame):
+class _Mark(Enablable, Textual, ctk.CTkFrame):
     """勾选/单选共用的底座：左边一个指示符，右边一行字。"""
 
     _shape = "round"
@@ -201,6 +202,8 @@ class _Mark(ctk.CTkFrame):
         self._silent = False
         # 鼠标是否悬停在指示符/文字上：悬停时勾和圆点换成「悬停色」
         self._hover = False
+        # 是否可用；禁用时文字变灰、点击无反应
+        self._enabled = True
 
         self._canvas = tk.Canvas(
             self,
@@ -229,6 +232,8 @@ class _Mark(ctk.CTkFrame):
     # ------------------------------------------------------------ 悬停
     def _on_enter(self, _event: Any = None) -> None:
         """鼠标进来：勾 / 圆点换「悬停色」。"""
+        if not getattr(self, "_enabled", True):
+            return
         if not self._hover:
             self._hover = True
             self._refresh()
@@ -265,12 +270,40 @@ class _Mark(ctk.CTkFrame):
 
     def _on_click(self, _event: Optional[tk.Event] = None) -> None:
         """点击：切换选中状态并回调。"""
+        if not getattr(self, "_enabled", True):
+            return
         target = self._next_state()
         if target != self._is_checked():
             self._set_checked(target)
             self._animate_to(1.0 if target else 0.0)
         if self._command is not None:
             self._command()
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时文字变灰、指示符不再响应悬停与点击。"""
+        self._enabled = bool(enabled)
+        self._hover = False
+        try:
+            self._label.configure(
+                text_color=T.COLOR_TEXT if enabled else T.COLOR_FAINT
+            )
+            cursor = "hand2" if enabled else ""
+            self._canvas.configure(cursor=cursor)
+            self._label.configure(cursor=cursor)
+        except tk.TclError:
+            return
+        self._refresh()
+
+    def set_text(self, text: Any) -> None:
+        """改右侧文字（``CTkFrame`` 本身没有 ``text`` 选项，只能改 label）。"""
+        self._label.configure(text=str(text))
+
+    def get_text(self) -> str:
+        """读回右侧文字。"""
+        try:
+            return str(self._label.cget("text"))
+        except tk.TclError:
+            return ""
 
     def apply_theme(self) -> None:
         """按当前令牌重画指示符（``theming`` 运行时换色后调用）。"""
@@ -289,7 +322,8 @@ class _Mark(ctk.CTkFrame):
             return
         checked = self._is_checked()
         self._progress = 1.0 if checked else 0.0
-        color = color_of(T.COLOR_ACTIVE)
+        enabled = getattr(self, "_enabled", True)
+        color = color_of(T.COLOR_ACTIVE) if enabled else color_of(T.COLOR_BORDER_STRONG)
         track = color_of(T.COLOR_BORDER_STRONG)
         foreground = color_of(T.COLOR_KNOB_HOVER if self._hover else T.COLOR_KNOB)
         if not _HAS_PIL:
@@ -304,7 +338,8 @@ class _Mark(ctk.CTkFrame):
     def _paint(self, progress: float) -> None:
         """画一帧中间态；不走缓存，进度值会让缓存键无限增长。"""
         self._canvas.delete("all")
-        color = color_of(T.COLOR_ACTIVE)
+        enabled = getattr(self, "_enabled", True)
+        color = color_of(T.COLOR_ACTIVE) if enabled else color_of(T.COLOR_BORDER_STRONG)
         track = color_of(T.COLOR_BORDER_STRONG)
         foreground = color_of(T.COLOR_KNOB_HOVER if self._hover else T.COLOR_KNOB)
         if not _HAS_PIL:
@@ -440,18 +475,25 @@ class Check(_Mark):
             self._silent = False
 
     def get(self) -> int:
-        """0 / 1。"""
+        """0 / 1；等价于 ``int(get_value())``，保留给 ``CTkCheckBox`` 老代码。"""
         return 1 if self._is_checked() else 0
 
+    def get_value(self) -> bool:
+        """当前是否勾上。"""
+        return self._is_checked()
+
+    def set_value(self, value: bool) -> None:
+        """勾上 / 取消勾选（不触发 ``command``）。"""
+        self._set_checked(bool(value))
+        self._animate_to(1.0 if value else 0.0)
+
     def select(self) -> None:
-        """勾上。"""
-        self._set_checked(True)
-        self._animate_to(1.0)
+        """勾上（``set_value(True)`` 的旧名字）。"""
+        self.set_value(True)
 
     def deselect(self) -> None:
-        """取消勾选。"""
-        self._set_checked(False)
-        self._animate_to(0.0)
+        """取消勾选（``set_value(False)`` 的旧名字）。"""
+        self.set_value(False)
 
 
 class Radio(_Mark):
@@ -504,3 +546,11 @@ class Radio(_Mark):
         """选中这一项。"""
         self._set_checked(True)
         self._animate_to(1.0)
+
+    def get_value(self) -> str:
+        """当前选中的值（几个单选项共享的那个变量）。"""
+        return self._variable.get()
+
+    def set_value(self, value: str) -> None:
+        """把共享变量设成 ``value``；这一项匹配时自动选中。"""
+        self._variable.set(str(value))

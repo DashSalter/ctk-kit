@@ -547,7 +547,7 @@ class InputsPage(InputsPageUI):
 
         self._bind_path("文件", self.file_field)
         self._bind_path("文件夹", self.dir_field)
-        self.preset.entry.bind("<KeyRelease>", self._on_preset_key)
+        self.preset.entry.on_key_release(self._on_preset_key)
         # 菜单挂上之后还能继续追加：这里演示「创建后再补一项」
         attach_edit_menu(self.custom_entry).add_command(
             "全部选中", lambda: self.custom_entry.select_range(0, "end")

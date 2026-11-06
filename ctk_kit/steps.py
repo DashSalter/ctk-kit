@@ -32,6 +32,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .buttons import PrimaryButton, SoftButton
 from .fonts import get_font
+from .sugar import Valuable
 from .paint import cached
 from .theme import color_of
 
@@ -108,7 +109,7 @@ def _dot_image(
     return image.resize((size, size), Image.LANCZOS)
 
 
-class Steps(ctk.CTkFrame):
+class Steps(Valuable, ctk.CTkFrame):
     """横向步骤条。
 
     参数:
@@ -200,6 +201,10 @@ class Steps(ctk.CTkFrame):
         if notify and self._command is not None:
             self._command(step)
 
+    def set_value(self, step: int) -> None:
+        """跳到第 ``step`` 步，等价于 ``set_current(step)``。"""
+        self.set_current(step)
+
     # --- 内部 ---
     def _clamp(self, step: int) -> int:
         """夹到 ``1..len(steps)``；没有步骤时返回 1。"""
@@ -255,7 +260,7 @@ class Steps(ctk.CTkFrame):
         self.set_current(step, notify=True)
 
 
-class Wizard(ctk.CTkFrame):
+class Wizard(Valuable, ctk.CTkFrame):
     """分步向导：步骤条 + 内容区 + 上一步/下一步。
 
     参数:
@@ -322,6 +327,10 @@ class Wizard(ctk.CTkFrame):
         self._current = step
         self._bar.set_current(step)
         self._render()
+
+    def set_value(self, step: int) -> None:
+        """跳到第 ``step`` 步，等价于 ``go_to(step)``。"""
+        self.go_to(step)
 
     def next(self) -> None:
         """下一步；已经在最后一页时触发完成回调。"""

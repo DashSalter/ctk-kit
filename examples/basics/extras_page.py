@@ -571,7 +571,7 @@ class ExtrasPage(ExtrasPageUI):
 
     def bind_events(self) -> None:
         """挂徽标点击、分页按钮和其余交互（悬停提示已搬到「提示」页）。"""
-        self.badge_demo.bind("<Button-1>", self._cycle_badge)
+        self.badge_demo.on_click(self._cycle_badge)
         self.pager.configure(command=self._on_page)
         self.page5.configure(command=self._jump_five)
         self.clear_btn.configure(command=self._clear)

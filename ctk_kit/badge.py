@@ -29,6 +29,7 @@ from PIL import Image, ImageDraw
 from . import tokens as T
 from .fonts import get_font, measure_text
 from .paint import cached
+from .sugar import Bindable
 
 __all__ = ["Badge", "Tag"]
 
@@ -81,7 +82,7 @@ def _resolve_color(color: ColorSpec) -> str:
     return color
 
 
-class Badge(ctk.CTkFrame):
+class Badge(Bindable, ctk.CTkFrame):
     """只读徽标：状态、分类或计数。
 
     参数:

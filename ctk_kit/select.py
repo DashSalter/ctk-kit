@@ -25,6 +25,7 @@ from .popup import (
 )
 from .inputs import CTkEntry
 from .layout import style_scrollbar
+from .sugar import Enablable
 from .theme import color_of, current_backdrop
 
 #: 面板最多铺几行，超出就在面板内部滚动。
@@ -721,7 +722,7 @@ def _round_window_corners(owner: tk.Misc, popup: ctk.CTkToplevel) -> None:
     round_window_corners(popup, T.RADIUS_SMALL)
 
 
-class TagSelectField(ctk.CTkFrame):
+class TagSelectField(Enablable, ctk.CTkFrame):
     """多选标签下拉：点开的候选项变成标签排进框里，标签右侧小叉可删。
 
     没有输入框：整块就是标签区，点空白处或右侧箭头展开候选。标签不重复：
@@ -771,6 +772,8 @@ class TagSelectField(ctk.CTkFrame):
         self._values: list = []
         self._tags: list = []
         self._disabled: set = set(disabled or ())
+        # 控件本身是否可用；禁用时点不开面板、标签删不掉
+        self._enabled = True
         self._bg = color_of(T.COLOR_INPUT)
         # 只用来量标签文字宽度；单独一份，不碰 get_font() 的共享缓存
         self._measure_font = tkfont.Font(font=T.FONT_BODY)
@@ -848,7 +851,25 @@ class TagSelectField(ctk.CTkFrame):
     # ------------------------------------------------------------ 面板
     def open_menu(self) -> None:
         """展开候选面板。"""
+        if not self.is_enabled():
+            return
         if not self._panel.open():
+            self._panel.close()
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时箭头变灰、点不开面板，标签也删不掉。"""
+        self._enabled = bool(enabled)
+        try:
+            self.arrow.configure(
+                text_color=T.COLOR_MUTED if enabled else T.COLOR_FAINT,
+                cursor="hand2" if enabled else "",
+            )
+            self._hint.configure(
+                text_color=T.COLOR_FAINT if enabled else T.COLOR_BORDER_STRONG
+            )
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return
+        if not enabled:
             self._panel.close()
 
     def _build_rows(self, parent: tk.Misc) -> int:
@@ -888,16 +909,27 @@ class TagSelectField(ctk.CTkFrame):
         return len(values)
 
     # ------------------------------------------------------------ 禁用项
-    def disable(self, value: str) -> None:
-        """把某个候选项置灰；已经选中的会顺手从标签里移除。"""
+    def disable(self, value: Optional[str] = None) -> None:
+        """禁用整个控件（不传参）或某个候选项（传 ``value``）。
+
+        参数:
+            value: 候选项文字。不传表示禁用控件本身——打不开面板、
+                输不进新标签。
+        """
+        if value is None:
+            self.set_enabled(False)
+            return
         self._disabled.add(value)
         if value in self._values:
             self._remove_tag(value)
         elif self._panel.visible:
             self._panel.refresh()
 
-    def enable(self, value: str) -> None:
-        """解除某个候选项的禁用。"""
+    def enable(self, value: Optional[str] = None) -> None:
+        """启用整个控件（不传参）或解除某个候选项（传 ``value``）。"""
+        if value is None:
+            self.set_enabled(True)
+            return
         self._disabled.discard(value)
         if self._panel.visible:
             self._panel.refresh()
@@ -1035,7 +1067,7 @@ class TagSelectField(ctk.CTkFrame):
         super().destroy()
 
 
-class TreeSelectField(ctk.CTkFrame):
+class TreeSelectField(Enablable, ctk.CTkFrame):
     """层级树下拉：分组节点点开才显示子项，子项逐级缩进。
 
     分组节点本身不能被选中（它就是一层目录），点它只切换展开/收起，
@@ -1081,6 +1113,8 @@ class TreeSelectField(ctk.CTkFrame):
         self._height = height
         self._expanded: set = set()
         self._disabled: set = set(disabled or ())
+        # 控件本身是否可用；禁用时点不开面板、输入框不接收键入
+        self._enabled = True
         #: 当前面板里可见行：``{路径: 行控件}``，用来增量增删
         self._rows_map: dict = {}
         #: 分组行的右箭头：``{路径: 箭头 label}``
@@ -1133,20 +1167,53 @@ class TreeSelectField(ctk.CTkFrame):
         self.entry.delete(0, "end")
         self.entry.insert(0, value)
 
+    def set_text(self, text: Any) -> None:
+        """同 :meth:`set`。"""
+        self.set("" if text is None else str(text))
+
+    def get_text(self) -> str:
+        """读回输入框文字，等价于 ``get()``。"""
+        try:
+            return str(self.get())
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return ""
+
     # ------------------------------------------------------------ 面板
     def open_menu(self) -> None:
         """展开候选面板。"""
+        if not self.is_enabled():
+            return
         self._panel.open()
 
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时输入框变灰、箭头点不动、面板收起。"""
+        self._enabled = bool(enabled)
+        try:
+            self.entry.configure(state="normal" if enabled else "disabled")
+            self.arrow.configure(
+                text_color=T.COLOR_MUTED if enabled else T.COLOR_FAINT,
+                cursor="hand2" if enabled else "",
+            )
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return
+        if not enabled:
+            self._panel.close()
+
     # ------------------------------------------------------------ 禁用项
-    def disable(self, value: str) -> None:
-        """把某个叶子候选置灰：能看到，但选不了。"""
+    def disable(self, value: Optional[str] = None) -> None:
+        """禁用整个控件（不传参）或某个叶子候选（传 ``value``）。"""
+        if value is None:
+            self.set_enabled(False)
+            return
         self._disabled.add(value)
         if self._panel.visible:
             self._panel.refresh()
 
-    def enable(self, value: str) -> None:
-        """解除某个叶子候选的禁用。"""
+    def enable(self, value: Optional[str] = None) -> None:
+        """启用整个控件（不传参）或解除某个叶子候选（传 ``value``）。"""
+        if value is None:
+            self.set_enabled(True)
+            return
         self._disabled.discard(value)
         if self._panel.visible:
             self._panel.refresh()
@@ -1352,7 +1419,7 @@ class TreeSelectField(ctk.CTkFrame):
         super().destroy()
 
 
-class Stepper(ctk.CTkFrame):
+class Stepper(Enablable, ctk.CTkFrame):
     """紧凑步进器：``[ − ] 当前值 ▾ [ + ]``。
 
     左边减一步、右边加一步，中间点开是一组候选。数值范围（``from_`` /
@@ -1412,6 +1479,8 @@ class Stepper(ctk.CTkFrame):
         self._height = height
         self._bg = color_of(T.COLOR_INPUT)
         self._value = self._normalize(value) if value is not None else self._default()
+        # 控件本身是否可用；禁用时减号/加号/中间候选都点不动
+        self._enabled = True
 
         self._minus = tk.Canvas(
             self,
@@ -1493,6 +1562,8 @@ class Stepper(ctk.CTkFrame):
     # ------------------------------------------------------------ 交互
     def _step(self, direction: int) -> None:
         """左右箭头：列表里前后挪一项，数值上加减一个步长。"""
+        if not getattr(self, "_enabled", True):
+            return
         if self._values is not None:
             try:
                 index = self._values.index(self._value)
@@ -1514,7 +1585,16 @@ class Stepper(ctk.CTkFrame):
 
     def _open(self) -> None:
         """点中间：弹出候选面板。"""
+        if not getattr(self, "_enabled", True):
+            return
         self._panel.open()
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时加减号和中间值都变灰、点不动。"""
+        self._enabled = bool(enabled)
+        if not enabled:
+            self._panel.close()
+        self._draw_all()
 
     def _build_rows(self, parent: tk.Misc) -> int:
         """铺候选按钮；返回行数。"""
@@ -1560,7 +1640,9 @@ class Stepper(ctk.CTkFrame):
         height = canvas.winfo_height()
         if width <= 1 or height <= 1:
             return
-        color = color_of(T.COLOR_MUTED)
+        color = color_of(
+            T.COLOR_MUTED if getattr(self, "_enabled", True) else T.COLOR_BORDER_STRONG
+        )
         middle = height // 2
         half = 5
         canvas.create_line(
@@ -1586,7 +1668,11 @@ class Stepper(ctk.CTkFrame):
             middle,
             text=self._label_of(self._value),
             anchor="w",
-            fill=color_of(T.COLOR_TEXT),
+            fill=color_of(
+                T.COLOR_TEXT
+                if getattr(self, "_enabled", True)
+                else T.COLOR_FAINT
+            ),
             font=(T.FONT_NAME, 9),
         )
         bbox = canvas.bbox(text_item)

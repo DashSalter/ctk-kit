@@ -23,6 +23,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .sugar import Enablable
 from .theme import color_of
 
 try:  # Pillow 是可选依赖
@@ -57,7 +58,7 @@ def _parent_bg(master: tk.Misc) -> str:
     return color_of(T.COLOR_CARD)
 
 
-class RangeSlider(ctk.CTkFrame):
+class RangeSlider(Enablable, ctk.CTkFrame):
     """双滑块范围选择。
 
     参数:
@@ -104,6 +105,8 @@ class RangeSlider(ctk.CTkFrame):
         self._low, self._high = self._clamp_pair(float(start[0]), float(start[1]))
         self._active = 0
         self._photo = None
+        # 控件本身是否可用；禁用时两个圆球都拖不动
+        self._enabled = True
 
         self._canvas = tk.Canvas(
             self,
@@ -131,6 +134,11 @@ class RangeSlider(ctk.CTkFrame):
         self._render()
         if notify and self._command is not None:
             self._command(self._low, self._high)
+
+    def set_value(self, value: Tuple[float, float]) -> None:
+        """设置区间，等价于 ``set(low, high)``——传 ``(下限, 上限)``。"""
+        low, high = value
+        self.set(low, high)
 
     def configure(self, **kwargs: Any) -> None:
         """``command=`` 换回调，其余交给 ``CTkFrame``。"""
@@ -170,6 +178,8 @@ class RangeSlider(ctk.CTkFrame):
 
     def _press(self, event: tk.Event) -> None:
         """按下：选最近的圆球，并立刻跳到点击位置。"""
+        if not self._enabled:
+            return
         low_x = self._value_to_x(self._low)
         high_x = self._value_to_x(self._high)
         self._active = 0 if abs(event.x - low_x) <= abs(event.x - high_x) else 1
@@ -177,6 +187,8 @@ class RangeSlider(ctk.CTkFrame):
 
     def _drag(self, event: tk.Event) -> None:
         """拖动：更新当前圆球，两个圆球不会交叉。"""
+        if not self._enabled:
+            return
         value = self._x_to_value(event.x)
         if self._active == 0:
             self._low = min(value, self._high)
@@ -186,8 +198,19 @@ class RangeSlider(ctk.CTkFrame):
 
     def _release(self, _event: tk.Event) -> None:
         """松开：回调一次。"""
+        if not self._enabled:
+            return
         if self._command is not None:
             self._command(self._low, self._high)
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时两端手柄变灰、拖不动。"""
+        self._enabled = bool(enabled)
+        try:
+            self._canvas.configure(cursor="hand2" if enabled else "")
+        except tk.TclError:
+            return
+        self._render()
 
     def apply_theme(self) -> None:
         """按当前令牌重画轨道和两端手柄（``theming`` 运行时换色后调用）。"""
@@ -200,6 +223,9 @@ class RangeSlider(ctk.CTkFrame):
         track = color_of(T.COLOR_PROGRESS_TRACK)
         active = color_of(T.COLOR_ACTIVE)
         knob = color_of(T.COLOR_CARD)
+        if not self._enabled:
+            active = color_of(T.COLOR_BORDER_STRONG)
+            knob = color_of(T.COLOR_FAINT)
 
         if not _HAS_PIL:
             self._render_plain(track, active, knob)

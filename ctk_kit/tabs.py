@@ -23,9 +23,10 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .sugar import Valuable
 
 
-class Tabs(ctk.CTkTabview):
+class Tabs(Valuable, ctk.CTkTabview):
     """统一样式的标签页容器。
 
     参数:

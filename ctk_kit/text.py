@@ -30,12 +30,13 @@ from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .layout import style_scrollbar
 from .scrolling import find_scrollable, wheel_step
+from .sugar import Enablable
 
 # 内容变化回调：收到最新的全文（空文本时是空字符串）。
 ChangeHandler = Optional[Callable[[str], None]]
 
 
-class TextArea(ctk.CTkFrame):
+class TextArea(Enablable, ctk.CTkFrame):
     """多行文本输入区，附带占位符、字数统计与只读模式。"""
 
     def __init__(
@@ -191,6 +192,14 @@ class TextArea(ctk.CTkFrame):
         """切换只读状态。"""
         self._readonly = bool(value)
         self._apply_readonly_state()
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用等价于只读：内容还能选中复制，但改不了。"""
+        self.set_readonly(not enabled)
+
+    def is_enabled(self) -> bool:
+        """文本区当前是否可编辑。"""
+        return not self._readonly
 
     # ------------------------------------------------------------ 内部
     def _bind_wheel(self) -> None:

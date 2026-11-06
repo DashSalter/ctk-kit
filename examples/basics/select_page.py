@@ -305,8 +305,8 @@ class SelectPage(SelectPageUI):
 
     def bind_events(self) -> None:
         """三个下拉的 command 都在构造时传好了，这里只补输入框的实时回显。"""
-        self.single.entry.bind("<KeyRelease>", self._on_single_key)
-        self.tree.entry.bind("<KeyRelease>", self._on_tree_key)
+        self.single.entry.on_key_release(self._on_single_key)
+        self.tree.entry.on_key_release(self._on_tree_key)
 
     def _on_single(self, value: str) -> None:
         """单选：回显选中的值。"""

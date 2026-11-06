@@ -3,6 +3,57 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 未发布
+
+- 新增 `ctk_kit.sugar`：把 `configure(...)` / `cget(...)` 收成短方法。
+  - `enable()` / `disable()` / `toggle_enabled()` / `set_enabled(bool)` / `is_enabled()`：
+    按钮、输入框、分段、开关、勾选、单选、三个下拉、步进器、滑块、范围滑块、
+    搜索框、文本区、取色器都能直接禁用，不用再写 `configure(state="disabled")`
+  - `set_xxx(value)` / `get_xxx()`：任意 `configure` 选项都能写成方法，
+    例如 `btn.set_text("保存")`、`btn.set_fg_color("#ef4444")`、`btn.get_text()`；
+    `set_xxx()` 返回控件自己，可以链式调用
+  - 三个 mixin（`Enablable` / `Options` / `Textual`）可以混进自定义控件，
+    继承后自动获得上面这些方法
+- `inputs.Switch` 新增 `value=` 构造参数：`Switch(row, text="启用", value=True)`
+  建出来就是打开的；新增 `set_value(bool)` / `get_value()`，读状态不用再靠 `get()`
+  返回的 0/1。`Check` 同样新增 `set_value()` / `get_value()`（返回 `True` / `False`）；
+  `get()` / `select()` / `deselect()` 保留为兼容别名，效果一样
+- **所有带 `get()` / `set()` 的控件统一成 `get_value()` / `set_value(value)`**：
+  开关、勾选、单选、分段、下拉、三选框、文本区、取色器、搜索框、步进器、滑块、
+  范围滑块（传 `(下限, 上限)`）、进度、圆环进度、路径、时间/日期选择、标签页、
+  步骤条都认这两个名字，写法只记一套
+- `layout.FieldLabel` / `HintLabel` / `SectionTitle` 也支持 `set_text()` / `get_text()`，
+  信息面板里值会变的那种标签直接用，不必再 `configure(text=...)`
+- 事件也有方法名了：`on_resize` / `on_move`（背后同一个 `<Configure>`，按尺寸、
+  位置分开判断）、`on_focus` / `on_blur` / `on_key` / `on_key_release` / `on_scroll`；
+  `App` 另有 `on_close(fn)` 在关闭前回调，跑完仍走默认的存几何 + 销毁
+- 窗口尺寸和位置也走方法：`App.set_size(w, h)` / `get_size()` / `set_position(x, y)` /
+  `get_position()` / `center()`，不用再拼 `geometry("700x500+10+10")` 字符串；
+  `get_size()` 按屏幕 DPI 换算，读出来和 `size=` 参数同一套单位
+- `Bindable` 铺到 `inputs.CTkEntry`、`search.SearchBox`、`badge.Badge`，
+  输入框实时筛选、徽标点一下就换状态都能用 `on_key_release` / `on_click` 写
+- 新增 `layout.Label`（导出为 `ctk.Label`）：默认正文色，带 `set_text` /
+  `on_click`，需要"点一下就跳转"的普通文字不用再摸原生 `CTkLabel` + `bind`
+- 示例不再 `import customtkinter`：`examples/` 下所有文件只依赖 `ctk_kit`
+- 默认主题改成 `mica`（黑灰、只糊壁纸）：`App()` 不传 `backdrop` 时窗口默认走玻璃，
+  需要原先的不透明窗口请显式传 `backdrop="none"`
+- 新增 `App.set_theme(name, color=None)` / `set_theme_color(color)` / `get_theme()`：
+  一行切换 `frosted`（毛玻璃）/ `dark`（深空）/ `acrylic`（黑偏蓝）/ `mica`（黑灰），
+  颜色可单独改，不用再自己拼 `set_glass_options(kind=..., backdrop=..., color=...)`
+- 窗口外观拆成一组专用方法，都返回 `App` 可链式：
+  `set_glass_kind` / `set_glass_state` / `set_system_backdrop` / `set_tint` /
+  `set_tint_alpha` / `set_window_corners` / `set_border_color` / `set_caption_color` /
+  `set_opacity` / `set_veil` / `set_extend` / `set_titlebar_glass` / `set_glass_dark` /
+  `set_wca` / `show_titlebar_icon` / `show_titlebar_title` / `hide_frame_border` /
+  `set_transitions`（设置页已全部改用它们；`set_glass_options(**kwargs)` 保留兼容）
+- 新增 `Card.row(index=1, **options)`：按编号取/建行容器，同一编号复用同一个
+  `Frame`，`ctk.PrimaryButton(card.row(1), "保存").pack(side="left")` 就行，
+  不用先手写 `row = Frame(card)`；序号小的排在上面，行已存在时只更新显式传入的
+  布局参数
+- 示例新增 `examples/demo/`：按钮、输入框、开关、主题切换各一个文件
+- 修复 `center=True` 在 125% 缩放下窗口偏右下：居中时把宽高换算成物理像素再算
+  偏移，窗口中心现在和屏幕中心对齐
+
 ## 0.11.0 — 2026-11-06
 
 - **破坏性变更**：`tokens` 只保留**一套毛玻璃配色**，颜色令牌从

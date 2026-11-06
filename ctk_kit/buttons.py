@@ -12,12 +12,14 @@ from __future__ import annotations
 
 import tkinter as tk
 import tkinter.font as tkfont
+from functools import partial
 from typing import Any, Callable, Dict, Optional
 
 import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .sugar import Bindable, Enablable, Textual
 from .theme import ColorToken
 
 # 无参回调；CTk 的 command 就是这么调的，不会传入事件对象。
@@ -45,7 +47,31 @@ def _measurer(font_spec: T.FontSpec) -> tkfont.Font:
     return cached
 
 
-class CTkButton(ctk.CTkButton):
+class _ButtonBase(Enablable, Textual, Bindable):
+    """两个按钮类共用的小方法：点一下、换回调、绑常用事件。"""
+
+    def click(self) -> None:
+        """以编程方式点一下，等价于 ``invoke()``。"""
+        self.invoke()
+
+    def set_command(
+        self, command: Command, *args: Any, **kwargs: Any
+    ) -> "_ButtonBase":
+        """换点击回调，返回自己；``command=None`` 表示不再响应点击。
+
+        参数:
+            command: 回调。多给的 ``*args`` / ``**kwargs`` 会先绑进去——
+                ``btn.set_command(delete, 42)`` 等价于
+                ``btn.configure(command=functools.partial(delete, 42))``。
+                Tk 调回调时永远不传参，所以参数得在这里绑好。
+        """
+        if command is not None and (args or kwargs):
+            command = partial(command, *args, **kwargs)
+        self.configure(command=command)
+        return self
+
+
+class CTkButton(_ButtonBase, ctk.CTkButton):
     """带库默认样式的按钮。
 
     直接 ``from ctk_kit import CTkButton`` 建出来的按钮就已经是库的风格：
@@ -191,7 +217,7 @@ def DangerButton(
     )
 
 
-class FlatButton(ctk.CTkButton):
+class FlatButton(_ButtonBase, ctk.CTkButton):
     """卡片里的小号圆角按钮（复制 / 显示 / 详情）。
 
     宽度按文字实测宽度算出来，既不浪费横向空间，也不会把文字挤掉。

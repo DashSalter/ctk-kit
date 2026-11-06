@@ -18,6 +18,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .sugar import Valuable
 from .theme import color_of
 
 try:  # Pillow 是可选依赖
@@ -58,7 +59,7 @@ def _parent_bg(master: tk.Misc) -> str:
     return color_of(T.COLOR_CARD)
 
 
-class Progress(ctk.CTkFrame):
+class Progress(Valuable, ctk.CTkFrame):
     """进度条：连续 / 分格 / 带百分比 / 条纹 / 不确定态。
 
     整块是一个透明容器，左边是条本身，右边按需放百分比文字。
@@ -336,7 +337,7 @@ class Progress(ctk.CTkFrame):
         super().destroy()
 
 
-class RingProgress(ctk.CTkFrame):
+class RingProgress(Valuable, ctk.CTkFrame):
     """圆环进度：外圈可以带刻度，中间显示百分比。
 
     和 ttkbootstrap 的 ``Meter`` 一个思路：PIL 在 3 倍尺寸上画弧，再缩回来，

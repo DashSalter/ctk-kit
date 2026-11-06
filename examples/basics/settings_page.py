@@ -133,7 +133,7 @@ class SettingsPageUI(PageBase):
         ).pack(anchor="w", padx=16, pady=(0, 14))
 
     def _glass_switch(self, box: tk.Misc, label: str, key: str, *, last: bool = False) -> Switch:
-        """一行「标签 + 开关」，开关回调按 ``key`` 回写 ``set_glass_options``。"""
+        """一行「标签 + 开关」，开关回调按 ``key`` 走对应的专用方法。"""
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         FieldLabel(row, label, width=64).pack(side="left")
@@ -158,7 +158,7 @@ class SettingsPageUI(PageBase):
     def _titlebar_switch(
         self, box: tk.Misc, label: str, key: str, *, last: bool = False
     ) -> Switch:
-        """一行「标签 + 开关」，开关回调按 ``key`` 交给 ``set_titlebar_items``。"""
+        """一行「标签 + 开关」，开关回调按 ``key`` 交给标题栏的两个专用方法。"""
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         FieldLabel(row, label, width=64).pack(side="left")
@@ -194,7 +194,7 @@ class SettingsPageUI(PageBase):
     def _debug_switch(
         self, box: tk.Misc, label: str, key: str, *, last: bool = False
     ) -> Switch:
-        """一行「标签 + 开关」，开关回调按 ``key`` 交给 ``set_window_debug``。"""
+        """一行「标签 + 开关」，开关回调按 ``key`` 交给窗口调试的专用方法。"""
         row = Frame(box)
         row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         label_widget = FieldLabel(row, label, width=64)
@@ -331,19 +331,19 @@ class SettingsPage(SettingsPageUI):
             kind = deep_kinds[value]
             if app.glass_options().get("kind") == kind:
                 return
-            # 只切合成方式和 tint，和「合成方式」里的按钮走同一条路：
-            # 不碰 set_appearance_mode / set_backdrop，这两个会重建外壳和当前页。
-            app.set_glass_options(kind=kind, color="#1A1A1A")
+            # 只切合成方式和 tint，不碰 set_appearance_mode / set_backdrop，
+            # 这两个会重建外壳和当前页。
+            app.set_glass_kind(kind).set_tint("#1A1A1A")
             return
         if value == "深空":
             # 深色 + 系统背板「1 无」：DWM 不再画背板/模糊，窗口就是纯深的实底。
             wanted_mode, wanted_backdrop = "dark", "acrylic"
-            app.set_glass_options(kind="accent", backdrop=1, color="#1A1A1A")
+            app.set_glass_kind("accent").set_system_backdrop(1).set_tint("#1A1A1A")
         elif value == "毛玻璃":
             wanted_mode, wanted_backdrop = "dark", "acrylic"
             # 从 Acrylic / Mica 切回来时把 tint 和合成方式还原成默认，
             # 否则玻璃还带着上一种主题的中性深色。
-            app.set_glass_options(kind="accent", color="#181A20")
+            app.set_glass_kind("accent").set_tint("#181A20")
         else:
             return
         # 已经是这个状态就不要再走一遍：set_backdrop / set_appearance_mode
@@ -365,7 +365,7 @@ class SettingsPage(SettingsPageUI):
     def _full_opacity(self) -> None:
         """把窗口整体透明度和背景层都拉满（不透明）。"""
         app = self.app
-        app.set_glass_options(opacity=1.0)
+        app.set_opacity(1.0)
         layer = getattr(app, "frost_layer", None)
         if layer is None:
             return
@@ -473,49 +473,49 @@ class SettingsPage(SettingsPageUI):
     def on_glass_kind(self, value: str) -> None:
         """换一种 DWM 合成方式：Accent 模糊 / Acrylic / 系统背板 / Mica。"""
         kinds = {"Accent": "accent", "Acrylic": "acrylic", "系统": "system", "Mica": "mica"}
-        self._set_glass(kind=kinds.get(value, "accent"))
+        self.app.set_glass_kind(kinds.get(value, "accent"))
 
     def on_glass_alpha(self, value: float) -> None:
         """拖动压暗滑块：0 最透、255 最黑。"""
         alpha = int(round(float(value)))
-        self._set_glass(alpha=alpha)
+        self.app.set_tint_alpha(alpha)
 
     def on_glass_opacity(self, value: float) -> None:
-        """拖动整体透明度：10%–100%，换算成 Tk 的 ``-alpha``。"""
+        """拖动整体透明度：10%–100%，换算成窗口的 ``-alpha``。"""
         percent = int(round(float(value)))
         self.glass_opacity_value.configure(text=f"{percent}%")
-        self._set_glass(opacity=percent / 100)
+        self.app.set_opacity(percent / 100)
         # 核心会把背景透明度压到不超过整体透明度，这里同步一下显示。
         self.refresh_background()
 
     def on_glass_wca(self, value: str) -> None:
-        """切换 ``SetWindowCompositionAttribute`` 的属性号（30 是原来的值）。"""
-        self._set_glass(wca=int(value))
+        """切换 ``SetWindowCompositionAttribute`` 的属性号（19 是默认值）。"""
+        self.app.set_wca(int(value))
 
     def on_glass_state(self, value: str) -> None:
         """换 AccentState：0 关 / 2 透明渐变 / 3 模糊 / 4 亚克力。"""
         states = {"0 关": 0, "2 透明": 2, "3 模糊": 3, "4 亚克力": 4}
-        self._set_glass(state=states.get(value, 3))
+        self.app.set_glass_state(states.get(value, 3))
 
     def on_glass_backdrop(self, value: str) -> None:
         """直接写 ``DWMWA_SYSTEMBACKDROP_TYPE``（38）。"""
         kinds = {"不设": 0, "1 无": 1, "2 Mica": 2, "3 亚克力": 3, "4 标签": 4}
-        self._set_glass(backdrop=kinds.get(value, 0))
+        self.app.set_system_backdrop(kinds.get(value, 0))
 
     def on_glass_corners(self, value: str) -> None:
         """写 ``DWMWA_WINDOW_CORNER_PREFERENCE``（33）。"""
         values = {"默认": 0, "不圆": 1, "圆": 2, "小圆": 3}
-        self._set_glass(corners=values.get(value, 0))
+        self.app.set_window_corners(values.get(value, 0))
 
     def on_glass_border(self, value: str) -> None:
-        """写 ``DWMWA_BORDER_COLOR``（34）。"""
-        values = {"灰": 0x808080, "无": 0xFFFFFFFE, "黑": 0x000000, "白": 0xFFFFFF}
-        self._set_glass(border=values.get(value, 0xFFFFFFFE))
+        """写 ``DWMWA_BORDER_COLOR``（34）；「无」表示不要边框。"""
+        values = {"灰": "#808080", "无": None, "黑": "#000000", "白": "#FFFFFF"}
+        self.app.set_border_color(values.get(value))
 
     def on_glass_caption(self, value: str) -> None:
         """写 ``DWMWA_CAPTION_COLOR``（35）；「玻璃」表示交还给 DWM。"""
-        values = {"玻璃": None, "黑": 0x000000, "白": 0xFFFFFF}
-        self._set_glass(caption=values.get(value))
+        values = {"玻璃": None, "黑": "#000000", "白": "#FFFFFF"}
+        self.app.set_caption_color(values.get(value))
 
     def on_glass_color(self, value: str) -> None:
         """换 tint 底色；「白」配高「压暗」就是白色毛玻璃。"""
@@ -525,35 +525,36 @@ class SettingsPage(SettingsPageUI):
             "深灰": "#2A2D33",
             "白": "#FFFFFF",
         }
-        self._set_glass(color=colors.get(value, "#181A20"))
+        self.app.set_tint(colors.get(value, "#181A20"))
 
     def on_glass_veil(self, value: str) -> None:
         """换「透明键色」：只有纯黑会被 DWM 当成全透明。"""
         veils = {"纯黑": "#000000", "近黑": "#050505", "深灰": "#101010", "暖黑": "#181A20"}
-        self._set_glass(veil=veils.get(value, "#000000"))
+        self.app.set_veil(veils.get(value, "#000000"))
 
     def _on_glass_switch(self, key: str) -> None:
-        """某个开关被拨动：读它的新状态回写。"""
+        """某个开关被拨动：读它的新状态写回去。"""
         switch = getattr(self, f"glass_{key}")
-        self._set_glass(**{key: bool(switch.get())})
+        if key == "extend":
+            self.app.set_extend(bool(switch.get()))
 
     def _on_titlebar_switch(self, key: str) -> None:
         """标题栏开关：隐藏 / 显示图标、标题文字，改完立即生效。"""
         switch = getattr(self, f"titlebar_{key}")
         value = bool(switch.get())
         if key == "icon":
-            self.app.set_titlebar_items(icon=value)
+            self.app.show_titlebar_icon(value)
         else:
-            self.app.set_titlebar_items(title=value)
+            self.app.show_titlebar_title(value)
 
     def _on_debug_switch(self, key: str) -> None:
         """窗口调试开关：去 1px 边框 / 关过渡动画，改完立即生效。"""
         switch = getattr(self, f"debug_{key}")
         value = bool(switch.get())
         if key == "border":
-            self.app.set_window_debug(hide_frame_border=value)
+            self.app.hide_frame_border(value)
         else:
-            self.app.set_window_debug(disable_transitions=value)
+            self.app.set_transitions(not value)
 
     def on_debug_bounds(self) -> None:
         """读 DWM 的真实边界（含阴影），和 Tk 的客户区坐标并排显示。"""
@@ -569,9 +570,3 @@ class SettingsPage(SettingsPageUI):
             text=f"DWM {left},{top} {right - left}×{bottom - top}"
             f"    Tk {x},{y} {w}×{h}"
         )
-
-    def _set_glass(self, **kwargs) -> None:
-        """把改动交给 App 立即重挂一次玻璃。"""
-        app = getattr(self, "app", None)
-        if app is not None:
-            app.set_glass_options(**kwargs)

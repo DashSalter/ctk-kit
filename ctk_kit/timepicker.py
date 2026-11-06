@@ -24,6 +24,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .sugar import Valuable
 from .popup import round_window_corners, scaled_geometry
 from .theme import color_of
 
@@ -208,7 +209,7 @@ class _Wheel(tk.Canvas):
         self._job = self.after(1, tick)
 
 
-class TimePicker(ctk.CTkFrame):
+class TimePicker(Valuable, ctk.CTkFrame):
     """时 / 分 / 秒三列滚轮。
 
     参数:
@@ -291,7 +292,7 @@ class TimePicker(ctk.CTkFrame):
 _FOLLOW_MS = 120
 
 
-class TimeField(ctk.CTkFrame):
+class TimeField(Valuable, ctk.CTkFrame):
     """时间输入框：[时] : [分] : [秒 ▾]。
 
     三段都是只读输入框，键盘改不了；点任意一段弹出三列滚轮，滚动时立即

@@ -18,10 +18,11 @@ from __future__ import annotations
 
 import contextlib
 import tkinter as tk
-from typing import Any, Mapping, Optional, Sequence
+from typing import Any, Callable, Mapping, Optional, Sequence
 
 from customtkinter import (
     CTk,
+    CTkFrame,
     get_appearance_mode,
     set_appearance_mode,
     set_default_color_theme,
@@ -29,6 +30,7 @@ from customtkinter import (
 
 from . import theming
 from .branding import dim_ratio, set_dim_ratio, set_window_icon
+from .sugar import Bindable
 from .core.frost_layer import FrostLayer
 from .notify import Notifier
 from .theme import (
@@ -63,7 +65,18 @@ __all__ = ["App"]
 _FROST_KEY = "#010203"
 
 
-class App(CTk):
+def _colorref(color: Optional[str], default: Any = None) -> Any:
+    """``#RRGGBB`` → Win32 ``COLORREF``（``0x00BBGGRR``）；``None`` 原样返回 default。"""
+    if not color:
+        return default
+    value = str(color).strip().lstrip("#")
+    if len(value) != 6:
+        raise ValueError(f"颜色要写成 #RRGGBB：{color!r}")
+    red, green, blue = int(value[0:2], 16), int(value[2:4], 16), int(value[4:6], 16)
+    return blue << 16 | green << 8 | red
+
+
+class App(Bindable, CTk):
     """带便捷参数的 ``CTk`` 根窗口。
 
     参数:
@@ -81,12 +94,12 @@ class App(CTk):
         icon: 窗口图标。默认 ``True`` 用内置 logo；传 ``False`` 不设；
             传字符串则当成自定义 ``.ico`` / ``.png`` 路径。
         remember_geometry: 默认 ``True``，关闭时把窗口大小和位置交给 ``state``
-            保存，下次启动自动恢复；没传 ``state`` 时什么都不会记。
+            下次启动自动恢复；同样需要 ``state``。
         remember_theme: 默认 ``True``，记住上次选择的外观、颜色主题和底色，
             下次启动自动恢复；同样需要 ``state``。
         backdrop: ``"none"``（不透明）或 ``"acrylic"``（毛玻璃）；在窗口创建前
             生效，默认沿用上次的选择。也可以建好后 ``app.set_backdrop(...)``
-            即时切换。
+
         state: 可选的"窗口状态存储"对象，见下方说明；核心库不内置持久化。
         **kwargs: 其余参数原样交给 ``CTk``，例如 ``fg_color`` / ``bg_color``。
 
@@ -115,13 +128,13 @@ class App(CTk):
         icon: Any = True,
         remember_geometry: bool = True,
         remember_theme: bool = True,
-        backdrop: Optional[str] = None,
+        backdrop: Optional[str] = "acrylic",
         state: Any = None,
         **kwargs: Any,
     ) -> None:
         """建根窗口：先应用外观/主题，再交给 ``CTk`` 完成其余初始化。
 
-        ``state`` 是"窗口状态存储"：核心库不内置持久化，要用就把一个带
+            下次启动自动恢复；同样需要 ``state``。
         ``read_geometry`` / ``write_geometry`` / ``read_appearance`` /
         ``write_appearance`` / ``read_color_theme`` / ``write_color_theme`` /
         ``read_backdrop`` / ``write_backdrop`` 这些方法的对象传进来（见
@@ -141,7 +154,7 @@ class App(CTk):
         if theme is not None:
             set_default_color_theme(theme)
         # 玻璃底色必须在建控件之前定下来：tokens 里的 COLOR_BG / COLOR_SIDE
-        # 会被换成纯黑，之后创建的控件才按玻璃取值。
+        # 自然用新色，不用等窗口出来再刷一遍。
         self._backdrop = apply_backdrop(backdrop or "none")
         # 用户挑过的颜色也在这时候恢复：改的是 tokens 全局值，之后建的控件
         # 自然用新色，不用等窗口出来再刷一遍。
@@ -149,7 +162,7 @@ class App(CTk):
         # 整窗玻璃的参数，运行时用 set_glass_options() 调（设置页有一组控件）。
         # tint 是 0xAABBGGRR：alpha 越高越暗、越低越透。默认沿用原来的 0xE6。
         self._glass = {
-            "kind": "accent",   # accent / acrylic / system / mica
+            "kind": "mica",     # accent / acrylic / system / mica（默认 mica）
             "alpha": 0xE6,
             "wca": 30,          # SetWindowCompositionAttribute 的属性号，见 win32.py
             "state": 3,         # AccentState：0 关 / 2 透明 / 3 模糊 / 4 亚克力
@@ -157,7 +170,7 @@ class App(CTk):
             "corners": 0,       # 0 默认 / 1 不圆 / 2 圆 / 3 小圆
             "border": 0xFFFFFFFE,  # 34：None 默认 / DWMWA_COLOR_NONE（默认无边框）
             "caption": None,    # 35：None 交给 DWM / 颜色
-            "color": "#181A20",
+            "color": "#1A1A1A",
             "veil": "#000000",  # 透明键色：窗口底/侧边栏/页面底铺它，纯黑才透明
             "opacity": 1.0,     # 窗口整体透明度（-alpha），1.0 为不透明
             "frame": False,
@@ -207,6 +220,8 @@ class App(CTk):
 
         # 登记的外壳控件：切外观时按顺序调它们的 apply_theme()，不重建。
         self._themeables: list = []
+        self._theme_name = "mica"
+        self._theme_color = "#1A1A1A"
 
         if title is not None:
             self.title(title)
@@ -218,7 +233,7 @@ class App(CTk):
         if remember_geometry:
             restored = self._restore_geometry(min_size)
         if center and not restored:
-            self.after_idle(self._center_on_screen)
+            self._center_on_screen()
 
         if icon is not False:
             if isinstance(icon, str):
@@ -261,13 +276,13 @@ class App(CTk):
 
         适合状态栏、独立卡片这类不在 ``SidebarNav`` 页面里的控件：它们的
         颜色可以直接 ``configure`` 换掉，不需要销毁重建。重复登记同一个控件
-        不会生效两次。
+
         """
         if widget not in self._themeables:
             self._themeables.append(widget)
 
     def set_appearance_mode(self, mode: str, *, save: bool = True) -> None:
-        """切换外观。
+        """
 
         窗口里挂了 ``SidebarNav``（``self.nav``）时交给它处理——外壳原地
         换色，只重建当前页，其余页等切过去时再建；没有导航时走普通的
@@ -297,7 +312,7 @@ class App(CTk):
             if callable(apply):
                 apply(mode)
 
-        # 窗口类的擦除画刷跟着新底色换，避免切主题后还原窗口闪旧色。
+            # 默认底色跟着外观走：深色配黑，浅色配白，不然字看不见。
         set_window_brush(self)
 
         if save and getattr(self, "_remember_theme", False):
@@ -306,8 +321,8 @@ class App(CTk):
     def _refresh_backdrop(self) -> None:
         """窗口映射后把玻璃挂上（DWM 只对已映射的窗口生效）。"""
         self._apply_glass()
-        # 玻璃挂好之后再垫底层颜色窗口：主窗口的模糊采样的是它，顺序反了
-        # 就会先采到桌面、再也不会更新。
+            # 默认底色跟着外观走：深色配黑，浅色配白，不然字看不见。
+            # 默认底色跟着外观走：深色配黑，浅色配白，不然字看不见。
         self.after(40, self._auto_frost_layer)
 
     def _auto_frost_layer(self) -> None:
@@ -325,7 +340,7 @@ class App(CTk):
         return dict(self._glass)
 
     def set_glass_options(self, **kwargs) -> dict:
-        """改一个或多个毛玻璃参数并立即重挂，返回改完后的全部参数。
+        """
 
         可调项：
 
@@ -348,13 +363,13 @@ class App(CTk):
         ``titlebar``
             是否把标题栏交还给 DWM（``False`` 时刷成纯色，玻璃就糊不上去了）。
         ``dark``
-            是否让标题栏跟随深色外观。
+
         ``corners``
             窗口圆角：``0`` 系统默认 / ``1`` 不圆 / ``2`` 圆 / ``3`` 小圆
             （直接对应 ``DWMWCP_*``；小圆要 Win11 22H2+）。
         ``border``
             边框色（COLORREF），``0xFFFFFFFE`` 表示不要边框（默认），``None``
-            交还系统默认，其余为具体颜色。
+
         """
         if "kind" in kwargs and "state" not in kwargs:
             # 换合成方式时把 AccentState 一起带上，否则会沿用上一个方式的值。
@@ -370,6 +385,183 @@ class App(CTk):
         else:
             self._apply_glass()
         return dict(self._glass)
+
+    _THEME_PRESETS = {
+        # 毛玻璃：透出桌面，带模糊
+        "frosted": {"kind": "accent", "backdrop": 0, "color": "#181A20"},
+        # 深空：纯深色实底，不透桌面
+        "dark": {"kind": "accent", "backdrop": 1, "color": "#1A1A1A"},
+        # Acrylic：黑色偏蓝
+        "acrylic": {"kind": "acrylic", "backdrop": 0, "color": "#1A1A1A"},
+        # Mica：黑灰
+        "mica": {"kind": "mica", "backdrop": 0, "color": "#1A1A1A"},
+    }
+    _THEME_ALIASES = {
+        "毛玻璃": "frosted",
+        "玻璃": "frosted",
+        "glass": "frosted",
+        "深空": "dark",
+        "黑暗": "dark",
+        "black": "dark",
+    }
+
+    def set_theme(self, name: str = "mica", color: Optional[str] = None) -> "App":
+        """切换窗口主题，返回自己。
+
+        参数:
+            name: ``"mica"``（默认，黑灰，只糊壁纸）、``"frosted"``（毛玻璃，
+                透出桌面）、``"dark"``（深空，纯深色实底）、``"acrylic"``（黑色偏蓝）。
+                不区分大小写，中文别名「毛玻璃」「深空」也可以。
+            color: 主题底色，不传就用该主题的默认值。
+
+        ```python
+        app.set_theme("frosted")
+        app.set_theme("acrylic", color="#20222a")
+        ```
+        """
+        key = self._THEME_ALIASES.get(name, str(name).lower())
+        preset = self._THEME_PRESETS.get(key)
+        if preset is None:
+            raise ValueError(
+                f"未知主题 {name!r}，可选：frosted / dark / acrylic / mica"
+            )
+        options = dict(preset)
+        if color:
+            options["color"] = color
+        self._theme_name = key
+        self._theme_color = options["color"]
+        self.set_glass_options(**options)
+        return self
+
+    def set_theme_color(self, color: str) -> "App":
+        """只改当前主题的底色，不换主题，返回自己。
+
+        ```python
+        app.set_theme("mica")
+        app.set_theme_color("#2b2b3a")   # 还是 mica，只换 tint
+        ```
+        """
+        self._theme_color = color
+        self.set_glass_options(color=color)
+        return self
+
+    def get_theme(self) -> str:
+        """当前主题名：``"mica"`` / ``"frosted"`` / ``"dark"`` / ``"acrylic"``。"""
+        return getattr(self, "_theme_name", "mica")
+
+    def get_theme_color(self) -> str:
+        """当前主题底色。"""
+        return getattr(self, "_theme_color", "#1A1A1A")
+
+    # ------------------------------------------------------------------ 外观
+    def _glass_set(self, **options: Any) -> "App":
+        """把参数写进玻璃配置并重挂一次，返回自己（内部用，便于链式）。"""
+        self.set_glass_options(**options)
+        return self
+
+    def set_glass_kind(self, kind: str) -> "App":
+        """换 DWM 的合成方式，返回自己。
+
+        ``"accent"`` 模糊 + tint、``"acrylic"`` Win10 亚克力、
+        ``"system"`` 系统背板（标题栏一起糊）、``"mica"`` 只糊壁纸。
+        """
+        return self._glass_set(kind=str(kind).lower())
+
+    def set_glass_state(self, state: int) -> "App":
+        """直接写 ``AccentState``：``0`` 关、``2`` 透明、``3`` 模糊、``4`` 亚克力。"""
+        return self._glass_set(state=int(state))
+
+    def set_system_backdrop(self, value: int) -> "App":
+        """直接写 ``DWMWA_SYSTEMBACKDROP_TYPE``：``0`` 不设、``1`` 无、``2`` Mica、``3`` 亚克力、``4`` 标签。"""
+        return self._glass_set(backdrop=int(value))
+
+    def set_tint(self, color: str) -> "App":
+        """玻璃 tint 的底色（``#RRGGBB``），返回自己。
+
+        只有 accent / acrylic 吃 tint；system / Mica 的亮度由 DWM 决定。
+        """
+        return self._glass_set(color=color)
+
+    def set_tint_alpha(self, alpha: int) -> "App":
+        """tint 的压暗程度 0–255，越高越黑，返回自己。"""
+        return self._glass_set(alpha=int(alpha))
+
+    def set_window_corners(self, value: int) -> "App":
+        """窗口圆角：``0`` 系统默认、``1`` 不圆、``2`` 圆、``3`` 小圆，返回自己。"""
+        return self._glass_set(corners=int(value))
+
+    def set_border_color(self, color: Optional[str] = None) -> "App":
+        """窗口边框颜色，返回自己。
+
+        参数:
+            color: ``"#RRGGBB"``；``None`` 表示不要边框
+                （实际写 ``DWMWA_COLOR_NONE``）。
+        """
+        return self._glass_set(border=_colorref(color, 0xFFFFFFFE))
+
+    def set_caption_color(self, color: Optional[str] = None) -> "App":
+        """标题栏颜色，返回自己。
+
+        参数:
+            color: ``"#RRGGBB"``；``None`` 把标题栏交还给 DWM，
+                玻璃才会糊到标题栏上。
+        """
+        return self._glass_set(caption=_colorref(color, None))
+
+    def set_opacity(self, value: float) -> "App":
+        """窗口整体透明度，返回自己。
+
+        参数:
+            value: ``0.1``–``1.0``；低于 1 时窗口变成 layered，
+                DWM 会把系统玻璃摘掉（和毛玻璃二选一）。
+        """
+        return self._glass_set(opacity=max(0.1, min(1.0, float(value))))
+
+    def set_veil(self, color: str) -> "App":
+        """透明键色，返回自己。
+
+        玻璃窗口里这个颜色会被 DWM 当成「全透明」，通常保持 ``#000000``；
+        调成近黑 / 深灰时窗口底会变成半透明的深色。
+        """
+        return self._glass_set(veil=color)
+
+    def set_extend(self, enabled: bool = True) -> "App":
+        """是否 ``DwmExtendFrameIntoClientArea(-1)``（把客户区延伸到整个窗口），返回自己。"""
+        return self._glass_set(extend=bool(enabled))
+
+    def set_titlebar_glass(self, enabled: bool = True) -> "App":
+        """标题栏是否交还给 DWM（``False`` 时刷成纯色，玻璃糊不上去），返回自己。"""
+        return self._glass_set(titlebar=bool(enabled))
+
+    def set_glass_dark(self, enabled: bool = True) -> "App":
+        """标题栏 / 系统部件是否用深色，返回自己。"""
+        return self._glass_set(dark=bool(enabled))
+
+    def set_wca(self, value: int) -> "App":
+        """``SetWindowCompositionAttribute`` 的属性号（默认 19），返回自己。"""
+        return self._glass_set(wca=int(value))
+
+    # ------------------------------------------------------------------ 标题栏
+    def show_titlebar_icon(self, visible: bool = True) -> "App":
+        """显示 / 隐藏标题栏左上角的图标，返回自己。"""
+        self.set_titlebar_items(icon=bool(visible))
+        return self
+
+    def show_titlebar_title(self, visible: bool = True) -> "App":
+        """显示 / 隐藏标题栏上的标题文字，返回自己。"""
+        self.set_titlebar_items(title=bool(visible))
+        return self
+
+    # ------------------------------------------------------------------ 调试
+    def hide_frame_border(self, hidden: bool = True) -> "App":
+        """去掉窗口四周那条 1px 系统边框（Win11 22H2+），返回自己。"""
+        self.set_window_debug(hide_frame_border=bool(hidden))
+        return self
+
+    def set_transitions(self, enabled: bool = True) -> "App":
+        """窗口出现 / 消失 / 重建时的 DWM 过渡动画，返回自己。"""
+        self.set_window_debug(disable_transitions=not enabled)
+        return self
 
     def window_debug(self) -> dict:
         """当前的窗口调试项（可调项见 :meth:`set_window_debug`）。
@@ -397,7 +589,7 @@ class App(CTk):
         ``hide_frame_border``
             ``True`` 时把 ``DWMWA_VISIBLE_FRAME_BORDER_THICKNESS``（37）设成 0，
             去掉窗口四周那条 1px 系统边框；``False`` 恢复成 1。仅 Win11 22H2+
-            有效，老系统上静默无效。
+
         ``disable_transitions``
             ``True`` 时设 ``DWMWA_TRANSITIONS_FORCEDISABLED``（3），关掉窗口
             出现、消失、重建时的 DWM 过渡动画；``False`` 恢复系统默认。
@@ -413,7 +605,7 @@ class App(CTk):
         return dict(self._debug)
 
     def titlebar_items(self) -> dict:
-        """标题栏左上角的图标和标题文字是否显示。
+        """
 
         返回 ``{"icon": bool, "title": bool}``，默认都是 ``True``；对应的
         win32 操作见 :meth:`set_titlebar_items`。
@@ -435,12 +627,12 @@ class App(CTk):
 
         只动 Win32 的窗口文本和 ``WM_SETICON`` 的小图标槽。隐藏标题时会先
         记住原标题，切回 ``title=True`` 再用它写回；隐藏期间 ``app.title()``
-        可能读到空串。任务栏的大图标不受影响；窗口文本清空后，任务栏按钮上
-        的文字也会跟着空。
+
+
 
         注意:
             隐藏状态只在当前窗口实例上有效，窗口重建后回到显示；非 Windows
-            平台调用静默无效。
+
         """
         if icon is not None and bool(icon) != self._titlebar_items["icon"]:
             self._apply_titlebar_icon(bool(icon))
@@ -485,7 +677,7 @@ class App(CTk):
             pass
 
     def _reapply_titlebar_items(self) -> None:
-        """窗口映射或重建标题栏之后，把隐藏状态再应用一次。"""
+        """标题栏的图标 / 文字被藏起来时，重新按当前状态应用一遍。"""
         if not self._titlebar_items["icon"]:
             self._apply_titlebar_icon(False)
         if not self._titlebar_items["title"]:
@@ -503,7 +695,7 @@ class App(CTk):
     def _state_call(self, name: str, *args: Any) -> Any:
         """调一次状态存储上的方法；没接存储或调用失败都返回 ``None``。
 
-        核心库不关心数据存在哪、什么格式，只按约定调这几个方法。
+
         """
         if self._state is None:
             return None
@@ -580,12 +772,12 @@ class App(CTk):
             apply_backdrop("acrylic", veil)
             try:
                 self.configure(fg_color=veil)
-            except Exception:  # noqa: BLE001 - 老窗口没有 fg_color
+            except Exception:  # noqa: BLE001 - fg_color 不被支持时忽略
                 pass
         with freeze_redraw(self):
             self._apply_glass()
             set_window_brush(self)
-        # 不能在这里同步重建：这个方法是设置页的控件回调里调的，同步重建会把
+        # 正在响应点击的那个页面销毁掉。等这一轮事件处理完再重建。
         # 正在响应点击的那个页面销毁掉。等这一轮事件处理完再重建。
         self.after_idle(self._repaint_shell)
 
@@ -598,7 +790,7 @@ class App(CTk):
         spread: int = 0,
         save: bool = False,
     ) -> None:
-        """让毛玻璃「后面」是可控的底色，而不是桌面。
+        """
 
         做法是双窗口：底下再开一个和主窗口等大、同位置的窗口，它自己开着
         系统毛玻璃；主窗口把客户区刷成透明键（``#010203``）并调到
@@ -637,7 +829,7 @@ class App(CTk):
             self._refresh_dim_widgets()
 
     def _refresh_dim_widgets(self) -> None:
-        """让所有压暗过图片的控件按新比例重画。"""
+        """遍历控件树，让每个认 ``_refresh_dim`` 的控件重算一次变暗遮罩。"""
         def walk(widget: tk.Misc) -> None:
             try:
                 children = widget.winfo_children()
@@ -663,7 +855,7 @@ class App(CTk):
         return int(round(opacity * 255))
 
     def _clamp_frost_alpha(self) -> None:
-        """整体透明度调低后，把背景透明度一起压到它的上限。"""
+        """玻璃不透明度不能超过上限（窗口太小时上限会压低），超了就夹回去。"""
         if self._frost_layer is None:
             return
         cap = self._frost_cap()
@@ -682,7 +874,7 @@ class App(CTk):
 
     @property
     def frost_active(self) -> bool:
-        """底层颜色窗口是否开着。"""
+        """是否开着底层颜色窗口。"""
         return self._frost_layer is not None
 
     @property
@@ -691,11 +883,11 @@ class App(CTk):
         return self._frost_layer
 
     def set_backdrop(self, mode: str = "acrylic", *, save: bool = True) -> None:
-        """开启或关闭「毛玻璃」底色，默认开启。
+        """
 
         玻璃模式下窗口底和侧边栏都画纯黑，透出桌面的模糊；卡片、输入框
-        仍是实色。切换会把外壳和当前页重建一次——颜色令牌变了，已经建好的
-        控件不会自己换色。
+
+
 
         参数:
             mode: ``"none"`` 关闭；``"acrylic"``（也接受 ``"glass"`` /
@@ -728,17 +920,17 @@ class App(CTk):
                 set_titlebar_dark(self, get_appearance_mode() == "Dark")
             set_window_brush(self)
             self._repaint_shell()
-        # 切回毛玻璃时把底层颜色窗口也补回来。
+        # 用户挑的普通底色会记进基准，切回不透明时自动生效。
         self.after(40, self._auto_frost_layer)
         if save and getattr(self, "_remember_theme", False):
             self._state_call("write_backdrop", mode)
 
     def toggle_backdrop(self) -> None:
-        """在普通底色和毛玻璃之间切换。"""
+        """在不透明和毛玻璃之间切换。"""
         self.set_backdrop("none" if self._backdrop == "acrylic" else "acrylic")
 
     def _restore_palette(self, enabled: bool) -> None:
-        """启动时把上次保存的颜色覆盖应用上（此时还没有控件，只改令牌）。"""
+        """按外观定好暗化系数，再从状态存储里恢复用户自定义的配色。"""
         # 毛玻璃主题下自定义色要暗 20%，系数先定好再应用，免得先亮后暗闪一下
         theming.set_darken(0.8 if self._backdrop == "acrylic" else 1.0)
         if not enabled:
@@ -751,15 +943,15 @@ class App(CTk):
         theming.apply_palette(palette, repaint=False)
 
     def apply_palette(self, updates: Mapping[str, Any], *, save: bool = True) -> list:
-        """运行时换一批颜色令牌，已经建好的控件就地更新。
+        """
 
         参数:
             updates: ``{令牌名: "#RRGGBB"}``。未知令牌会被忽略；传二元组时
-                取最后一项（兼容旧写法）。
+
             save: 默认 ``True``，把覆盖写进状态存储，下次启动沿用。
 
         返回:
-            实际改掉的令牌名列表（值没变化的不会出现在里面）。
+
         """
         changed = theming.apply_palette(updates, root=self)
         if changed and save and getattr(self, "_remember_theme", False):
@@ -767,14 +959,14 @@ class App(CTk):
         return changed
 
     def reset_palette(self, *, save: bool = True) -> list:
-        """把所有颜色令牌还原成默认值，界面同步更新。返回还原了哪些令牌。"""
+        """把配色恢复成默认值，返回被改动的令牌名。"""
         changed = theming.reset_palette(root=self)
         if changed and save and getattr(self, "_remember_theme", False):
             self._state_call("write_palette", theming.palette_changes())
         return changed
 
     def _repaint_shell(self) -> None:
-        """按当前颜色令牌重刷外壳和当前页（切底色后调用）。"""
+        """外观变了以后，通知侧栏和登记过的控件重绘。"""
         nav = getattr(self, "nav", None)
         apply = getattr(nav, "apply_theme", None)
         if callable(apply):
@@ -791,10 +983,10 @@ class App(CTk):
                 rebuilder.rebuild(current)
 
     def set_color_theme(self, theme: str, *, save: bool = True) -> None:
-        """切换颜色主题（内置主题名或主题文件路径）。
+        """
 
         颜色主题只影响之后创建的控件；窗口里已有的控件不会自动换色，
-        需要重建页面或重新创建窗口才能看到效果。
+
 
         参数:
             theme: ``"blue"`` / ``"dark-blue"`` / ``"green"``，或主题文件
@@ -805,8 +997,53 @@ class App(CTk):
         if save and getattr(self, "_remember_theme", False):
             self._state_call("write_color_theme", theme)
 
+    def set_size(self, width: int, height: int) -> "App":
+        """改窗口尺寸，单位和 ``size=`` 参数一致（逻辑像素），返回自己。
+
+        参数:
+            width: 宽度
+            height: 高度
+        """
+        self.geometry(f"{int(width)}x{int(height)}")
+        return self
+
+    def get_size(self) -> tuple[int, int]:
+        """当前 ``(宽, 高)``，和 ``size=`` / ``set_size()`` 同一套单位（逻辑像素）。
+
+        Tk 的 ``winfo_width()`` 返回的是屏幕像素（125% 缩放下会大 1.25 倍），
+        这里按屏幕 DPI 换回逻辑像素，所以读出来的值和建窗口时给的对得上。
+        """
+        scale = self._pixel_scale()
+        return round(self.winfo_width() / scale), round(self.winfo_height() / scale)
+
+    def _pixel_scale(self) -> float:
+        """屏幕像素与逻辑像素的比值（125% 缩放 = 1.25）。"""
+        try:
+            dpi = float(self.winfo_fpixels("1i"))
+        except Exception:  # noqa: BLE001 - 读写失败不该影响窗口本身
+            return 1.0
+        return dpi / 96.0 if dpi > 0 else 1.0
+
+    def get_scale(self) -> float:
+        """系统显示缩放（100% = 1.0，125% = 1.25）。"""
+        return self._pixel_scale()
+
+    def set_position(self, x: int, y: int) -> "App":
+        """把窗口左上角移到屏幕的 ``(x, y)``，返回自己。"""
+        self.geometry(f"+{int(x)}+{int(y)}")
+        return self
+
+    def get_position(self) -> tuple[int, int]:
+        """当前窗口左上角在屏幕上的位置 ``(x, y)``。"""
+        return self.winfo_x(), self.winfo_y()
+
+    def center(self) -> "App":
+        """把窗口移到屏幕中央，返回自己。"""
+        self._center_on_screen()
+        return self
+
     def toggle_appearance(self) -> None:
-        """在深浅两套外观之间切换。"""
+        """在浅色 / 深色之间切换。"""
         mode = "light" if get_appearance_mode() == "Dark" else "dark"
         self.set_appearance_mode(mode)
 
@@ -838,7 +1075,7 @@ class App(CTk):
         """把标题栏刷成和当前外观一致（仅 Windows 11 22H2+ 真正上色）。"""
         try:
             set_window_brush(self)
-        except Exception:  # noqa: BLE001 - 窗口可能已经销毁
+        except Exception:  # noqa: BLE001 - 已经被别的路径取消
             pass
         try:
             set_titlebar_dark(
@@ -846,18 +1083,18 @@ class App(CTk):
                 get_appearance_mode() == "Dark",
                 glass=self._backdrop == "acrylic",
             )
-        except Exception:  # noqa: BLE001 - 窗口可能已经销毁
+        except Exception:  # noqa: BLE001 - 已经被别的路径取消
             pass
         # 标题栏刚被重刷过，之前隐藏的图标 / 标题要再盖回去。
         self._reapply_titlebar_items()
         # set_titlebar_dark 会把 34 重写成描边色，这里把「边框色」选项盖回去。
         try:
             set_dwm_attribute(self, DWMWA_BORDER_COLOR, self._glass.get("border"))
-        except Exception:  # noqa: BLE001 - 窗口可能已经销毁
+        except Exception:  # noqa: BLE001 - 已经被别的路径取消
             pass
 
     def _set_appearance_mode(self, mode_string: str) -> None:
-        """切外观时重刷标题栏。
+        """
 
         屏蔽 ``CTk`` 自带的那套标题栏逻辑（它会先 ``withdraw()`` 再
         ``deiconify()``，切换时闪一下），改用本库的 ``set_titlebar_dark``。
@@ -870,25 +1107,26 @@ class App(CTk):
             self._deactivate_windows_window_header_manipulation = saved
         try:
             self.after_idle(self._refresh_titlebar)
-        except Exception:  # noqa: BLE001 - 窗口正在销毁
+        except Exception:  # noqa: BLE001 - 已经被别的路径取消
             pass
 
     def _center_on_screen(self) -> None:
-        """把窗口挪到屏幕中央。
+        """把窗口摆到屏幕正中间。
 
-        尺寸取 CTk 自己的逻辑像素值（``_current_width`` / ``_current_height``），
-        而不是 ``winfo_width()``——后者是物理像素，和逻辑像素的
-        ``winfo_screenwidth()`` 混算会在高分屏上把窗口挪偏、尺寸放大。
+        宽高是逻辑像素（``geometry("WxH")`` 会按 DPI 缩放），位置是物理像素
+        （``geometry("+x+y")`` 不缩放，``winfo_screenwidth()`` 也是物理值），
+        所以先换算成物理尺寸再算左边和上边。
         """
         self.update_idletasks()
         width = int(getattr(self, "_current_width", 0)) or self.winfo_width()
         height = int(getattr(self, "_current_height", 0)) or self.winfo_height()
-        left = max(0, (self.winfo_screenwidth() - width) // 2)
-        top = max(0, (self.winfo_screenheight() - height) // 2)
+        scale = self._pixel_scale()
+        left = max(0, int((self.winfo_screenwidth() - width * scale) / 2))
+        top = max(0, int((self.winfo_screenheight() - height * scale) / 2))
         self.geometry(f"{width}x{height}+{left}+{top}")
 
     def _restore_geometry(self, min_size: Optional[Sequence[int]]) -> bool:
-        """按上次保存的几何恢复窗口；没有记录或文件损坏就保持原样。
+        """从状态存储里恢复上次的大小和位置。
 
         返回是否真的恢复了；调用方据此决定还要不要居中——用户上次把窗口
         放在某个位置，就不该被 ``center=True`` 又挪回屏幕中间。
@@ -939,8 +1177,26 @@ class App(CTk):
             except (ValueError, IndexError):
                 pass
             self._state_call("write_geometry", width, height, x, y)
-        except Exception:  # noqa: BLE001 - 关闭时写失败不该拦住退出
+        except Exception:  # noqa: BLE001 - 存几何失败不该影响关闭
             pass
+
+    def on_close(self, handler: Optional[Callable[[], Any]]) -> "App":
+        """注册窗口关闭前的回调，返回自己；传 ``None`` 恢复默认行为。
+
+        回调跑完仍然会走默认的「存几何 + 销毁」，所以窗口不会关不掉。
+        """
+        if handler is None:
+            self.protocol("WM_DELETE_WINDOW", self._on_close)
+            return self
+
+        def _close() -> None:
+            try:
+                handler()
+            finally:
+                self._on_close()
+
+        self.protocol("WM_DELETE_WINDOW", _close)
+        return self
 
     def _on_close(self) -> None:
         self._save_geometry()
@@ -967,12 +1223,12 @@ class App(CTk):
 
         Tk 的 after 定时器挂在解释器上，不随控件销毁自动取消；主窗口关掉后
         它们再触发就会报 ``invalid command name "...update"``。customtkinter
-        的外观/缩放跟踪器、按钮点击动画都会留下这种定时器，所以退出前统一
+        清一遍。
         清一遍。
         """
         try:
             jobs = self.tk.call("after", "info")
-        except Exception:  # noqa: BLE001 - 解释器已经没了
+        except Exception:  # noqa: BLE001 - 已经被别的路径取消
             return
         if isinstance(jobs, str):
             jobs = (jobs,)

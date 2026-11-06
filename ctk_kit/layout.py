@@ -18,6 +18,7 @@ import customtkinter as ctk
 from . import tokens as T
 from .fonts import get_font
 from .styles import style_of
+from .sugar import Bindable, Textual
 
 
 class PageHeader(ctk.CTkFrame):
@@ -46,7 +47,22 @@ class PageHeader(ctk.CTkFrame):
         return iter((self, self.info))
 
 
-class SectionTitle(ctk.CTkLabel):
+class Label(Bindable, Textual, ctk.CTkLabel):
+    """普通文字标签，默认正文色；``set_text`` / ``on_click`` 等方法都能用。"""
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        text: str = "",
+        *,
+        text_color: Any = T.COLOR_TEXT,
+        **kwargs: Any,
+    ) -> None:
+        """建标签；``text_color`` 不传就用正文色。"""
+        super().__init__(master, text=text, text_color=text_color, **kwargs)
+
+
+class SectionTitle(Textual, ctk.CTkLabel):
     """分区标题（设置页的「外观」「备份」这一层），构造时即 ``pack``。"""
 
     def __init__(self, master: tk.Misc, text: str) -> None:
@@ -59,6 +75,16 @@ class SectionTitle(ctk.CTkLabel):
             anchor="w",
         )
         self.pack(fill="x", pady=(T.SPACE_LG, T.SPACE_SM - 2))
+
+
+class _Unchanged:
+    """参数默认值哨兵，表示调用方没传这一项。"""
+
+    def __repr__(self) -> str:
+        return "未设置"
+
+
+_UNCHANGED = _Unchanged()
 
 
 class Card(ctk.CTkFrame):
@@ -95,6 +121,10 @@ class Card(ctk.CTkFrame):
         kwargs.setdefault("corner_radius", T.RADIUS_MEDIUM)
         super().__init__(master, **kwargs)
         self.title_label = None
+        # 按编号缓存的行容器：card.row(1) 反复返回同一个 Frame
+        self._rows: dict[int, Any] = {}
+        # 调用方显式指定过 pady 的行（这些行不再自动分配上/下边距）
+        self._row_pady: dict[int, Any] = {}
         if title:
             self.title_label = ctk.CTkLabel(
                 master,
@@ -116,6 +146,114 @@ class Card(ctk.CTkFrame):
             Frame(box.body).pack(fill="x", padx=16, pady=12)
         """
         return self
+
+    # 每行的默认布局：撑满宽度、左右留 16；上下边距按「第一行 / 中间 / 最后一行」自动分
+    _ROW_LAYOUT: dict[str, Any] = {"fill": "x", "padx": 16}
+    _ROW_PADY_FIRST: tuple[int, int] = (14, 10)
+    _ROW_PADY_MIDDLE: tuple[int, int] = (0, 10)
+    _ROW_PADY_LAST: tuple[int, int] = (0, 14)
+
+    def _row_pady_for(self, position: int, total: int) -> tuple[int, int]:
+        """按位置给默认上下边距：首行、中间行、末行各一套。"""
+        if total <= 1 or position == 0:
+            return self._ROW_PADY_FIRST
+        if position == total - 1:
+            return self._ROW_PADY_LAST
+        return self._ROW_PADY_MIDDLE
+
+    def _restack_rows(self) -> None:
+        """行数变化后重排默认 pady；调用方显式指定过 pady 的行不动。"""
+        keys = [key for key in sorted(self._rows) if self._rows[key].winfo_exists()]
+        total = len(keys)
+        for position, key in enumerate(keys):
+            if key in self._row_pady:
+                continue
+            self._rows[key].pack_configure(pady=self._row_pady_for(position, total))
+
+    def row(
+        self,
+        index: int = 1,
+        *,
+        fill: Any = _UNCHANGED,
+        padx: Any = _UNCHANGED,
+        pady: Any = _UNCHANGED,
+        anchor: Any = _UNCHANGED,
+        expand: Any = _UNCHANGED,
+        side: Any = _UNCHANGED,
+        ipadx: Any = _UNCHANGED,
+        ipady: Any = _UNCHANGED,
+        **options: Any,
+    ) -> Any:
+        """取「第 ``index`` 行」的横向容器，没有就建一个。
+
+        同一个编号反复调用拿到的是同一个 Frame，往里 ``pack(side="left")``
+        的控件就自动排在同一行，不用先手写 ``row = Frame(card)``::
+
+            ctk.PrimaryButton(card.row(1), "保存").pack(side="left")
+            ctk.SecondaryButton(card.row(1), "取消").pack(side="left")
+            ctk.FormEntry(card.row(2), placeholder="用户名").pack(side="left")
+
+        参数:
+            index: 行号，序号小的在上面。后建的低序号行会插到已有行前面。
+            fill: 行容器在 ``pack`` 里的填充方式，默认 ``"x"``。
+            padx: 行容器左右外边距，默认 ``16``。
+            pady: 上下外边距。不传时按位置自动分配：第一行 ``(14, 10)``、
+                中间行 ``(0, 10)``、最后一行 ``(0, 14)``；传了就固定用你的值。
+            anchor: 子控件对齐方式，默认由 Tk 决定（``"center"``）。
+            expand: 是否占满剩余空间，默认 ``False``。
+            side: 行容器相对父容器的方位，默认 ``"top"``。
+            ipadx: 行容器内部水平留白。
+            ipady: 行容器内部垂直留白。
+            **options: 其余 ``pack`` 参数，原样透传。
+
+        这些参数**只有传了才生效**：行已存在时不传的项保持原样，
+        所以 ``card.row(2, padx=0)`` 只改左右边距，其余不动。
+
+        注意:
+            想彻底移除一行用 ``card.row(1).pack_forget()``；删掉中间某行后，
+            剩下没显式设过 pady 的行会自动重排。
+        """
+        given = {
+            name: value
+            for name, value in (
+                ("fill", fill),
+                ("padx", padx),
+                ("anchor", anchor),
+                ("expand", expand),
+                ("side", side),
+                ("ipadx", ipadx),
+                ("ipady", ipady),
+            )
+            if value is not _UNCHANGED
+        }
+        given.update(options)
+        explicit_pady = pady is not _UNCHANGED
+
+        frame = self._rows.get(index)
+        if frame is None or not frame.winfo_exists():
+            frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+            layout = dict(self._ROW_LAYOUT)
+            layout.update(given)
+            later = next(
+                (self._rows[key] for key in sorted(self._rows)
+                 if key > index and self._rows[key].winfo_exists()),
+                None,
+            )
+            if later is None:
+                frame.pack(**layout)
+            else:
+                frame.pack(before=later, **layout)
+            self._rows[index] = frame
+            if explicit_pady:
+                self._row_pady[index] = pady
+            self._restack_rows()
+        else:
+            if explicit_pady:
+                self._row_pady[index] = pady
+                given["pady"] = pady
+            if given:
+                frame.pack_configure(**given)
+        return frame
 
     def apply_theme(self, mode: Optional[str] = None) -> None:
         """按当前（或指定）外观刷一遍卡片和标题的颜色，不重建控件。
@@ -442,7 +580,7 @@ def empty_hint(master: tk.Misc, title: str, detail: str = "") -> ctk.CTkFrame:
     return box
 
 
-class FieldLabel(ctk.CTkLabel):
+class FieldLabel(Textual, ctk.CTkLabel):
     """卡片内左对齐的字段名，宽度固定让右边控件能对齐成一列。"""
 
     def __init__(self, master: tk.Misc, text: str, *, width: int = 112) -> None:
@@ -457,7 +595,7 @@ class FieldLabel(ctk.CTkLabel):
         )
 
 
-class HintLabel(ctk.CTkLabel):
+class HintLabel(Textual, ctk.CTkLabel):
     """字段下方的说明文字（左对齐、多行左对齐），构造时尚未摆位。"""
 
     def __init__(self, master: tk.Misc, text: str) -> None:

@@ -1,4 +1,4 @@
-"""输入与选择控件：搜索框、表单输入、分段选择、开关、勾选、单选、滑块、进度条。
+﻿"""输入与选择控件：搜索框、表单输入、分段选择、开关、勾选、单选、滑块、进度条。
 
 分段选择是一块自绘控件：容器铺 ``COLOR_SOFT``，选中块（``COLOR_ACTIVE`` 的
 圆角条）在段之间平移，切换时带缓动；用整块按钮改色做不出「滑过去」的效果。
@@ -24,6 +24,7 @@ from .choices import Check, Radio
 from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .paint import blend_hex, cached
+from .sugar import Bindable, Enablable, Textual, Valuable
 from .theme import color_of
 
 try:  # Pillow 是可选依赖：装了就用抗锯齿的箭头图片
@@ -51,7 +52,7 @@ RadioCommand = Optional[Callable[[str], None]]
 InsetHook = Optional[Callable[[int], None]]
 
 
-class CTkEntry(ctk.CTkEntry):
+class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
     """默认套用 ctk-kit 输入框样式的 ``CTkEntry``。
 
     参数与 customtkinter 的 ``CTkEntry`` 完全一致，只是把底色、描边、圆角、
@@ -98,6 +99,17 @@ class CTkEntry(ctk.CTkEntry):
         self.delete(0, "end")
         if text:
             self.insert(0, text)
+
+    def set_text(self, text: Any) -> None:
+        """同 :meth:`set`；``Entry`` 的「文字」就是输入内容。"""
+        self.set("" if text is None else str(text))
+
+    def get_text(self) -> str:
+        """读回输入内容，等价于 ``get()``。"""
+        try:
+            return str(self.get())
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return ""
 
     def append(self, text: str) -> None:
         """把文字追加到当前内容末尾。"""
@@ -257,7 +269,7 @@ def _segment_slider(width: int, height: int, radius: int, color: str):
     return image.resize((width, height), Image.LANCZOS)
 
 
-class Segmented(ctk.CTkFrame):
+class Segmented(Enablable, ctk.CTkFrame):
     """统一样式的分段选择：浅一档的容器底，选中块滑到目标段。
 
     容器底用 ``COLOR_SOFT``（次要按钮那一档）：分段控件是「一组按钮」，
@@ -340,10 +352,9 @@ class Segmented(ctk.CTkFrame):
         self._seg_canvas.bind("<Configure>", self._on_configure)
 
     # ------------------------------------------------------------ 公共 API
-    def set_enabled(self, enabled: bool) -> None:
-        """启用 / 禁用。禁用时点击无反应，整块换成输入框底显得「灰掉」。"""
-        self._enabled = bool(enabled)
-        base = T.COLOR_SOFT if self._enabled else T.COLOR_INPUT
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时点击无反应，整块换成输入框底显得「灰掉」。"""
+        base = T.COLOR_SOFT if enabled else T.COLOR_INPUT
         try:
             self.configure(fg_color=base)
             self._seg_canvas.configure(bg=color_of(base))
@@ -652,7 +663,7 @@ def _switch_picture(checked: bool, hover: bool, progress: Optional[float] = None
     return image, image.copy()
 
 
-class Switch(ctk.CTkFrame):
+class Switch(Enablable, Textual, ctk.CTkFrame):
     """设置页的开关：胶囊轨道 + 圆球，Pillow 画的抗锯齿图片。
 
     和 ``Check`` / ``Radio`` 一样不用 canvas 图元：Tk 的 canvas 不做抗锯齿，
@@ -671,9 +682,11 @@ class Switch(ctk.CTkFrame):
         command: 拨动回调，不接收参数；用 ``toggle()`` 或点击都会触发。
         text: 轨道右侧的文字，默认空（设置页那种「标签在左边」的排法）。
         width: 控件总宽（逻辑像素），默认 44；轨道本身固定 36 宽。
+        value: 初始是否打开，默认 ``False``（关）。
 
-    方法 ``get()`` / ``select()`` / ``deselect()`` / ``toggle()`` 与
-    ``CTkSwitch`` 一致；``configure(command=...)`` 可以后挂回调。
+    读状态用 ``get_value()``，改状态用 ``set_value(True)``；
+    ``get()`` / ``select()`` / ``deselect()`` 是 CTkSwitch 的旧名字，
+    保留兼容，效果一样。
     """
 
     def __init__(
@@ -683,11 +696,13 @@ class Switch(ctk.CTkFrame):
         *,
         text: str = "",
         width: int = 44,
+        value: bool = False,
     ) -> None:
         super().__init__(master, fg_color="transparent", width=width, height=24)
         self._command = command
-        self._checked = False
+        self._checked = bool(value)
         self._hover = False
+        self._enabled = True
         self._photos: dict = {}
         self._photo = None
         # 视觉进度（0=关、1=开），动画期间与 _checked 不同步
@@ -732,6 +747,21 @@ class Switch(ctk.CTkFrame):
         ``self._photos`` 是按 ``(选中, 悬停)`` 索引的**整张 CTkImage** 缓存，
         颜色变了键却不变，不清理就会一直用旧图。
         """
+        self._photos.clear()
+        self._refresh()
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时文字变灰、鼠标点不动。"""
+        try:
+            self._label.configure(
+                text_color=T.COLOR_TEXT if enabled else T.COLOR_FAINT
+            )
+            cursor = "hand2" if enabled else ""
+            self._track.configure(cursor=cursor)
+            self._label.configure(cursor=cursor)
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return
+        self._hover = False
         self._photos.clear()
         self._refresh()
 
@@ -808,9 +838,13 @@ class Switch(ctk.CTkFrame):
 
     # ------------------------------------------------------------ 交互
     def _on_click(self, _event: Optional[tk.Event] = None) -> None:
+        if not getattr(self, "_enabled", True):
+            return
         self.toggle()
 
     def _on_enter(self, _event: Optional[tk.Event] = None) -> None:
+        if not getattr(self, "_enabled", True):
+            return
         if not self._hover:
             self._hover = True
             self._refresh()
@@ -830,16 +864,23 @@ class Switch(ctk.CTkFrame):
 
     def select(self) -> None:
         """拨到右边（不触发 ``command``）。"""
-        self._checked = True
-        self._animate_to(1.0)
+        self.set_value(True)
 
     def deselect(self) -> None:
         """拨回左边（不触发 ``command``）。"""
-        self._checked = False
-        self._animate_to(0.0)
+        self.set_value(False)
+
+    def set_value(self, value: bool) -> None:
+        """设置开关状态（不触发 ``command``）。"""
+        self._checked = bool(value)
+        self._animate_to(1.0 if self._checked else 0.0)
+
+    def get_value(self) -> bool:
+        """当前是否打开。"""
+        return self._checked
 
     def get(self) -> int:
-        """0 / 1。"""
+        """0 / 1；等价于 ``int(get_value())``，保留给 ``CTkSwitch`` 老代码。"""
         return 1 if self._checked else 0
 
     def destroy(self) -> None:
@@ -860,6 +901,13 @@ class Switch(ctk.CTkFrame):
             self._label.configure(text=kwargs.pop("text"))
         if kwargs:
             super().configure(**kwargs)
+
+    def get_text(self) -> str:
+        """读回开关右侧文字（``CTkFrame`` 本身没有 ``text`` 选项）。"""
+        try:
+            return str(self._label.cget("text"))
+        except tk.TclError:
+            return ""
 
 
 def Checkbox(
@@ -958,7 +1006,7 @@ def _slider_bg(master: tk.Misc) -> str:
     return color_of(T.COLOR_CARD)
 
 
-class Slider(ctk.CTkFrame):
+class Slider(Enablable, ctk.CTkFrame):
     """滑块：轨道底色淡，已滑过的部分和圆钮是主色。
 
     自绘（Pillow 4 倍超采样再 LANCZOS 缩放），圆钮和轨道两端没有锯齿。
@@ -1032,6 +1080,15 @@ class Slider(ctk.CTkFrame):
         self._render()
         if notify and self._command is not None:
             self._command(self._value)
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时滑块变灰、拖不动。"""
+        self._state = "normal" if enabled else "disabled"
+        self._render()
+
+    def is_enabled(self) -> bool:
+        """当前是否可拖动。"""
+        return self._state != "disabled"
 
     def configure(self, **kwargs: Any) -> None:
         """支持 ``command`` / ``state``，其余交给 ``CTkFrame``。"""
@@ -1199,7 +1256,7 @@ def ProgressBar(
     return bar
 
 
-class Spinner(ctk.CTkFrame):
+class Spinner(Valuable, ctk.CTkFrame):
     """带上下箭头的步进输入框：可以走数字范围，也可以走一组备选文字。
 
     右侧是 canvas 画的两个小三角（不用字体符号，缩放后不会有马赛克）；

@@ -20,6 +20,7 @@ import customtkinter as ctk
 
 from . import tokens as T
 from .fonts import get_font
+from .sugar import Valuable
 from .popup import round_window_corners, scaled_geometry
 
 __all__ = ["Calendar", "DatePicker"]
@@ -30,7 +31,7 @@ DateCommand = Optional[Callable[[_dt.date], None]]
 _WEEKDAYS = ("一", "二", "三", "四", "五", "六", "日")
 
 
-class Calendar(ctk.CTkFrame):
+class Calendar(Valuable, ctk.CTkFrame):
     """月视图日历。
 
     参数:
@@ -264,7 +265,7 @@ class Calendar(ctk.CTkFrame):
 _FOLLOW_MS = 120
 
 
-class DatePicker(ctk.CTkFrame):
+class DatePicker(Valuable, ctk.CTkFrame):
     """日期输入框：点一下弹出日历，选完写回。
 
     参数:

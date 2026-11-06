@@ -236,7 +236,7 @@ class ListingPage(ListingPageUI):
     def bind_events(self) -> None:
         """必须实现：注册按钮和事件。"""
         self.search_button.configure(command=self.apply_filter)
-        self.search.bind("<KeyRelease>", lambda _event: self.apply_filter())
+        self.search.on_key_release(lambda _event: self.apply_filter())
         self.category.configure(command=lambda _value: self.apply_filter())
 
         self.refresh_button.configure(command=self.refresh)

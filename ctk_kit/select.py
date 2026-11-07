@@ -17,6 +17,7 @@ from typing import Callable, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
+from .core.win32 import clear_window_alpha
 from .popup import (
     enable_popup_glass,
     glass_veil,
@@ -394,6 +395,8 @@ class _PopupPanel:
         if self._glass:
             with contextlib.suppress(tk.TclError):
                 self._popup.attributes("-alpha", 1.0)
+            with contextlib.suppress(Exception):
+                clear_window_alpha(self._popup)
             self._schedule_follow()
             return
         self._anim_started = time.perf_counter()
@@ -419,6 +422,9 @@ class _PopupPanel:
             popup.geometry(f"{width}x{height}+{left}+{top + offset}")
             popup.attributes("-alpha", 1.0 if done else round(eased, 3))
         if done:
+            # 淡入结束摘掉 WS_EX_LAYERED，避免 125% 缩放下文字被重采样发虚
+            with contextlib.suppress(Exception):
+                clear_window_alpha(popup)
             self._schedule_follow()
             return
         self._anim_job = self._owner.after(_ANIM_STEP, self._open_step)

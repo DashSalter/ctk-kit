@@ -46,8 +46,11 @@ import weakref
 from typing import Callable, Optional
 
 import customtkinter as ctk
+from PIL import Image, ImageDraw
 
 from . import tokens as T
+from .core.win32 import clear_window_alpha
+from .paint import cached
 from .popup import round_window_corners
 from .fonts import get_font
 
@@ -70,6 +73,66 @@ LEVEL_ICONS = {
 
 #: 每种形态的默认停留秒数。卡片信息多，多留一会儿。
 DEFAULT_SECONDS = {"pill": 2.6, "card": 4.5}
+
+#: 图标超采样倍数：先按 4 倍画，再交给 ``CTkImage`` 缩回去，圆边才没有锯齿。
+_ICON_SCALE = 4
+
+
+@cached
+def _level_icon(level: str, color: str, size: int, scaling: float) -> Image.Image:
+    """画一枚抗锯齿的级别图标：圆底 + 白色符号。
+
+    尺寸按物理像素算：``size * scaling`` 取整后再乘 ``_ICON_SCALE``，
+    缩回去正好是整数倍，不会卡在半个像素上发糊。
+    """
+    pixel = max(16, int(round(size * scaling))) * _ICON_SCALE
+    image = Image.new("RGBA", (pixel, pixel), (0, 0, 0, 0))
+    pen = ImageDraw.Draw(image)
+    pen.ellipse((0, 0, pixel - 1, pixel - 1), fill=color)
+
+    u = pixel / 22.0            # 以 22 逻辑像素为基准换算符号坐标
+    width = max(2, int(round(2.1 * u)))
+    cx = cy = pixel / 2.0
+    white = "#ffffff"
+
+    if level == "error":
+        arm = 4.3 * u
+        pen.line([(cx - arm, cy - arm), (cx + arm, cy + arm)], fill=white, width=width)
+        pen.line([(cx - arm, cy + arm), (cx + arm, cy - arm)], fill=white, width=width)
+    elif level == "warn":
+        pen.line([(cx, cy - 4.8 * u), (cx, cy + 1.2 * u)], fill=white, width=width)
+        dot = 1.2 * u
+        pen.ellipse(
+            (cx - dot, cy + 3.6 * u - dot, cx + dot, cy + 3.6 * u + dot), fill=white
+        )
+    elif level == "success":
+        pen.line(
+            [
+                (cx - 4.2 * u, cy + 0.3 * u),
+                (cx - 1.2 * u, cy + 3.3 * u),
+                (cx + 4.4 * u, cy - 3.4 * u),
+            ],
+            fill=white,
+            width=width,
+            joint="curve",
+        )
+    else:  # info
+        dot = 1.1 * u
+        pen.ellipse(
+            (cx - dot, cy - 4.3 * u - dot, cx + dot, cy - 4.3 * u + dot), fill=white
+        )
+        pen.line([(cx, cy - 1.4 * u), (cx, cy + 4.6 * u)], fill=white, width=width)
+    return image
+
+
+def _level_image(level: str, color: str, size: int, scaling: float) -> ctk.CTkImage:
+    """把 ``_level_icon`` 包成 ``CTkImage``（交给 CTk 按 DPI 缩放）。"""
+    image = _level_icon(level, color, size, scaling)
+    return ctk.CTkImage(
+        light_image=image,
+        dark_image=image.copy(),
+        size=(size, size),
+    )
 
 _MARGIN = 16  # 浮层离窗口边缘的距离
 _GAP = 8      # 同一位置多条提示之间的间隙
@@ -290,14 +353,11 @@ class Notifier:
         body.pack(fill="x", padx=12, pady=10)
         ctk.CTkLabel(
             body,
-            text=LEVEL_ICONS[level],
+            text="",
+            image=_level_image(level, color, 22, self._scaling()),
             width=22,
             height=22,
-            corner_radius=11,
-            fg_color=color,
-            text_color="#ffffff",
-            font=get_font((T.FONT_NAME, 11, "bold")),
-        ).pack(side="left", anchor="n", pady=(1, 0))
+        ).pack(side="left", anchor="n", pady=(2, 0))
         text = ctk.CTkFrame(body, fg_color="transparent")
         text.pack(side="left", fill="x", expand=True, padx=(10, 6))
         if title:
@@ -330,7 +390,7 @@ class Notifier:
             text_color=T.COLOR_FAINT,
             font=get_font((T.FONT_NAME, 10)),
             command=lambda v=card: self.dismiss(v),
-        ).pack(side="right", anchor="n", padx=(6, 0))
+        ).pack(side="right", anchor="n", padx=(6, 0), pady=(2, 0))
         # 内容建完先量一次尺寸；窗口这时还藏着，等 _relayout 定位后再显出来。
         window.update_idletasks()
         return window, card
@@ -512,6 +572,11 @@ class Notifier:
         def step(index) -> None:
             """执行第 ``index`` 步透明度；走完调用 ``on_done``。"""
             if index > steps:
+                if end >= 1.0:
+                    # 淡入结束就把 WS_EX_LAYERED 摘掉：layered 窗口的内容是
+                    # 位图合成，125% 缩放下文字会被重采样，看着发虚。
+                    with contextlib.suppress(Exception):
+                        clear_window_alpha(window)
                 if on_done is not None:
                     on_done()
                 return

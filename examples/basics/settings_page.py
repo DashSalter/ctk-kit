@@ -15,7 +15,6 @@ from ctk_kit import (
     Slider,
     Switch,
     theme,
-    theming,
 )
 
 
@@ -49,7 +48,7 @@ class SettingsPageUI(PageBase):
         self.after(260, self.refresh_background)
 
     def _build_appearance(self, area: tk.Misc) -> None:
-        """外观模式：主题三项 + 毛玻璃时的背景窗口设置。"""
+        """外观模式：四个主题（Mica / Frosted / Dark / Acrylic）+ 玻璃微调。"""
         box = Card(area, title="外观模式")
         box.pack(fill="x")
 
@@ -60,7 +59,7 @@ class SettingsPageUI(PageBase):
 
         self.theme = Segmented(
             row,
-            ["毛玻璃", "深空", "Acrylic", "Mica"],
+            ["Mica", "Frosted", "Dark", "Acrylic"],
             width=380,
         )
         self.theme.pack(side="left", padx=(4, 0))
@@ -227,19 +226,11 @@ class SettingsPageUI(PageBase):
     def refresh_theme(self) -> None:
         """按当前外观刷新标题说明和分段选中项。"""
         self.header.info.configure(text=f"当前：{get_appearance_mode()}")
-        if theme.current_backdrop() == "acrylic":
-            app = getattr(self, "app", None)
-            options = app.glass_options() if app is not None else {}
-            kind = options.get("kind", "")
-            if kind in ("acrylic", "mica"):
-                self.theme.set({"acrylic": "Acrylic", "mica": "Mica"}[kind])
-            elif options.get("backdrop", 0) == 1:
-                self.theme.set("深空")
-            else:
-                self.theme.set("毛玻璃")
-        else:
-            # 主题里只剩玻璃系；非玻璃状态下不硬选某一项，保留上次的选择。
-            pass
+        app = getattr(self, "app", None)
+        if app is not None and theme.current_backdrop() == "acrylic":
+            # 主题只有四个，名字由 App.get_theme() 给出（mica / frosted / dark / acrylic）
+            key = str(app.get_theme()).lower()
+            self.theme.set(key.capitalize())
         self.refresh_background()
         self.refresh_glass()
         self.refresh_titlebar()
@@ -348,69 +339,10 @@ class SettingsPage(SettingsPageUI):
         self.glass_veil.configure(command=self.on_glass_veil)
 
     def on_theme(self, value: str) -> None:
-        """切换毛玻璃 / 深空 / Acrylic / Mica；有 SidebarNav 时只重建当前页。"""
-        app = self.app
-        # 毛玻璃：自定义颜色整体暗 20%；其它主题：恢复原色并把背景、整体
-        # 透明度都拉满（少一点透光，贴近系统原生窗口）。
-        if value == "毛玻璃":
-            theming.set_darken(0.75, root=app)
-        else:
-            theming.set_darken(1.0, root=app)
-            self._full_opacity()
-        # Acrylic / Mica 是深色版的玻璃主题：深色外观 + 中性深色 tint，
-        # 不再沿用默认 #181A20 的蓝调。
-        deep_kinds = {"Acrylic": "acrylic", "Mica": "mica"}
-        if value in deep_kinds:
-            kind = deep_kinds[value]
-            if app.glass_options().get("kind") == kind:
-                return
-            # 只切合成方式和 tint，不碰 set_appearance_mode / set_backdrop，
-            # 这两个会重建外壳和当前页。kind 和 color 合成一次重挂，
-            # 分开调会让 DWM 连续重算两次背板，看着就是闪一下。
-            app.set_glass_options(kind=kind, color="#1A1A1A")
-            return
-        if value == "深空":
-            # 深色 + 系统背板「1 无」：DWM 不再画背板/模糊，窗口就是纯深的实底。
-            wanted_mode, wanted_backdrop = "dark", "acrylic"
-            # kind / backdrop / tint 一次性写进去：分开三次调就是三次
-            # enable_acrylic，每次 DWM 都要重算背板，连点「深空」时最明显。
-            app.set_glass_options(kind="accent", backdrop=1, color="#1A1A1A")
-        elif value == "毛玻璃":
-            wanted_mode, wanted_backdrop = "dark", "acrylic"
-            # 从 Acrylic / Mica 切回来时把 tint 和合成方式还原成默认，
-            # 否则玻璃还带着上一种主题的中性深色。
-            app.set_glass_options(kind="accent", color="#181A20")
-        else:
-            return
-        # 已经是这个状态就不要再走一遍：set_backdrop / set_appearance_mode
-        # 都会重建当前页，连点同一个会白闪一下。
-        if (
-            theme.current_backdrop() == wanted_backdrop
-            and str(get_appearance_mode()).lower() == wanted_mode
-        ):
-            return
-        if value in ("毛玻璃", "深空"):
-            app.set_appearance_mode(wanted_mode)
-            app.set_backdrop(wanted_backdrop)
-        else:
-            app.set_backdrop(wanted_backdrop)
-            app.set_appearance_mode(wanted_mode)
-        # 不在这里 refresh：set_backdrop 会重建当前页，这个实例马上就要被丢掉，
+        """切换 Mica / Frosted / Dark / Acrylic；四个主题都由 ``App.set_theme`` 处理。"""
+        self.app.set_theme(value)
+        # 不在这里 refresh：切外观会重建当前页，这个实例马上就要被丢掉，
         # 再碰它的控件只会拿到 "invalid command name"。
-
-    def _full_opacity(self) -> None:
-        """把窗口整体透明度和背景层都拉满（不透明）。"""
-        app = self.app
-        app.set_opacity(1.0)
-        layer = getattr(app, "frost_layer", None)
-        if layer is None:
-            return
-        app.set_frost_backdrop(
-            getattr(layer, "color", "#181A20"),
-            alpha=255,
-            glass=bool(getattr(layer, "glass", False)),
-            spread=int(getattr(layer, "spread", 0)),
-        )
 
     # ------------------------------------------------------------------ 背景窗口
     def refresh_background(self) -> None:

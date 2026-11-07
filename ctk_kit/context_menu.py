@@ -24,6 +24,7 @@ from typing import Callable, Optional, Union
 import customtkinter as ctk
 
 from . import tokens as T
+from .core.win32 import clear_window_alpha
 from .popup import round_window_corners
 
 
@@ -320,6 +321,10 @@ class ContextMenu:
             popup.geometry(f"{width}x{height}+{x}+{y + offset}")
             popup.attributes("-alpha", 1.0 if done else round(eased, 3))
         if done:
+            # 淡入结束摘掉 WS_EX_LAYERED：layered 窗口的内容是位图合成，
+            # 125% 缩放下文字会被重采样得发虚
+            with contextlib.suppress(Exception):
+                clear_window_alpha(popup)
             return
         self._anim_job = self._master.after(_ANIM_STEP, self._open_step)
 

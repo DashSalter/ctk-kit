@@ -39,6 +39,10 @@
   窗口大小 / 位置 / 主题要不要记、记在哪由使用方实现；只有示例的
   `examples/basics/window_state.py` 用它演示，装 `ctk-kit[demo]` 或单独
   `pip install conf_base` 即可
+- 主题统一成四个名字：`Mica` / `Frosted` / `Dark` / `Acrylic`（`App.set_theme()` 不区分
+  大小写，仍接受「毛玻璃 / 深空 / 亚克力」中文别名）。`set_theme()` 现在一次调用就把
+  外观、玻璃开关、合成方式、tint、暗化系数改好，示例设置页的主题分段直接调它，
+  不再自己拼 `set_glass_options` + `set_appearance_mode` + `set_backdrop`
 
 ## 0.12.0 — 2026-11-07
 

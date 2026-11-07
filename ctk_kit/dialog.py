@@ -48,6 +48,7 @@ from .paint import cached
 from .popup import round_window_corners, scaled_geometry
 from .core.win32 import (
     acrylic_window,
+    clear_window_alpha,
     client_frame_inset,
     enable_acrylic,
     set_client_rect,
@@ -958,7 +959,11 @@ class Dialog(ctk.CTkToplevel):
             self.attributes("-alpha", 1.0 if done else round(eased, 3))
         if not done:
             self._anim_job = self.after(_ANIM_STEP, self._open_step)
-        elif self._backdrop_style == "acrylic":
+        else:
+            # 不透明之后把 layered 摘掉，否则文字在 125% 缩放下会被重采样，发虚
+            with contextlib.suppress(Exception):
+                clear_window_alpha(self)
+        if done and self._backdrop_style == "acrylic":
             # alpha 动画期间窗口是 layered 的，系统玻璃会被摘掉；等 alpha
             # 稳定在 1.0 之后再挂一次。
             if is_win11():

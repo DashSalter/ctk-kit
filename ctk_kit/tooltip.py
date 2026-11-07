@@ -27,6 +27,7 @@ from typing import Any, Callable, Optional, Union
 import customtkinter as ctk
 
 from . import tokens as T
+from .core.win32 import clear_window_alpha
 from .popup import round_window_corners
 from .fonts import get_font
 from .theme import color_of
@@ -259,6 +260,10 @@ class Tooltip:
             tip.attributes("-alpha", 1.0 if done else round(eased, 3))
         if not done:
             self._fade_job = self._widget.after(_FADE_STEP, self._fade_step)
+        else:
+            # 淡入结束摘掉 WS_EX_LAYERED，避免 125% 缩放下文字被重采样发虚
+            with contextlib.suppress(Exception):
+                clear_window_alpha(tip)
 
     def _ensure_window(self) -> None:
         """第一次显示时建窗口，之后复用。"""

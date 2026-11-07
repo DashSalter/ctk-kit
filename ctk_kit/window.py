@@ -482,15 +482,17 @@ class App(Bindable, CTk):
         return dict(self._glass)
 
     _THEME_PRESETS = {
-        # 毛玻璃：透出桌面，带模糊
-        "frosted": {"kind": "accent", "backdrop": 0, "color": "#181A20"},
-        # 深空：纯深色实底，不透桌面
-        "dark": {"kind": "accent", "backdrop": 1, "color": "#1A1A1A"},
-        # Acrylic：黑色偏蓝
-        "acrylic": {"kind": "acrylic", "backdrop": 0, "color": "#1A1A1A"},
-        # Mica：黑灰
-        "mica": {"kind": "mica", "backdrop": 0, "color": "#1A1A1A"},
+        # Mica：默认。黑灰，只糊壁纸，内容不跟着壁纸变
+        "mica": {"kind": "mica", "backdrop": 0, "color": "#1A1A1A", "darken": 1.0},
+        # Frosted：毛玻璃，透出桌面并且模糊
+        "frosted": {"kind": "accent", "backdrop": 0, "color": "#181A20", "darken": 0.75},
+        # Dark：深空，纯深色实底，不透桌面
+        "dark": {"kind": "accent", "backdrop": 1, "color": "#1A1A1A", "darken": 1.0},
+        # Acrylic：黑色偏蓝的亚克力
+        "acrylic": {"kind": "acrylic", "backdrop": 0, "color": "#1A1A1A", "darken": 1.0},
     }
+    #: 主题的对外名字，``set_theme`` / ``get_theme`` 用这一套。
+    _THEME_NAMES = ("mica", "frosted", "dark", "acrylic")
     _THEME_ALIASES = {
         "毛玻璃": "frosted",
         "玻璃": "frosted",
@@ -498,34 +500,67 @@ class App(Bindable, CTk):
         "深空": "dark",
         "黑暗": "dark",
         "black": "dark",
+        "亚克力": "acrylic",
     }
 
     def set_theme(self, name: str = "mica", color: Optional[str] = None) -> "App":
         """切换窗口主题，返回自己。
 
+        ctk-kit 只有四个主题，名字固定：
+
+        | 名字 | 效果 |
+        | --- | --- |
+        | ``"mica"`` | 默认。黑灰，只糊壁纸 |
+        | ``"frosted"`` | 毛玻璃，透出桌面并模糊 |
+        | ``"dark"`` | 深空，纯深色实底 |
+        | ``"acrylic"`` | 亚克力，黑色偏蓝 |
+
         参数:
-            name: ``"mica"``（默认，黑灰，只糊壁纸）、``"frosted"``（毛玻璃，
-                透出桌面）、``"dark"``（深空，纯深色实底）、``"acrylic"``（黑色偏蓝）。
-                不区分大小写，中文别名「毛玻璃」「深空」也可以。
+            name: 上面四个之一，不区分大小写；也接受中文别名「毛玻璃」「深空」
+                「亚克力」。
             color: 主题底色，不传就用该主题的默认值。
 
         ```python
         app.set_theme("frosted")
-        app.set_theme("acrylic", color="#20222a")
+        app.set_theme("Acrylic", color="#20222a")
         ```
+
+        切换会在一次调用里把外观、玻璃开关、合成方式、tint、暗化系数一起改好，
+        所以不会出现「先闪一下再变」的中间态。四个主题都是深色外观。
         """
-        key = self._THEME_ALIASES.get(name, str(name).lower())
+        key = self._THEME_ALIASES.get(str(name).strip(), str(name).strip().lower())
         preset = self._THEME_PRESETS.get(key)
         if preset is None:
             raise ValueError(
-                f"未知主题 {name!r}，可选：frosted / dark / acrylic / mica"
+                f"未知主题 {name!r}，可选：Mica / Frosted / Dark / Acrylic"
             )
-        options = dict(preset)
-        if color:
-            options["color"] = color
         self._theme_name = key
-        self._theme_color = options["color"]
-        self.set_glass_options(**options)
+        self._theme_color = color or preset["color"]
+        # 1) 外观：四个主题都是深色，不是就切一次（这一步会重建当前页）
+        if str(get_appearance_mode()).lower() != "dark":
+            self.set_appearance_mode("dark")
+        # 2) 玻璃底：四个主题都要走 DWM，不在玻璃状态下先打开
+        if self._backdrop != "acrylic":
+            self.set_backdrop("acrylic")
+        # 3) 毛玻璃整体压暗一档，其余主题恢复原色
+        theming.set_darken(float(preset["darken"]), root=self)
+        # 4) 合成方式与 tint 一次性写进去：分开调会让 DWM 连续重算两次背板
+        self.set_glass_options(
+            kind=preset["kind"],
+            backdrop=preset["backdrop"],
+            color=self._theme_color,
+        )
+        # 5) 非毛玻璃主题把整体透明度与背景层拉满，贴近系统原生窗口
+        if preset["darken"] >= 1.0:
+            self.set_opacity(1.0)
+            layer = self._frost_layer
+            if layer is not None:
+                self.set_frost_backdrop(
+                    getattr(layer, "color", self._theme_color),
+                    alpha=255,
+                    glass=bool(getattr(layer, "glass", False)),
+                    spread=int(getattr(layer, "spread", 0)),
+                )
         return self
 
     def set_theme_color(self, color: str) -> "App":

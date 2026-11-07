@@ -12,7 +12,7 @@ ctk.SecondaryButton(card.row(1), "取消", command=app.destroy).pack(side="left"
 ctk.DangerButton(card.row(1), "删除", command=lambda: print("删除")).pack(side="left", padx=(10, 0))
 
 # 卡片角落的小按钮：宽度随文字走
-ctk.HintLabel(card.row(2), "改动会立即生效").pack(side="left")
+ctk.HintLabel(card.row(2), "查看按钮代码是如何放一行的").pack(side="left")
 ctk.FlatButton(card.row(2), "复制", command=lambda: print("复制")).pack(side="right")
 but = ctk.SoftButton(card.row(3), "收起")
 but.pack(side="right")

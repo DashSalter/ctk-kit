@@ -24,7 +24,7 @@ from .fonts import get_font
 from .inputs import CTkEntry
 from .sugar import Enablable, Textual
 from .theme import color_of, current_backdrop
-from .core.win32 import acrylic_window
+from .core.win32 import acrylic_window, clear_window_alpha
 
 _ARROW_CLOSED = "▼"
 _ARROW_OPEN = "▲"
@@ -546,6 +546,8 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         if self._glass:
             with contextlib.suppress(tk.TclError):
                 self._popup.attributes("-alpha", 1.0)
+            with contextlib.suppress(Exception):
+                clear_window_alpha(self._popup)
             self._schedule_follow()
             return
         self._anim_started = time.perf_counter()
@@ -565,6 +567,10 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
             popup.geometry(f"{width}x{height}+{left}+{top + offset}")
             popup.attributes("-alpha", 1.0 if done else round(eased, 3))
         if done:
+            # 淡入结束后摘掉 WS_EX_LAYERED，否则面板内容在 125% 缩放下会被
+            # DWM 重采样，文字发虚
+            with contextlib.suppress(Exception):
+                clear_window_alpha(popup)
             self._schedule_follow()
             return
         self._anim_job = self.after(_OPEN_ANIM_STEP, self._open_step)

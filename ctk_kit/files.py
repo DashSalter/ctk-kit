@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import tkinter as tk
 from pathlib import Path
 from tkinter import filedialog
@@ -136,6 +137,7 @@ class PathField(Valuable, ctk.CTkFrame):
         title: Optional[str] = None,
         on_change: Optional[Callable[[str], None]] = None,
         accept_drop: bool = True,
+        readonly: bool = False,
         **kwargs: Any,
     ) -> None:
         """建路径输入框和浏览按钮；``accept_drop`` 为真时再挂拖放。"""
@@ -144,6 +146,7 @@ class PathField(Valuable, ctk.CTkFrame):
         self._mode = mode
         self._title = title
         self._on_change = on_change
+        self._readonly = bool(readonly)
 
         self.entry = FormEntry(self, placeholder=placeholder, height=height)
         self.entry.pack(side="left", fill="x", expand=True)
@@ -155,17 +158,48 @@ class PathField(Valuable, ctk.CTkFrame):
         self.droppable = False
         if accept_drop:
             self.droppable = register_drop(self.entry, self._dropped)
+        if self._readonly:
+            self._apply_readonly()
 
     # --- 对外 ---
     def get(self) -> str:
         """当前输入框里的路径。"""
         return self.entry.get()
 
+    def set_readonly(self, flag: bool = True) -> "PathField":
+        """开关只读：只读时不能改内容，也不能点「浏览」。"""
+        self._readonly = bool(flag)
+        self._apply_readonly()
+        return self
+
+    def is_readonly(self) -> bool:
+        """当前是否只读。"""
+        return bool(getattr(self, "_readonly", False))
+
+    def _apply_readonly(self) -> None:
+        """只读时输入框拒收键盘，浏览按钮置灰。"""
+        try:
+            self.entry.configure(
+                state="readonly" if self.is_readonly() else "normal"
+            )
+            self.button.configure(
+                state="disabled" if self.is_readonly() else "normal"
+            )
+        except (tk.TclError, ValueError):
+            return
+
     def set(self, path: str) -> None:
         """覆盖输入框内容并触发 ``on_change``。"""
+        readonly = self.is_readonly()
+        if readonly:
+            with contextlib.suppress(Exception):
+                self.entry.configure(state="normal")
         self.entry.delete(0, "end")
         if path:
             self.entry.insert(0, path)
+        if readonly:
+            with contextlib.suppress(Exception):
+                self.entry.configure(state="readonly")
         self._changed()
 
     def clear(self) -> None:
@@ -174,6 +208,8 @@ class PathField(Valuable, ctk.CTkFrame):
 
     def browse(self) -> str:
         """弹对话框；选中就把路径写进输入框并返回，取消返回空串。"""
+        if self.is_readonly():
+            return ""
         current = self.get()
         picked = pick_path(
             self,
@@ -186,7 +222,9 @@ class PathField(Valuable, ctk.CTkFrame):
         return picked
 
     def _dropped(self, path: str) -> None:
-        """拖放回调：直接把路径写进输入框。"""
+        """拖放回调：直接把路径写进输入框；只读时忽略。"""
+        if self.is_readonly():
+            return
         self.set(path)
 
     def _changed(self) -> None:

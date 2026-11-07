@@ -1,4 +1,4 @@
-﻿"""输入与选择控件：搜索框、表单输入、分段选择、开关、勾选、单选、滑块、进度条。
+"""输入与选择控件：搜索框、表单输入、分段选择、开关、勾选、单选、滑块、进度条。
 
 分段选择是一块自绘控件：容器铺 ``COLOR_SOFT``，选中块（``COLOR_ACTIVE`` 的
 圆角条）在段之间平移，切换时带缓动；用整块按钮改色做不出「滑过去」的效果。
@@ -69,7 +69,8 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
     """
 
     def __init__(
-            self, master: tk.Misc, *, menu: Any = True, **kwargs: Any
+            self, master: tk.Misc, *, menu: Any = True, readonly: bool = False,
+            **kwargs: Any
     ) -> None:
         """建带默认样式的输入框；显式参数可覆盖类说明里的默认值。
 
@@ -78,6 +79,7 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
             menu: 右键菜单。``True`` 挂默认的复制/粘贴/剪切/清空，``False``
                 或 ``None`` 不挂，传 ``(文字, 函数)`` 的序列则**只**用这些
                 自定义项（默认项不再附带）。
+            readonly: 初始只读：能选中、复制，不能改内容。
             **kwargs: 透传给 customtkinter ``CTkEntry`` 的参数。
         """
         kwargs.setdefault("fg_color", T.COLOR_INPUT)
@@ -88,17 +90,35 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
         kwargs.setdefault("text_color", T.COLOR_TEXT)
         kwargs.setdefault("placeholder_text_color", T.COLOR_FAINT)
         super().__init__(master, **kwargs)
+        self._readonly = bool(readonly)
         if menu:
             if menu is True:
                 attach_edit_menu(self)
             else:
                 attach_edit_menu(self, menu, preset=False)
+        if self._readonly:
+            self._apply_readonly()
 
     def set(self, text: str) -> None:
         """整体替换内容（清空后再写入），等价于 ``delete(0, "end")`` + ``insert``。"""
-        self.delete(0, "end")
-        if text:
-            self.insert(0, text)
+        with self._writable():
+            self.delete(0, "end")
+            if text:
+                self.insert(0, text)
+
+    @contextlib.contextmanager
+    def _writable(self):
+        """只读时临时解锁，改完再恢复；``set()`` / ``append()`` / ``clear()`` 都走它。"""
+        readonly = self.is_readonly()
+        if readonly:
+            with contextlib.suppress(Exception):
+                self.configure(state="normal")
+        try:
+            yield
+        finally:
+            if readonly:
+                with contextlib.suppress(Exception):
+                    self.configure(state="readonly")
 
     def set_text(self, text: Any) -> None:
         """同 :meth:`set`；``Entry`` 的「文字」就是输入内容。"""
@@ -114,11 +134,13 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
     def append(self, text: str) -> None:
         """把文字追加到当前内容末尾。"""
         if text:
-            self.insert("end", text)
+            with self._writable():
+                self.insert("end", text)
 
     def clear(self) -> None:
         """清空输入框。"""
-        self.delete(0, "end")
+        with self._writable():
+            self.delete(0, "end")
 
 
 def bind_focus_border(
@@ -1277,6 +1299,7 @@ class Spinner(Valuable, ctk.CTkFrame):
             height: int = 36,
             width: int = 160,
             as_int: bool = True,
+            readonly: bool = False,
     ) -> None:
         """创建步进输入框。
 
@@ -1290,6 +1313,7 @@ class Spinner(Valuable, ctk.CTkFrame):
             height: 整体高度（逻辑像素），默认 36。
             width: 控件宽度（逻辑像素），默认 160。
             as_int: 数字模式下 ``get()`` 是否返回整数。
+            readonly: 初始只读：不能输入、不能点箭头。
         """
         super().__init__(
             master,
@@ -1315,6 +1339,7 @@ class Spinner(Valuable, ctk.CTkFrame):
         self._height = height
         self._bg = color_of(T.COLOR_INPUT)
         self._arrow_photos: list = []
+        self._readonly = bool(readonly)
 
         # 先贴箭头、再放输入框：pack 按调用顺序分空间，反过来输入框会把箭头挤没
         self._arrows = tk.Canvas(
@@ -1351,6 +1376,8 @@ class Spinner(Valuable, ctk.CTkFrame):
         else:
             self.set(self._from)
         self._draw_arrows()
+        if self._readonly:
+            self._apply_readonly()
 
     # ------------------------------------------------------------ 读写
     def get(self) -> Any:
@@ -1363,8 +1390,28 @@ class Spinner(Valuable, ctk.CTkFrame):
     def set(self, value: Any) -> None:
         """直接写入值（不触发回调，也不做越界钳制）。"""
         text = self._format(value)
-        self.entry.delete(0, "end")
-        self.entry.insert(0, text)
+        self.entry.set(text)
+
+    def set_readonly(self, flag: bool = True) -> "Spinner":
+        """开关只读：不能输入、不能点箭头，箭头变灰。"""
+        self._readonly = bool(flag)
+        self._apply_readonly()
+        return self
+
+    def is_readonly(self) -> bool:
+        """当前是否只读。"""
+        return bool(getattr(self, "_readonly", False))
+
+    def _apply_readonly(self) -> None:
+        """只读时输入框拒收键盘，箭头变灰且不响应点击。"""
+        self.entry.set_readonly(self.is_readonly())
+        try:
+            self._arrows.configure(
+                cursor="arrow" if self.is_readonly() else "hand2"
+            )
+        except tk.TclError:
+            return
+        self._draw_arrows()
 
     # ------------------------------------------------------------ 内部
     def _parse(self, text: str) -> Any:
@@ -1402,6 +1449,8 @@ class Spinner(Valuable, ctk.CTkFrame):
 
     def _commit(self, _event: Optional[tk.Event] = None) -> None:
         """回车或失焦：把手输的文字夹回区间里再写回。"""
+        if self.is_readonly():
+            return
         if self._values is not None:
             current = self.entry.get().strip()
             if current not in self._values and self._values:
@@ -1418,7 +1467,9 @@ class Spinner(Valuable, ctk.CTkFrame):
             self._command(self.get())
 
     def _on_arrow(self, event: tk.Event) -> None:
-        """点上半个加一步、下半个减一步。"""
+        """点上半个加一步、下半个减一步；只读时不响应。"""
+        if self.is_readonly():
+            return
         middle = max(1, self._arrows.winfo_height()) / 2
         self._step(1 if event.y < middle else -1)
 
@@ -1438,7 +1489,7 @@ class Spinner(Valuable, ctk.CTkFrame):
             height = self._height - 2
         middle = height // 2
         # canvas 只认具体的颜色字符串，令牌里的 (浅色, 深色) 元组要先解析
-        color = color_of(T.COLOR_MUTED)
+        color = color_of(T.COLOR_FAINT if self.is_readonly() else T.COLOR_MUTED)
         for index, center in enumerate((middle - 9, middle + 9)):
             up = index == 0
             if _HAS_PIL:

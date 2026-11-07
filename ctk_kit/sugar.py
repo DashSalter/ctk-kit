@@ -297,10 +297,44 @@ class Enablable(Options):
             return bool(getattr(self, "_enabled", True))
         return str(state) != "disabled"
 
+    def set_readonly(self, flag: bool = True) -> "Enablable":
+        """设成只读：还能选中、复制，但改不了内容。
+
+        参数:
+            flag: ``True`` 只读，``False`` 恢复可编辑。
+        """
+        self._readonly = bool(flag)
+        self._apply_readonly()
+        return self
+
+    def is_readonly(self) -> bool:
+        """当前是否只读。"""
+        return bool(getattr(self, "_readonly", False))
+
+    def _apply_readonly(self) -> None:
+        """只读的默认落地：CTk 控件走 ``state="readonly"``。
+
+        禁用优先：控件本身 disabled 时不再改 state，否则只读会把「灰掉」
+        又点亮回去。
+        """
+        if not self.is_enabled():
+            return
+        try:
+            self.configure(state="readonly" if self.is_readonly() else "normal")
+        except Exception:  # noqa: BLE001 - 控件不支持 state 时交给子类
+            pass
+
     def _apply_enabled(self, enabled: bool) -> None:
         """真正落地状态。CTk 原生控件走 ``state`` 选项。"""
+        if not enabled:
+            try:
+                self.configure(state="disabled")
+            except Exception:  # noqa: BLE001 - 控件不支持 state 时交给子类
+                pass
+            return
         try:
-            self.configure(state="normal" if enabled else "disabled")
+            state = "readonly" if self.is_readonly() else "normal"
+            self.configure(state=state)
         except Exception:  # noqa: BLE001 - 控件不支持 state 时交给子类
             pass
 

@@ -1,4 +1,4 @@
-﻿"""搜索框：左侧放大镜、右侧清空按钮，输入带防抖。
+"""搜索框：左侧放大镜、右侧清空按钮，输入带防抖。
 
 用法::
 
@@ -16,6 +16,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import tkinter as tk
 from typing import Any, Callable, Optional
 
@@ -88,12 +89,14 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
         width: 整体宽度，默认 240。
         height: 高度，默认 38。
         delay: 防抖毫秒数，默认 300；传 0 表示每次输入都回调。
+        readonly: 初始只读：能选中、复制，不能改内容。
         **kwargs: 透传给外层 ``CTkFrame``。
 
     方法:
         get(): 当前文字。
         set(text): 写入文字，不触发回调。
         clear(): 清空并触发一次回调。
+        set_readonly(flag): 开关只读。
         search(): 立刻触发一次回调（不等防抖）。
         focus(): 让输入框获得焦点。
     """
@@ -107,6 +110,7 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
         width: int = 240,
         height: int = 38,
         delay: int = 300,
+        readonly: bool = False,
         **kwargs: Any,
     ) -> None:
         """建搜索框；``command`` 可以之后用 ``configure`` 再挂。"""
@@ -122,6 +126,7 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
         self._delay = max(0, int(delay))
         self._job: Optional[str] = None
         self._icon_photo = None
+        self._readonly = bool(readonly)
 
         self._icon = tk.Canvas(
             self,
@@ -163,6 +168,8 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
             command=self.clear,
         )
         self._clear.pack(side="right", padx=(0, 8))
+        if self._readonly:
+            self._apply_readonly()
 
     # --- 对外 ---
     def get(self) -> str:
@@ -171,15 +178,29 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
 
     def set(self, text: str, *, notify: bool = False) -> None:
         """写入文字；``notify=True`` 时也触发回调。"""
+        readonly = self.is_readonly()
+        if readonly:
+            with contextlib.suppress(Exception):
+                self._entry.configure(state="normal")
         self._entry.delete(0, "end")
         if text:
             self._entry.insert(0, text)
+        if readonly:
+            with contextlib.suppress(Exception):
+                self._entry.configure(state="readonly")
         if notify:
             self._fire()
 
     def clear(self) -> None:
         """清空并立刻触发一次回调。"""
+        readonly = self.is_readonly()
+        if readonly:
+            with contextlib.suppress(Exception):
+                self._entry.configure(state="normal")
         self._entry.delete(0, "end")
+        if readonly:
+            with contextlib.suppress(Exception):
+                self._entry.configure(state="readonly")
         self._fire()
 
     def search(self) -> None:
@@ -191,11 +212,33 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
         """让输入框获得焦点。"""
         self._entry.focus_set()
 
+    def _apply_readonly(self) -> None:
+        """只读时输入框拒收键盘，清空按钮一并置灰。"""
+        if not self.is_enabled():
+            return
+        try:
+            self._entry.configure(
+                state="readonly" if self.is_readonly() else "normal"
+            )
+            self._clear.configure(
+                state="disabled" if self.is_readonly() else "normal"
+            )
+        except (tk.TclError, ValueError):
+            return
+
     def _apply_enabled(self, enabled: bool) -> None:
         """禁用时输入框和清除按钮都不响应。"""
         try:
-            self._entry.configure(state="normal" if enabled else "disabled")
-            self._clear.configure(state="normal" if enabled else "disabled")
+            if not enabled:
+                self._entry.configure(state="disabled")
+                self._clear.configure(state="disabled")
+                return
+            self._entry.configure(
+                state="readonly" if self.is_readonly() else "normal"
+            )
+            self._clear.configure(
+                state="disabled" if self.is_readonly() else "normal"
+            )
         except (tk.TclError, ValueError):
             return
 

@@ -5,6 +5,18 @@
 
 ## 未发布
 
+- 新增 `DatePicker` / `TimeField` 的 `readonly` 参数与 `set_readonly(flag)` 方法：
+  只读时不能键入、也点不开弹层，文字压灰、光标变普通箭头，`get()` / `set()`
+  与显示值照常
+- 同一套 `readonly` 接口铺到其余输入控件：`CTkEntry`、`SearchBox`、`PathField`、
+  `Spinner`、`DropField`（`TextArea` 本来就有）。构造参数 `readonly=` 加
+  `set_readonly(flag)` / `is_readonly()`；只读时键盘输入被拒、下拉与浏览按钮
+  置灰点不开，而 `set()` 这类程序写入仍能生效（内部临时解锁再锁回）
+- 调整 `DatePicker` / `TimeField` 的交互：三段平时可以直接键入（回车或失焦时
+  解析、越界夹回），只有点右侧三角形才弹出日历 / 滚轮；`DatePicker` 输入框改成
+  和 `TimeField` 一致的三段式（`2026 - 11 - 07`），不再显示「选择日期」占位文字
+  （`placeholder=` 参数保留但不再绘制）
+- 日期、时间弹层底色改成与下拉框、右键菜单一致（`#2B2B2B`）
 - 新增 `theme.set_caption_buttons(window, visible=True, *, minimize=None, maximize=None)`、
   `App.show_window_buttons(visible)` / `show_minimize_button(visible)` /
   `show_maximize_button(visible)` 与对应的三个 `*_visible()`：隐藏 / 恢复系统标题栏右侧的

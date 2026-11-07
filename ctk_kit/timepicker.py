@@ -303,14 +303,21 @@ _FOLLOW_MS = 120
 class TimeField(Valuable, ctk.CTkFrame):
     """时间输入框：[时] : [分] : [秒 ▾]。
 
-    三段都是只读输入框，键盘改不了；点任意一段弹出三列滚轮，滚动时立即
-    更新并回调，没有确定 / 取消按钮。
+    三段平时可以直接键入，回车或失焦时解析、越界夹回；点右侧三角形才弹出
+    三列滚轮，滚动时立即更新并回调，没有确定 / 取消按钮。
 
     参数:
         master: 父容器。
         value: 初始时间（``datetime.time``），默认 00:00:00。
-        command: 滚动后回调，参数是新的 ``datetime.time``。
+        command: 滚动或键入后回调，参数是新的 ``datetime.time``。
         width: 整体宽度，默认 150。
+        readonly: 只读时不能键入、也点不开弹层，值照常显示；之后可用
+            :meth:`set_readonly` 切换。
+
+    方法:
+        get(): 当前时间。
+        set(time): 直接写一个时间，不弹层。
+        set_readonly(flag): 开关只读。
     """
 
     def __init__(
@@ -319,7 +326,8 @@ class TimeField(Valuable, ctk.CTkFrame):
         *,
         value: Optional[_dt.time] = None,
         command: Optional[Callable[[_dt.time], None]] = None,
-        width: int = 166,
+        width: int = 140,
+        readonly: bool = False,
         **kwargs: Any,
     ) -> None:
         super().__init__(master, fg_color="transparent", width=width, height=38, **kwargs)
@@ -327,6 +335,7 @@ class TimeField(Valuable, ctk.CTkFrame):
         self.pack_propagate(False)
         self._value = value if value is not None else _dt.time(0, 0, 0)
         self._command = command
+        self._readonly = bool(readonly)
         self._win: Optional[ctk.CTkToplevel] = None
         self._picker: Optional[TimePicker] = None
         self._watch_job: Optional[str] = None
@@ -353,7 +362,7 @@ class TimeField(Valuable, ctk.CTkFrame):
         self._colon().pack(side="left")
         self._second.pack(side="left")
 
-        # 箭头只是视觉提示，点击它和点击数字是同一个入口（整框可点）。
+        # 箭头才是弹层入口；三段留给键盘，点数字不会把面板顶出来。
         self._arrow = ctk.CTkLabel(
             self._box,
             text="▾",
@@ -364,9 +373,12 @@ class TimeField(Valuable, ctk.CTkFrame):
             cursor="hand2",
         )
         self._arrow.pack(side="right", padx=(2, 4))
-        for widget in (self._box, self._arrow, self._hour, self._minute, self._second):
-            widget.bind("<Button-1>", lambda _event: self.open(), add="+")
+        self._arrow.bind("<Button-1>", self._on_click, add="+")
+        for entry in (self._hour, self._minute, self._second):
+            entry.bind("<Return>", self._commit_typed)
+            entry.bind("<FocusOut>", self._commit_typed)
 
+        self._apply_readonly()
         self._sync_text()
 
     # --- 对外 ---
@@ -385,8 +397,20 @@ class TimeField(Valuable, ctk.CTkFrame):
         self._value = value
         self._sync_text()
 
+    def set_readonly(self, flag: bool = True) -> None:
+        """开关只读：只读时点不开弹层，值照常显示。"""
+        flag = bool(flag)
+        if flag == self._readonly:
+            return
+        self._readonly = flag
+        if flag:
+            self.close()
+        self._apply_readonly()
+
     def open(self) -> None:
         """打开时间弹层；已经打开就关掉。"""
+        if self._readonly:
+            return
         if self._win is not None and self._win.winfo_exists():
             self.close()
             return
@@ -448,6 +472,48 @@ class TimeField(Valuable, ctk.CTkFrame):
                 win.destroy()
 
     # --- 内部 ---
+    def _on_click(self, _event: Any = None) -> None:
+        """点箭头：只读时什么都不做。"""
+        if not self._readonly:
+            self.open()
+
+    def _apply_readonly(self) -> None:
+        """只读时文字压灰、光标换箭头；可编辑时三段能键入。"""
+        color = T.COLOR_MUTED if self._readonly else T.COLOR_TEXT
+        cursor = "arrow" if self._readonly else "xterm"
+        state = "readonly" if self._readonly else "normal"
+        for entry in (self._hour, self._minute, self._second):
+            try:
+                entry.configure(text_color=color, cursor=cursor, state=state)
+            except (tk.TclError, ValueError):
+                continue
+        self._arrow.configure(
+            text_color=T.COLOR_FAINT if self._readonly else T.COLOR_MUTED,
+            cursor="arrow" if self._readonly else "hand2",
+        )
+
+    def _commit_typed(self, _event: Any = None) -> None:
+        """回车或失焦：把三段文字解析成时间，越界夹回，坏值退回原样。"""
+        if self._readonly:
+            return
+        try:
+            hour = int(self._hour.get().strip() or 0)
+            minute = int(self._minute.get().strip() or 0)
+            second = int(self._second.get().strip() or 0)
+        except (TypeError, ValueError):
+            self._sync_text()
+            return
+        value = _dt.time(
+            max(0, min(23, hour)),
+            max(0, min(59, minute)),
+            max(0, min(59, second)),
+        )
+        if value != self._value:
+            self._value = value
+            if self._command is not None:
+                self._command(value)
+        self._sync_text()
+
     def _segment(self) -> ctk.CTkEntry:
         entry = ctk.CTkEntry(
             self._box,
@@ -459,9 +525,8 @@ class TimeField(Valuable, ctk.CTkFrame):
             justify="center",
             font=get_font(T.FONT_BODY),
             text_color=T.COLOR_TEXT,
-            state="readonly",
+            state="readonly" if self._readonly else "normal",
         )
-        entry.bind("<Button-1>", lambda _e: self.open())
         entry.bind("<Key>", self._block_keys)
         return entry
 
@@ -532,17 +597,22 @@ class TimeField(Valuable, ctk.CTkFrame):
         self.close()
 
     def _block_keys(self, event: Any) -> Optional[str]:
+        if not self._readonly:
+            return None
         if event.char and event.char.isprintable():
             return "break"
         return None
 
     def _sync_text(self) -> None:
+        readonly = self._readonly
         for entry, number in (
             (self._hour, self._value.hour),
             (self._minute, self._value.minute),
             (self._second, self._value.second),
         ):
-            entry.configure(state="normal")
+            if readonly:
+                entry.configure(state="normal")
             entry.delete(0, "end")
             entry.insert(0, f"{number:02d}")
-            entry.configure(state="readonly")
+            if readonly:
+                entry.configure(state="readonly")

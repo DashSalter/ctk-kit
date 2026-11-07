@@ -109,6 +109,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         height: int = 36,
         disabled: Optional[Sequence[str]] = None,
         glass: bool = True,
+        readonly: bool = False,
     ) -> None:
         """创建下拉输入框。
 
@@ -120,6 +121,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
             height: 整体高度（像素），默认 36。
             disabled: 一开始就置灰的候选项；之后可以用 ``disable()`` 等方法改。
             glass: 面板边缘铺一层背后的模糊图，默认开；截图失败退回纯色。
+            readonly: 初始只读：不能输入、不能展开候选。
         """
         super().__init__(
             master,
@@ -142,6 +144,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         self._disabled: set = set(disabled or ())
         # 控件本身是否可用；禁用时点不开面板、输入框也不接受键入
         self._enabled = True
+        self._readonly = bool(readonly)
         self._popup: Optional[ctk.CTkToplevel] = None
         self._root_bind_id: Optional[str] = None
         self._focus_bind_id: Optional[str] = None
@@ -174,6 +177,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
             text_color=T.COLOR_TEXT,
             placeholder_text=placeholder,
             placeholder_text_color=T.COLOR_FAINT,
+            readonly=self._readonly,
         )
         # 内缩量等于外框的 border_width，否则子控件会压住那 1px 描边
         self.entry.pack(side="left", fill="both", expand=True, padx=(12, 0), pady=1)
@@ -194,6 +198,8 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         self.arrow.bind("<Button-1>", lambda _event: self.open_menu())
         self.arrow.bind("<Enter>", lambda _event: self._set_hover(True))
         self.arrow.bind("<Leave>", lambda _event: self._set_hover(False))
+        if self._readonly:
+            self._apply_readonly()
 
     def _set_hover(self, hover: bool) -> None:
         """箭头悬停态：文字与底色一起变。"""
@@ -208,7 +214,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         """禁用时输入框变灰、箭头点不动、面板收起。"""
         self._enabled = bool(enabled)
         try:
-            self.entry.configure(state="normal" if enabled else "disabled")
+            self.entry.set_enabled(enabled)
             self.arrow.configure(
                 text_color=T.COLOR_MUTED if enabled else T.COLOR_FAINT,
                 fg_color="transparent",
@@ -219,15 +225,38 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         if not enabled:
             self._close_menu()
 
+    def set_readonly(self, flag: bool = True) -> "DropField":
+        """开关只读：只读时不能输入，也点不开候选面板。"""
+        self._readonly = bool(flag)
+        self._apply_readonly()
+        return self
+
+    def is_readonly(self) -> bool:
+        """当前是否只读。"""
+        return bool(getattr(self, "_readonly", False))
+
+    def _apply_readonly(self) -> None:
+        """只读时输入框拒收键盘、箭头不再响应，面板收起。"""
+        if not getattr(self, "_enabled", True):
+            return
+        try:
+            self.entry.set_readonly(self.is_readonly())
+            self.arrow.configure(
+                cursor="" if self.is_readonly() else "hand2"
+            )
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return
+        if self.is_readonly():
+            self._close_menu()
+
     # --- 读写 ---
     def get(self) -> str:
         """当前输入框里的文字。"""
         return self.entry.get()
 
     def set(self, value: str) -> None:
-        """直接写入一个值（不触发 ``command``）。"""
-        self.entry.delete(0, "end")
-        self.entry.insert(0, value)
+        """直接写入一个值（不触发 ``command``）；只读时也能写。"""
+        self.entry.set(value)
 
     def set_text(self, text: Any) -> None:
         """同 :meth:`set`；下拉框的「文字」就是输入框内容。"""
@@ -323,6 +352,8 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
     def open_menu(self) -> None:
         """展开候选面板；已经展开时再次调用会收起。"""
         if not getattr(self, "_enabled", True):
+            return
+        if self.is_readonly():
             return
         if self._popup is not None and self._popup.winfo_exists():
             self._close_menu()

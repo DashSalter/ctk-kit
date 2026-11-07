@@ -30,8 +30,8 @@ from ctk_kit import DatePicker
 
 picker = DatePicker(card, value=dt.date(2026, 11, 2),
                     command=lambda d: print(d))
-picker.get()   # datetime.date
-picker.set(dt.date(2026, 12, 1))'''
+picker.get_value()   # datetime.date
+picker.set_value(dt.date(2026, 12, 1))'''
 
 TIME_FIELD_CODE = '''import datetime as dt
 
@@ -39,8 +39,8 @@ from ctk_kit import TimeField
 
 field = TimeField(card, value=dt.time(0, 0, 0),
                   command=lambda t: print(t))
-field.get()   # datetime.time(0, 0)
-field.set(dt.time(9, 30, 0))'''
+field.get_value()   # datetime.time(0, 0)
+field.set_value(dt.time(9, 30, 0))'''
 
 TIME_WHEEL_CODE = '''import datetime as dt
 
@@ -48,8 +48,8 @@ from ctk_kit import TimePicker
 
 picker = TimePicker(card, value=dt.time(9, 30, 0),
                     command=lambda t: print(t))
-picker.get()   # datetime.time(9, 30)
-picker.set(dt.time(18, 0, 0))'''
+picker.get_value()   # datetime.time(9, 30)
+picker.set_value(dt.time(18, 0, 0))'''
 
 
 class TimeDatePage(PageBase):
@@ -103,10 +103,10 @@ class TimeDatePage(PageBase):
 
         HintLabel(
             box,
-            "点输入框弹出月视图，选完写回；点弹层外面关闭。",
+            "三段可以直接键入，回车或失焦时生效；点右侧三角形弹出月视图，选完写回，点弹层外面关闭。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
-        self.picker = DatePicker(box, placeholder="选择日期", command=self._on_picked)
+        self.picker = DatePicker(box,value=dt.date(2000, 10, 15), command=self._on_picked)
         self.picker.pack(anchor="w", padx=16, pady=(0, 8))
 
         self.date_hint = HintLabel(box, "还没有选日期")
@@ -121,7 +121,7 @@ class TimeDatePage(PageBase):
 
         HintLabel(
             box,
-            "三段只读，点任意一段弹出滚轮；滚到哪个数字就更新到哪个，没有确定键。",
+            "三段可以直接键入，回车或失焦时生效；点右侧三角形弹出滚轮，滚到哪个数字就更新到哪个，没有确定键。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
         self.time_field = TimeField(box, value=dt.time(0, 0, 0), command=self._on_time)

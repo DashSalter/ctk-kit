@@ -45,6 +45,20 @@ nav:
   - 首页: index.md
   - 组件:
       - 按钮: components/buttons.md
+      - 布局: components/layout.md
+      - 窗口: components/app.md
+      - 页面与导航: components/pages.md
+      - 输入: components/inputs.md
+      - 下拉选择: components/dropdowns.md
+      - 选择控件: components/choices.md
+      - 日期时间: components/datetime.md
+      - 对话框: components/dialogs.md
+      - 反馈: components/feedback.md
+      - 表格与列表: components/table.md
+      - 导航: components/navigation.md
+      - 媒体: components/media.md
+      - 文件: components/files.md
+      - 其它: components/misc.md
 
 # docs/requirements.txt 只给 CI 用，不要当成页面发布出去
 exclude_docs: |
@@ -81,4 +95,4 @@ extra:
     - icon: fontawesome/solid/cube
       link: https://pypi.org/project/ctk-kit/
 
-copyright: 版本 0.11.0 · MIT License
+copyright: 版本 0.12.0 · MIT License

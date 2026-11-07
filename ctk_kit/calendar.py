@@ -270,19 +270,25 @@ _FOLLOW_MS = 120
 
 
 class DatePicker(Valuable, ctk.CTkFrame):
-    """日期输入框：点一下弹出日历，选完写回。
+    """日期输入框：[年] - [月] - [日 ▾]。
+
+    三段平时可以直接键入，回车或失焦时解析、拼成日期；点右侧三角形才弹出
+    日历，选中后写回并回调。样式跟 :class:`ctk_kit.timepicker.TimeField` 一致。
 
     参数:
         master: 父容器。
         value: 初始日期（``datetime.date``），可选。
         command: 选中日期时的回调，参数是 ``datetime.date``。
-        placeholder: 未选日期时的占位文字。
-        width: 整体宽度，默认 200。
+        placeholder: 三段式样式下不再显示，保留参数只为兼容旧调用。
+        width: 整体宽度，默认 160。
+        readonly: 只读时不能键入、也点不开日历，值照常显示；之后可用
+            :meth:`set_readonly` 切换。
         **kwargs: 透传给外层 ``CTkFrame``。
 
     方法:
         get(): 当前日期，未选返回 ``None``。
         set(date): 直接写一个日期，不弹层。
+        set_readonly(flag): 开关只读。
         open() / close(): 打开、关闭日历弹层。
     """
 
@@ -293,14 +299,20 @@ class DatePicker(Valuable, ctk.CTkFrame):
         value: Optional[_dt.date] = None,
         command: DateCommand = None,
         placeholder: str = "选择日期",
-        width: int = 200,
+        width: int = 140,
+        readonly: bool = False,
         **kwargs: Any,
     ) -> None:
         """建日期输入框；``value`` 会直接显示出来。"""
-        super().__init__(master, fg_color="transparent", width=width, **kwargs)
+        height = kwargs.pop("height", 38)
+        super().__init__(master, fg_color="transparent", width=width, height=height, **kwargs)
+        # 输入框和箭头的建议宽度会把外层撑回 200 多，宽度参数就白给了。
+        self.pack_propagate(False)
 
         self._value = value
         self._command = command
+        self._readonly = bool(readonly)
+        # 三段式之后没有占位文字可放，留着只是不让旧的调用方报错。
         self._placeholder = placeholder
         self._win: Optional[ctk.CTkToplevel] = None
         self._watch_job: Optional[str] = None
@@ -314,35 +326,37 @@ class DatePicker(Valuable, ctk.CTkFrame):
             corner_radius=T.RADIUS_SMALL,
             height=38,
         )
-        self._box.pack(fill="x")
+        self._box.pack(fill="both", expand=True)
         self._box.pack_propagate(False)
 
-        self._entry = ctk.CTkEntry(
-            self._box,
-            fg_color="transparent",
-            border_width=0,
-            corner_radius=0,
-            font=get_font(T.FONT_BODY),
-            text_color=T.COLOR_TEXT,
-            placeholder_text=placeholder,
-            placeholder_text_color=T.COLOR_MUTED,
-        )
-        self._entry.pack(side="left", fill="x", expand=True, padx=(10, 0), pady=2)
+        self._entry = None
+        self._year = self._segment(42)
+        self._month = self._segment(28)
+        self._day = self._segment(28)
 
-        # 箭头只是视觉提示，点击它和点击输入框是同一个入口（整框可点）。
+        self._year.pack(side="left", padx=(10, 0))
+        self._dash().pack(side="left")
+        self._month.pack(side="left")
+        self._dash().pack(side="left")
+        self._day.pack(side="left")
+
+        # 箭头才是弹层入口；三段留给键盘，点数字不会把月视图顶出来。
         self._arrow = ctk.CTkLabel(
             self._box,
             text="▾",
-            width=30,
+            width=26,
             height=34,
             text_color=T.COLOR_MUTED,
             font=get_font((T.FONT_NAME, 20)),
             cursor="hand2",
         )
-        self._arrow.pack(side="right", padx=(2, 2), pady=1)
-        for widget in (self._box, self._entry, self._arrow):
-            widget.bind("<Button-1>", lambda _event: self.open(), add="+")
+        self._arrow.pack(side="right", padx=(2, 4))
+        self._arrow.bind("<Button-1>", self._on_click, add="+")
+        for entry in (self._year, self._month, self._day):
+            entry.bind("<Return>", self._commit_typed)
+            entry.bind("<FocusOut>", self._commit_typed)
 
+        self._apply_readonly()
         self._sync_text()
 
     # --- 对外 ---
@@ -361,8 +375,20 @@ class DatePicker(Valuable, ctk.CTkFrame):
         self._value = date
         self._sync_text()
 
+    def set_readonly(self, flag: bool = True) -> None:
+        """开关只读：只读时点不开日历，值照常显示。"""
+        flag = bool(flag)
+        if flag == self._readonly:
+            return
+        self._readonly = flag
+        if flag:
+            self.close()
+        self._apply_readonly()
+
     def open(self) -> None:
         """打开日历弹层；已经打开就关掉。"""
+        if self._readonly:
+            return
         if self._win is not None and self._win.winfo_exists():
             self.close()
             return
@@ -485,6 +511,47 @@ class DatePicker(Valuable, ctk.CTkFrame):
         self.close()
 
     # --- 内部 ---
+    def _on_click(self, _event: Any = None) -> None:
+        """点箭头：只读时什么都不做。"""
+        if not self._readonly:
+            self.open()
+
+    def _apply_readonly(self) -> None:
+        """只读时文字压灰、光标换箭头；可编辑时三段能键入。"""
+        color = T.COLOR_MUTED if self._readonly else T.COLOR_TEXT
+        cursor = "arrow" if self._readonly else "xterm"
+        state = "readonly" if self._readonly else "normal"
+        for entry in (self._year, self._month, self._day):
+            try:
+                entry.configure(text_color=color, cursor=cursor, state=state)
+            except (tk.TclError, ValueError):
+                continue
+        self._arrow.configure(
+            cursor="arrow" if self._readonly else "hand2"
+        )
+
+    def _commit_typed(self, _event: Any = None) -> None:
+        """回车或失焦：把三段文字拼成日期，坏值退回原样。"""
+        if self._readonly:
+            return
+        texts = [
+            entry.get().strip()
+            for entry in (self._year, self._month, self._day)
+        ]
+        if not any(texts):
+            value: Optional[_dt.date] = None
+        else:
+            try:
+                value = _dt.date(int(texts[0] or 1), int(texts[1] or 1), int(texts[2] or 1))
+            except (TypeError, ValueError):
+                self._sync_text()
+                return
+        if value != self._value:
+            self._value = value
+            if self._command is not None and value is not None:
+                self._command(value)
+        self._sync_text()
+
     def _pick(self, date: _dt.date) -> None:
         """选中日期：写回输入框、回调、收弹层。"""
         self._value = date
@@ -494,11 +561,54 @@ class DatePicker(Valuable, ctk.CTkFrame):
             self._command(date)
 
     def _sync_text(self) -> None:
-        """把 ``_value`` 写进输入框。"""
-        text = self._value.strftime("%Y-%m-%d") if self._value else ""
-        self._entry.delete(0, "end")
-        if text:
-            self._entry.insert(0, text)
+        """把 ``_value`` 拆成三段写进输入框；没选日期时三段留空。"""
+        if self._value is None:
+            parts = ("", "", "")
         else:
-            # delete 之后 CTkEntry 不会自己把占位文字放回去。
-            self._entry._activate_placeholder()
+            parts = (
+                f"{self._value.year:04d}",
+                f"{self._value.month:02d}",
+                f"{self._value.day:02d}",
+            )
+        for entry, text in zip((self._year, self._month, self._day), parts):
+            if self._readonly:
+                entry.configure(state="normal")
+            entry.delete(0, "end")
+            entry.insert(0, text)
+            if self._readonly:
+                entry.configure(state="readonly")
+
+    def _segment(self, width: int) -> ctk.CTkEntry:
+        """一段数字框：平时可键入，只读时拒收键盘。"""
+        entry = ctk.CTkEntry(
+            self._box,
+            width=width,
+            height=28,
+            fg_color="transparent",
+            border_width=0,
+            corner_radius=0,
+            justify="center",
+            font=get_font(T.FONT_BODY),
+            text_color=T.COLOR_TEXT,
+            state="readonly" if self._readonly else "normal",
+        )
+        entry.bind("<Key>", self._block_keys)
+        return entry
+
+    def _dash(self) -> ctk.CTkLabel:
+        """年月日之间的分隔符。"""
+        return ctk.CTkLabel(
+            self._box,
+            text="-",
+            width=0,
+            text_color=T.COLOR_MUTED,
+            font=get_font(T.FONT_BODY),
+        )
+
+    def _block_keys(self, event: Any) -> Optional[str]:
+        """只读框被聚焦时，吃掉可打印字符；可编辑时放行。"""
+        if not self._readonly:
+            return None
+        if event.char and event.char.isprintable():
+            return "break"
+        return None

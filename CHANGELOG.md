@@ -27,6 +27,14 @@
 - 说明：整组隐藏窗口按钮会清掉 `WS_SYSMENU`，Windows 随即不再绘制标题栏图标槽，
   左上角图标会跟着消失（写回 `WM_SETICON` 无效，属系统行为）；恢复整组按钮时
   会重新挂一次窗口图标，图标随即回来
+- 新增 `Enablable.unlocked()` 上下文管理器：在只读控件上临时解除只读，退出时
+  自动锁回。`CTkEntry.set()` / `append()` / `clear()`、`SearchBox` 与 `PathField`
+  的写入都改走它，只读时程序代写内容不必自己切 `state`
+- `Radio` 新增 `group=` 参数：同一组的单选项内部共用一个变量，自动互斥，不需要
+  再自己建 `StringVar`；控件销毁时自动从组里移除。`variable=` 仍然可用
+- 文档：`docs/components/` 下 15 份组件说明按「作用 / 参数 / 方法 / 示例」重写，
+  每个组件配一张示意图（`docs/assets/guide-*.png`）；纯配色变体合并成一节，不重复
+  介绍参数
 
 ## 0.12.0 — 2026-11-07
 

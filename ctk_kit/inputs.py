@@ -101,24 +101,10 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
 
     def set(self, text: str) -> None:
         """整体替换内容（清空后再写入），等价于 ``delete(0, "end")`` + ``insert``。"""
-        with self._writable():
+        with self.unlocked():
             self.delete(0, "end")
             if text:
                 self.insert(0, text)
-
-    @contextlib.contextmanager
-    def _writable(self):
-        """只读时临时解锁，改完再恢复；``set()`` / ``append()`` / ``clear()`` 都走它。"""
-        readonly = self.is_readonly()
-        if readonly:
-            with contextlib.suppress(Exception):
-                self.configure(state="normal")
-        try:
-            yield
-        finally:
-            if readonly:
-                with contextlib.suppress(Exception):
-                    self.configure(state="readonly")
 
     def set_text(self, text: Any) -> None:
         """同 :meth:`set`；``Entry`` 的「文字」就是输入内容。"""
@@ -134,12 +120,12 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
     def append(self, text: str) -> None:
         """把文字追加到当前内容末尾。"""
         if text:
-            with self._writable():
+            with self.unlocked():
                 self.insert("end", text)
 
     def clear(self) -> None:
         """清空输入框。"""
-        with self._writable():
+        with self.unlocked():
             self.delete(0, "end")
 
 

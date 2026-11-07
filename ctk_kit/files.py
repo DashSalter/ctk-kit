@@ -188,18 +188,26 @@ class PathField(Valuable, ctk.CTkFrame):
         except (tk.TclError, ValueError):
             return
 
-    def set(self, path: str) -> None:
-        """覆盖输入框内容并触发 ``on_change``。"""
+    @contextlib.contextmanager
+    def unlocked(self):
+        """临时解除只读：解锁的是里面那个输入框。"""
         readonly = self.is_readonly()
         if readonly:
             with contextlib.suppress(Exception):
                 self.entry.configure(state="normal")
-        self.entry.delete(0, "end")
-        if path:
-            self.entry.insert(0, path)
-        if readonly:
-            with contextlib.suppress(Exception):
-                self.entry.configure(state="readonly")
+        try:
+            yield self
+        finally:
+            if readonly:
+                with contextlib.suppress(Exception):
+                    self.entry.configure(state="readonly")
+
+    def set(self, path: str) -> None:
+        """覆盖输入框内容并触发 ``on_change``。"""
+        with self.unlocked():
+            self.entry.delete(0, "end")
+            if path:
+                self.entry.insert(0, path)
         self._changed()
 
     def clear(self) -> None:

@@ -31,6 +31,8 @@ CTk 原生控件（``CTkButton`` / ``CTkEntry`` …）的 ``state`` 选项本来
 
 from __future__ import annotations
 
+import contextlib
+
 from typing import Any
 
 __all__ = ["Bindable", "Enablable", "Options", "Textual", "Valuable"]
@@ -323,6 +325,32 @@ class Enablable(Options):
             self.configure(state="readonly" if self.is_readonly() else "normal")
         except Exception:  # noqa: BLE001 - 控件不支持 state 时交给子类
             pass
+
+    @contextlib.contextmanager
+    def unlocked(self):
+        """临时解除只读，退出时恢复原样。
+
+        只读控件在 Tk 里连程序写入都会被拒绝，所以 ``set()`` 这类方法要
+        先用它包一层：
+
+        ```python
+        with entry.unlocked():
+            entry.insert("end", "追加的内容")
+        ```
+
+        本来是只读的才解锁、退出再锁回；本来可编辑就什么都不做。
+        复合控件（输入框外面还包着一层）可以覆盖它，解锁真正的那个子控件。
+        """
+        readonly = self.is_readonly()
+        if readonly:
+            with contextlib.suppress(Exception):
+                self.configure(state="normal")
+        try:
+            yield self
+        finally:
+            if readonly:
+                with contextlib.suppress(Exception):
+                    self.configure(state="readonly")
 
     def _apply_enabled(self, enabled: bool) -> None:
         """真正落地状态。CTk 原生控件走 ``state`` 选项。"""

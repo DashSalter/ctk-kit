@@ -178,29 +178,17 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
 
     def set(self, text: str, *, notify: bool = False) -> None:
         """写入文字；``notify=True`` 时也触发回调。"""
-        readonly = self.is_readonly()
-        if readonly:
-            with contextlib.suppress(Exception):
-                self._entry.configure(state="normal")
-        self._entry.delete(0, "end")
-        if text:
-            self._entry.insert(0, text)
-        if readonly:
-            with contextlib.suppress(Exception):
-                self._entry.configure(state="readonly")
+        with self.unlocked():
+            self._entry.delete(0, "end")
+            if text:
+                self._entry.insert(0, text)
         if notify:
             self._fire()
 
     def clear(self) -> None:
         """清空并立刻触发一次回调。"""
-        readonly = self.is_readonly()
-        if readonly:
-            with contextlib.suppress(Exception):
-                self._entry.configure(state="normal")
-        self._entry.delete(0, "end")
-        if readonly:
-            with contextlib.suppress(Exception):
-                self._entry.configure(state="readonly")
+        with self.unlocked():
+            self._entry.delete(0, "end")
         self._fire()
 
     def search(self) -> None:
@@ -211,6 +199,20 @@ class SearchBox(Enablable, Bindable, ctk.CTkFrame):
     def focus(self) -> None:
         """让输入框获得焦点。"""
         self._entry.focus_set()
+
+    @contextlib.contextmanager
+    def unlocked(self):
+        """临时解除只读：真正要解锁的是里面那个输入框，不是外层容器。"""
+        readonly = self.is_readonly()
+        if readonly:
+            with contextlib.suppress(Exception):
+                self._entry.configure(state="normal")
+        try:
+            yield self
+        finally:
+            if readonly:
+                with contextlib.suppress(Exception):
+                    self._entry.configure(state="readonly")
 
     def _apply_readonly(self) -> None:
         """只读时输入框拒收键盘，清空按钮一并置灰。"""

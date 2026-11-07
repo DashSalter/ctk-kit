@@ -1,208 +1,195 @@
-# 对话框与菜单
+# 对话框
+
+![对话框](../assets/guide-dialogs.png){ loading=lazy }
 
 ## 作用
 
-三件「临时浮出来」的东西：
+三组东西：通用对话框 `Dialog`、三个常用的快捷弹窗、以及依附在控件上的
+浮层和右键菜单。
 
-- `Dialog` —— 等待用户操作的模态卡片窗口：提示、确认、输入、多按钮。
-- `Popover` —— 点某个控件后弹出的浮动小卡片，用来放筛选、详情、快捷操作。
-- `ContextMenu` —— 右键菜单，可以挂在任意控件上。
+## Dialog
 
-日常用得最多的是三个模块级快捷函数 `ctk.alert()` / `ctk.confirm()` / `ctk.prompt()`，
-它们就是 `Dialog` 的预设封装。
+### 作用
 
-## 类型
+自定义对话框：标题、正文、一排按钮，点哪个就把对应返回值交回来。
 
-| 类型 | 外观 | 是否阻塞 | 用在哪 |
-| --- | --- | --- | --- |
-| `Dialog` | 居中卡片 + 标题 / 正文 / 按钮行 | 是（`show()` 等待） | 确认删除、输入新名字 |
-| `alert()` | 只有一个「知道了」 | 是 | 告知结果 |
-| `confirm()` | 确定 / 取消 | 是，返回 `bool` | 危险操作前 |
-| `prompt()` | 一个输入框 + 确定 / 取消 | 是，返回 `str \| None` | 输入名字 |
-| `Popover` | 贴着控件的小卡片 | 否 | 筛选器、列设置 |
-| `ContextMenu` | 竖排菜单 | 否 | 右键操作 |
-
-## 参数
-
-### Dialog
+### 参数
 
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父窗口 |
 | `title` | `str` | `""` | 标题 |
-| `message` | `str` | `""` | 正文，自动换行 |
-| `detail` | `str` | `""` | 正文下面的小字，可放路径、影响范围 |
-| `level` | `str` | `"info"` | `"info"` / `"success"` / `"warn"` / `"error"`，决定图标颜色 |
-| `buttons` | `Sequence[tuple]` | `None` | `[(文字, 返回值), ...]`；**最后一个**是主按钮 |
-| `prompt` | `str \| None` | `None` | 给了初值就多一个输入框 |
-| `danger` | `bool` | `False` | 主按钮是否用危险色 |
-| `width` | `int` | `392` | 宽度（逻辑像素） |
-| `glass` | `bool` | `True` | 是否用毛玻璃底 |
-| `glass_refresh_ms` | `int` | `300` | 毛玻璃刷新间隔 |
-| `glass_blur` / `glass_upscale` / `glass_blur_scale` | — | `20` / `2.0` / `0.5` | 模糊强度与采样参数 |
-| `backdrop` | `str` | `"acrylic"` | 背景合成方式 |
-| `corners` | `int` | `0` | `0` 跟随系统圆角，其它值是自定义圆角 |
-| `gradient_top` / `gradient_bottom` | `str \| None` | `None` | 给卡片底色加竖向渐变 |
+| `message` | `str` | `""` | 正文 |
+| `detail` | `str` | `""` | 正文下方的补充说明 |
+| `level` | `str` | `"info"` | `info` / `warn` / `error`，决定图标与配色 |
+| `prompt` | `str` | `None` | 传了就在正文下加一个输入框，并作为初始内容 |
+| `buttons` | `Sequence[(str, Any)]` | `[("确定", True)]` | 每个是 `(文字, 返回值)`，最后一个是主按钮 |
+| `width` | `int` | `392` | 宽度 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `show()` | 弹出并阻塞，返回被点按钮的返回值 |
+| `close(value)` | 用指定返回值关闭 |
+
+### 示例
 
 ```python
-dlg = ctk.Dialog(app, title="删除备份", message="这会删掉 3 个文件。", level="warn",
-                 danger=True, buttons=[("取消", False), ("删除", True)])
-if dlg.show():
-    ...
+answer = Dialog(
+    app,
+    title="删除项目",
+    message="删除后无法恢复，确定吗？",
+    level="warn",
+    buttons=[("取消", False), ("删除", True)],
+).show()
+
+if answer:
+    print("执行删除")
 ```
 
-### alert / confirm / prompt
+## Alert
 
-| 函数 | 签名 | 返回 |
+### 作用
+
+只有一个「知道了」的提示框，用于告知结果。对应函数 `alert(...)`，没有返回值。
+
+### 示例
+
+```python
+alert(app, "已保存", detail="改动会在下次切换页面时生效")
+```
+
+## Confirm
+
+### 作用
+
+「确定 / 取消」二选一，返回 `True` / `False`，用在危险操作之前。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父窗口 |
+| `message` | `str` | 必填 | 正文 |
+| `title` | `str` | `""` | 标题 |
+| `detail` | `str` | `""` | 补充说明 |
+| `level` | `str` | `"warn"` | 图标与配色 |
+| `ok` | `str` | `"确定"` | 主按钮文字 |
+| `cancel` | `str` | `"取消"` | 次按钮文字 |
+| `danger` | `bool` | `False` | 主按钮用红色 |
+
+### 示例
+
+```python
+if confirm(app, "清空缓存？", detail="所有页面下次进会重新加载", danger=True):
+    print("已清空")
+```
+
+## Prompt
+
+### 作用
+
+一个输入框 + 确定 / 取消，返回输入的文字；取消返回 `None`。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父窗口 |
+| `message` | `str` | 必填 | 说明文字 |
+| `title` | `str` | `""` | 标题 |
+| `value` | `str` | `""` | 输入框初始内容 |
+| `detail` | `str` | `""` | 输入框下方的补充说明 |
+
+### 示例
+
+```python
+name = prompt(app, "请输入新名字", title="重命名", value="未命名")
+if name is not None:
+    print("改成", name)
+```
+
+## Popover
+
+### 作用
+
+贴着某个控件弹出的浮层，点外面自动关闭；可以放任意内容。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `widget` | `tk.Misc` | 必填 | 贴着哪个控件 |
+| `content` | `Callable[[tk.Misc], None]` | `None` | 往浮层里填内容；不传就自己往里 `pack` |
+| `width` / `height` | `int` | `240` / `None` | 尺寸 |
+| `placement` | `str` | `"bottom"` | `bottom` / `top` / `right` / `left` |
+| `padding` | `int` | `12` | 内容内边距 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `show()` / `hide()` | 开 / 关浮层 |
+| `toggle()` | 切换 |
+
+### 示例
+
+```python
+help_button = PrimaryButton(card.body, "快捷键")
+pop = Popover(help_button, width=240)
+Label(pop, "Ctrl+S 保存，Ctrl+Z 撤销").pack(padx=12, pady=12)
+pop.toggle()
+```
+
+## ContextMenu
+
+### 作用
+
+右键菜单：可以挂到任意控件上，也可以手动在坐标处弹出。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父窗口 |
+
+### 方法
+
+| 方法 | 说明 |
 | --- | --- | --- |
-| `alert` | `alert(master, message, *, title="", level="info", ok="知道了", detail="")` | `None` |
-| `confirm` | `confirm(master, message, *, title="", level="warn", ok="确定", cancel="取消", detail="", danger=False)` | `bool`：点 `ok` 为 `True` |
-| `prompt` | `prompt(master, message, *, title="", value="", ok="确定", cancel="取消", detail="")` | 输入的文字；取消为 `None` |
-
-```python
-ctk.alert(app, "导出完成", title="完成", level="success")
-
-if ctk.confirm(app, "删除这份备份？", danger=True, ok="删除"):
-    remove_backup()
-
-name = ctk.prompt(app, "给备份起个名字", value="backup-01")
-if name:
-    print("新名字", name)
-```
-
-### Popover
-
-| 参数 | 类型 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `widget` | `tk.Misc` | 必填 | 弹出锚点（通常是个按钮） |
-| `content` | `Callable[[tk.Misc], None]` | `None` | 往弹层里填内容 |
-| `width` | `int` | `240` | 宽度 |
-| `placement` | `str` | `"bottom"` | `"bottom"` / `"top"` |
-| `padding` | `int` | `12` | 内边距 |
-| `glass` | `bool` | `True` | 是否毛玻璃底 |
-| `acrylic` | `bool` | `False` | 是否用 DWM 亚克力 |
-| `acrylic_tint` | `int \| None` | 系统默认 | 亚克力的 tint |
-
-```python
-def fill(box):
-    ctk.Label(box, "按时间排序").pack(anchor="w")
-    ctk.Switch(box, text="只看失败").pack(anchor="w", pady=(8, 0))
-
-pop = ctk.Popover(btn, content=fill, width=220)
-btn.on_click(lambda event: pop.toggle())
-```
-
-### ContextMenu
-
-| 参数 | 类型 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `master` | `tk.Misc` | 必填 | 父容器 |
-| `width` | `int` | `132` | 菜单宽度 |
-| `font` | `tuple` | `("微软雅黑", 12)` | 字体 |
-
-```python
-menu = ctk.ContextMenu(app, width=150)
-menu.add_command("复制", copy).add_separator().add_command("删除", remove)
-```
-
-## 方法
-
-### Dialog
-
-| 方法 | 说明 |
-| --- | --- |
-| `show()` | 显示并等待用户操作，返回按下的按钮对应的值 |
-
-`show()` 会阻塞到用户点按钮或关掉窗口。返回值来自 `buttons` 里那组 `(文字, 返回值)`。
-
-### Popover
-
-| 方法 | 说明 |
-| --- | --- |
-| `show()` | 打开；已经开着就什么也不做 |
-| `hide()` | 关掉 |
-| `toggle()` | 开着就关，关着就开 |
-
-```python
-pop.show()
-pop.hide()
-```
-
-### ContextMenu
-
-| 方法 | 说明 |
-| --- | --- |
-| `add_command(label, command=None, *, enabled=None)` | 追加一项，返回菜单自己 |
-| `add_separator()` | 追加分隔线 |
-| `add_command(...).add_separator()` | 可以连着写 |
+| `add_command(label, command, *, enabled=True)` | 加一项；`label` 传 `"-"` 是分隔线 |
+| `add_separator()` | 加分隔线 |
+| `show(x, y, *, source=None)` | 在屏幕坐标处弹出（一般传 `event.x_root` / `event.y_root`） |
 | `clear()` | 清空所有项 |
-| `has_command(label)` | 有没有叫 `label` 的项 |
-| `remove_command(label)` | 删掉第一个叫 `label` 的项 |
-| `rename_command(label, new_label)` | 改名 |
-| `show(x, y, *, source=None)` | 在屏幕坐标处弹出 |
-| `close()` / `visible()` | 收起 / 是否正显示 |
+
+### 示例
 
 ```python
-menu.add_command("重命名", rename, enabled=True)
-menu.show(event.x_root, event.y_root, source=widget)
-print(menu.visible())
+menu = ContextMenu(card.body)
+menu.add_command("复制", lambda: print("复制"))
+menu.add_separator()
+menu.add_command("删除", lambda: print("删除"), enabled=False)
+
+attach_menu(card.body, [("刷新", lambda: print("刷新"))])   # 右键弹出
 ```
 
-### 给控件挂右键菜单
+## 便捷挂载
 
-不想自己管 `show()` 时，用这两个函数一次挂好：
+### 作用
+
+不用自己建 `ContextMenu`，直接给输入框挂上「剪切 / 复制 / 粘贴 / 全选」。
 
 | 函数 | 说明 |
 | --- | --- |
-| `attach_menu(widget, items)` | 挂自定义菜单；`items` 是 `[(文字, 回调), ...]`，返回菜单对象 |
-| `attach_edit_menu(widget)` | 挂「复制 / 粘贴 / 剪切 / 清空」输入框菜单，返回菜单对象 |
+| `attach_menu(widget, items)` | 挂一组自定义项；`items` 是 `(文字, 回调)` 列表 |
+| `attach_edit_menu(widget)` | 挂标准编辑菜单 |
+
+### 示例
 
 ```python
-ctk.attach_menu(tile, [("复制", copy), ("删除", remove)])
-ctk.attach_edit_menu(entry)      # 输入框自带，一般不用手动调
+entry = CTkEntry(card.body)
+entry.pack(fill="x")
+attach_edit_menu(entry)
+attach_menu(card.body, [("刷新", lambda: print("刷新")), ("导出", lambda: print("导出"))])
 ```
-
-## 完整示例
-
-```python
-import ctk_kit as ctk
-
-app = ctk.App(title="对话框示例", size=(620, 420))
-
-card = ctk.Card(app, title="对话框")
-card.pack(fill="x", padx=24, pady=24)
-
-row = card.row(1)
-
-
-def do_confirm():
-    if ctk.confirm(app, "删除后无法恢复。", title="删除备份", danger=True, ok="删除"):
-        ctk.notify(app, "已删除", level="success")
-
-
-def do_prompt():
-    name = ctk.prompt(app, "给备份起个名字", value="backup-01", title="新建备份")
-    if name:
-        ctk.alert(app, f"将创建 {name}", title="已记录", level="info")
-
-
-ctk.PrimaryButton(row, "确认框", command=do_confirm).pack(side="left", padx=16)
-ctk.SecondaryButton(row, "输入框", command=do_prompt).pack(side="left")
-ctk.Avatar(row, text="志", command=lambda: print("点头像")).pack(side="left", padx=(10, 0))
-
-app.mainloop()
-```
-
-## 换色
-
-对话框的图标颜色由 `level` 决定（`COLOR_ACCENT` / `COLOR_SUCCESS` / `COLOR_WARN` /
-`COLOR_DANGER`），按钮用主 / 次要按钮的同一套颜色，背景走毛玻璃。
-
-```python
-from ctk_kit import theming
-
-theming.apply_palette({"COLOR_DANGER": "#f43f5e"})    # 危险按钮与错误图标
-theming.apply_palette({"COLOR_ACCENT": "#f97316"})    # 主按钮与信息图标
-```
-
-右键菜单与弹层的底色固定 `#2B2B2B`，与下拉框、日期弹层保持一致。

@@ -10,7 +10,7 @@ from __future__ import annotations
 import contextlib
 import time
 import tkinter as tk
-from typing import Any, Callable, Optional
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import customtkinter as ctk
 
@@ -497,9 +497,24 @@ class Check(_Mark):
 
 
 class Radio(_Mark):
-    """单选项：圆形指示符，多个共享同一个 ``StringVar`` 才互斥。"""
+    """单选项：圆形指示符，同一个 ``group`` 里只用点一个。
+
+    一组单选项共用内部的一个变量，所以不需要自己 new 一个 ``StringVar``：
+
+    ```python
+    Radio(box, "小", value="s", group="size")
+    Radio(box, "中", value="m", group="size")
+    Radio(box, "大", value="l", group="size")
+    ```
+
+    三个都传 ``group="size"`` 就自动互斥，选中值用任意一个的 ``get_value()``
+    读即可。想自己管变量时仍然可以传 ``variable=``。
+    """
 
     _shape = "round"
+
+    #: ``group`` 名 → (组内共用的变量, 成员列表)
+    _groups: Dict[str, Tuple[tk.StringVar, List["Radio"]]] = {}
 
     def __init__(
         self,
@@ -507,15 +522,19 @@ class Radio(_Mark):
         text: str = "",
         value: str = "",
         *,
+        group: Optional[str] = None,
         variable: Optional[tk.StringVar] = None,
         command: Optional[Callable[[], None]] = None,
         width: int = 22,
         height: int = 22,
         font: Any = None,
     ) -> None:
-        """建单选项；``value`` 是选中时写进变量的值。"""
+        """建单选项；``value`` 是选中时写进变量的值，同 ``group`` 自动互斥。"""
         self._value = value if value else text
-        self._variable = variable or tk.StringVar()
+        self._group = group
+        self._variable = self._variable_for(group, variable)
+        if group is not None:
+            Radio._groups.setdefault(group, (self._variable, []))[1].append(self)
         super().__init__(
             master,
             text,
@@ -525,7 +544,36 @@ class Radio(_Mark):
             font=font or get_font(T.FONT_BODY),
         )
         self._variable.trace_add("write", lambda *_: self._variable_changed())
+        if group is not None:
+            self.bind("<Destroy>", self._on_group_destroy, add="+")
         self._refresh()
+
+    @staticmethod
+    def _variable_for(
+        group: Optional[str], variable: Optional[tk.StringVar]
+    ) -> tk.StringVar:
+        """同组复用第一个成员建的变量；没分组或第一次建就自己 new 一个。"""
+        if group is None:
+            return variable or tk.StringVar()
+        entry = Radio._groups.get(group)
+        if entry is not None:
+            return entry[0]
+        return variable or tk.StringVar()
+
+    def _on_group_destroy(self, event: Any = None) -> None:
+        """控件销毁时从组里摘掉，页面重建不会留下死引用。"""
+        if event is not None and event.widget is not self:
+            return
+        if self._group is None:
+            return
+        entry = Radio._groups.get(self._group)
+        if entry is None:
+            return
+        members = entry[1]
+        if self in members:
+            members.remove(self)
+        if not members:
+            Radio._groups.pop(self._group, None)
 
     def _is_checked(self) -> bool:
         return self._variable.get() == self._value
@@ -548,9 +596,9 @@ class Radio(_Mark):
         self._animate_to(1.0)
 
     def get_value(self) -> str:
-        """当前选中的值（几个单选项共享的那个变量）。"""
+        """当前选中的值（同组共用的那个变量）。"""
         return self._variable.get()
 
     def set_value(self, value: str) -> None:
-        """把共享变量设成 ``value``；这一项匹配时自动选中。"""
+        """选中值为 ``value`` 的那一项；同组里值匹配的会自动亮起。"""
         self._variable.set(str(value))

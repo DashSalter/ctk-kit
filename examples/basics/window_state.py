@@ -33,7 +33,14 @@ import json
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
-from conf_base import ConfigBase, Section
+try:
+    from conf_base import ConfigBase, Section
+except ImportError as exc:  # pragma: no cover - 只在没装示例依赖时触发
+    raise ImportError(
+        "示例里的窗口记忆用 conf_base 演示，核心库并不依赖它。\n"
+        "先安装：pip install conf_base\n"
+        "或者把 state=None 传进 App，不启用记忆功能。"
+    ) from exc
 
 __all__ = ["WindowState", "WindowStateStore", "default_config_path"]
 

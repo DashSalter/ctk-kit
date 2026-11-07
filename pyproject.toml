@@ -38,13 +38,14 @@ dependencies = [
     "customtkinter>=5.2",
     # 抗锯齿绘制：勾选/单选指示符、Spinner 箭头、进度条与圆环、ImageViewer
     "pillow>=9",
-    # 窗口大小/位置的持久化
-    "conf_base>=0.5",
 ]
 
 [project.optional-dependencies]
 # 只有 PathField / DropZone 的拖入需要 tkinterdnd2，按钮选择路径不依赖它
 dnd = ["tkinterdnd2>=0.3"]
+# 示例程序（examples/basics/window_state.py）用它演示窗口记忆；
+# 核心库不含任何持久化，自己的项目想记就自己写一个 state 对象传进 App
+demo = ["conf_base>=0.5"]
 
 [project.urls]
 Homepage = "https://gitee.com/kuangjianke/ctk-kit"

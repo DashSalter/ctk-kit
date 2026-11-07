@@ -95,9 +95,15 @@ Mica、亚克力、毛玻璃、纯深底四种外观；标题栏可以交还给 
 pip install ctk-kit
 ```
 
-依赖 `customtkinter`（自绘控件底座）、`Pillow`（勾选/单选指示符、进度条圆弧、
-图片查看器）和 `conf_base`（窗口大小与位置的持久化），纯 Python，支持
-Python 3.9 – 3.14。毛玻璃相关能力依赖 Windows 11 的 DWM，其他平台自动降级。
+依赖 `customtkinter`（自绘控件底座）与 `Pillow`（勾选/单选指示符、进度条圆弧、
+图片查看器），纯 Python，支持 Python 3.9 – 3.14。
+
+**核心库不含任何持久化代码**：窗口大小、位置、主题要不要记住、记在哪、用什么格式，
+都由你自己的项目决定；把你写好的存储对象传给 `App(state=...)` 即可（接口见文档站的
+`App` 一节）。仓库里的示例用 `conf_base` 演示这件事，需要额外装：
+`pip install ctk-kit[demo]`。
+
+毛玻璃相关能力依赖 Windows 11 的 DWM，其他平台自动降级。
 
 ## 快速开始
 

@@ -35,6 +35,10 @@
 - 文档：`docs/components/` 下 15 份组件说明按「作用 / 参数 / 方法 / 示例」重写，
   每个组件配一张示意图（`docs/assets/guide-*.png`）；纯配色变体合并成一节，不重复
   介绍参数
+- 打包：`conf_base` 从必需依赖移出，改为可选 extra `demo`。核心库本来就不含持久化，
+  窗口大小 / 位置 / 主题要不要记、记在哪由使用方实现；只有示例的
+  `examples/basics/window_state.py` 用它演示，装 `ctk-kit[demo]` 或单独
+  `pip install conf_base` 即可
 
 ## 0.12.0 — 2026-11-07
 

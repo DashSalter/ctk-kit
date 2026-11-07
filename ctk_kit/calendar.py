@@ -30,6 +30,10 @@ DateCommand = Optional[Callable[[_dt.date], None]]
 #: 星期表头，周一开始。
 _WEEKDAYS = ("一", "二", "三", "四", "五", "六", "日")
 
+# 弹层面板的底色，和下拉框（select._PANEL_BG）、右键菜单同值；用卡片色会比
+# 它们浅一档，摆在一起显得日期弹层是另一套东西。
+_POPUP_BG = "#2B2B2B"
+
 
 class Calendar(Valuable, ctk.CTkFrame):
     """月视图日历。
@@ -369,14 +373,20 @@ class DatePicker(Valuable, ctk.CTkFrame):
         # 描边画在窗口上，卡片四边各内缩 1px；Calendar 自身不再画边框。
         body = ctk.CTkFrame(
             win,
-            fg_color=T.COLOR_CARD,
+            fg_color=_POPUP_BG,
             # 圆角跟系统 DWM 圆角对齐，免得四角露出比 1px 粗的描边。
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
-        calendar = Calendar(body, value=self._value, command=self._pick, border_width=0)
+        calendar = Calendar(
+            body,
+            value=self._value,
+            command=self._pick,
+            border_width=0,
+            fg_color=_POPUP_BG,
+        )
         calendar.pack(padx=8, pady=8)
 
         win.update_idletasks()

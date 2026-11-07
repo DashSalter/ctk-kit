@@ -36,6 +36,11 @@ _VISIBLE = 5
 _ANIM_MS = 120
 _ANIM_STEP = 16
 
+# 弹层面板的底色。和下拉框（select._PANEL_BG）、右键菜单（context_menu._MENU_BG）
+# 用同一个值：这三个弹层长得一样，浅一档的卡片色摆在一起就显得日期、时间这两个
+# 是「另一个组件」。
+_POPUP_BG = "#2B2B2B"
+
 
 class _Wheel(tk.Canvas):
     """一列数字滚轮。"""
@@ -47,14 +52,16 @@ class _Wheel(tk.Canvas):
         *,
         width: int = 46,
         command: Optional[Callable[[], None]] = None,
+        bg: Optional[str] = None,
     ) -> None:
+        self._bg = bg or T.COLOR_CARD
         super().__init__(
             master,
             width=width,
             height=_ROW * _VISIBLE,
             highlightthickness=0,
             borderwidth=0,
-            bg=color_of(T.COLOR_CARD),
+            bg=color_of(self._bg),
             cursor="hand2",
         )
         self._values = list(values)
@@ -131,7 +138,7 @@ class _Wheel(tk.Canvas):
 
     def apply_theme(self) -> None:
         """换外观后重取颜色。"""
-        self.configure(bg=color_of(T.COLOR_CARD))
+        self.configure(bg=color_of(self._bg))
         self.itemconfigure(self._highlight, fill=color_of(T.COLOR_SOFT))
         self._paint()
 
@@ -229,11 +236,12 @@ class TimePicker(Valuable, ctk.CTkFrame):
         kwargs.setdefault("fg_color", T.COLOR_CARD)
         kwargs.setdefault("corner_radius", T.RADIUS_MEDIUM)
         super().__init__(master, **kwargs)
+        self._bg = kwargs["fg_color"]
         self._command = command
 
-        self._hour = _Wheel(self, range(24), command=self._changed)
-        self._minute = _Wheel(self, range(60), command=self._changed)
-        self._second = _Wheel(self, range(60), command=self._changed)
+        self._hour = _Wheel(self, range(24), command=self._changed, bg=self._bg)
+        self._minute = _Wheel(self, range(60), command=self._changed, bg=self._bg)
+        self._second = _Wheel(self, range(60), command=self._changed, bg=self._bg)
 
         self._colons = []
         self._hour.pack(side="left", padx=(12, 0), pady=10)
@@ -264,7 +272,7 @@ class TimePicker(Valuable, ctk.CTkFrame):
 
     def apply_theme(self) -> None:
         """切外观后重刷三列颜色。"""
-        super().configure(fg_color=T.COLOR_CARD)
+        super().configure(fg_color=self._bg)
         for wheel in (self._hour, self._minute, self._second):
             wheel.apply_theme()
         for label in self._colons:
@@ -388,13 +396,15 @@ class TimeField(Valuable, ctk.CTkFrame):
         win.configure(fg_color=T.COLOR_BORDER)
         body = ctk.CTkFrame(
             win,
-            fg_color=T.COLOR_CARD,
+            fg_color=_POPUP_BG,
             corner_radius=T.RADIUS_SMALL,
             border_width=0,
         )
         body.pack(fill="both", expand=True, padx=1, pady=1)
 
-        picker = TimePicker(body, value=self._value, command=self._on_scrolled)
+        picker = TimePicker(
+            body, value=self._value, command=self._on_scrolled, fg_color=_POPUP_BG
+        )
         picker.pack(padx=8, pady=8)
 
         win.update_idletasks()

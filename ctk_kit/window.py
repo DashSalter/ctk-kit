@@ -17,6 +17,9 @@
 from __future__ import annotations
 
 import contextlib
+import ctypes
+import sys
+import time
 import tkinter as tk
 from typing import Any, Callable, Mapping, Optional, Sequence
 
@@ -64,6 +67,19 @@ __all__ = ["App"]
 #: 底层颜色模式用的透明键色。DWM 只把纯黑当全透明，这个近似黑不会被
 #: 当成透明，所以「看起来透明」的判定交给 -transparentcolor 自己做。
 _FROST_KEY = "#010203"
+
+#: 拖窗口时，两次「丢掉后台页」之间至少隔多久（毫秒）。
+_DROP_COOLDOWN = 900
+
+
+def _left_button_down() -> bool:
+    """鼠标左键此刻是否按着（拖边框时用来判断「现在是在拖窗口」）。"""
+    if sys.platform != "win32":
+        return False
+    try:
+        return bool(ctypes.windll.user32.GetAsyncKeyState(0x01) & 0x8000)
+    except Exception:  # noqa: BLE001 - 读不到就当成没按
+        return False
 
 
 def _colorref(color: Optional[str], default: Any = None) -> Any:
@@ -251,6 +267,8 @@ class App(Bindable, CTk):
         self.after(10, self._refresh_titlebar)
         # 同理，玻璃合成也要等窗口映射之后才生效。
         self.after(10, self._refresh_backdrop)
+        # 拖边框时把看不见的页面扔掉，免得它们跟着一起重排。
+        self._init_page_dropper()
 
         # 提示层挂在根窗口上：切页、缩放时都不会被页面带走。Notifier 不建
         # 控件，只有真正 show() 时才出现浮层，所以默认建一个没有额外开销。
@@ -322,6 +340,73 @@ class App(Bindable, CTk):
 
         if save and getattr(self, "_remember_theme", False):
             self._state_call("write_appearance", mode)
+
+    def _init_page_dropper(self) -> None:
+        """拖窗口边框时，把看不见的页面销毁掉，只留当前页跟着重排。"""
+        self._dropper_job: Optional[str] = None
+        self._dropper_size = (0, 0)
+        self._dropper_last = 0.0
+        self._install_destroy_guard()
+        try:
+            self.bind("<Configure>", self._on_drop_configure, add="+")
+        except tk.TclError:
+            pass
+
+    def _install_destroy_guard(self) -> None:
+        """吞掉「控件已销毁，但它的 after 回调又跑了一拍」这类报错。
+
+        掉页面时走 Tcl 一次拔掉整棵子树，第三方控件自己排的定时器（比如
+        ``CTkTextbox`` 每 50 ms 检查滚动条）来不及取消，下一拍就会抛
+        ``invalid command name``。只过滤这一种，其它异常照旧打出来。
+        """
+        if getattr(self, "_destroy_guard", False):
+            return
+        self._destroy_guard = True
+        previous = self.report_callback_exception
+
+        def report(exc_type: Any, exc_value: BaseException, tb: Any) -> None:
+            if isinstance(exc_value, tk.TclError) and "invalid command name" in str(
+                exc_value
+            ):
+                return
+            previous(exc_type, exc_value, tb)
+
+        try:
+            self.report_callback_exception = report
+        except Exception:  # noqa: BLE001 - 设置失败就当没有
+            self._destroy_guard = False
+
+    def _on_drop_configure(self, event: Any) -> None:
+        if getattr(event, "widget", None) is not self:
+            return
+        size = (int(event.width), int(event.height))
+        if size == self._dropper_size:
+            return
+        self._dropper_size = size
+        if self._dropper_job is not None:
+            return
+        # 只有鼠标按着（真的在拖边框）才动手；最大化、程序改尺寸不算。
+        if not _left_button_down():
+            return
+        if (time.monotonic() - self._dropper_last) * 1000.0 < _DROP_COOLDOWN:
+            return
+        try:
+            self._dropper_job = self.after(16, self._drop_hidden_pages)
+        except tk.TclError:
+            self._dropper_job = None
+
+    def _drop_hidden_pages(self) -> None:
+        self._dropper_job = None
+        if not _left_button_down():
+            return
+        rebuilder = getattr(getattr(self, "nav", None), "rebuilder", None)
+        if rebuilder is None:
+            return
+        self._dropper_last = time.monotonic()
+        try:
+            rebuilder.drop_hidden()
+        except Exception:  # noqa: BLE001 - 页面正在别处销毁
+            pass
 
     def _refresh_backdrop(self) -> None:
         """窗口映射后把玻璃挂上（DWM 只对已映射的窗口生效）。"""
@@ -1339,6 +1424,10 @@ class App(Bindable, CTk):
             self._save_geometry()
             self._geometry_written = True
         self._cancel_pending_afters()
+        if getattr(self, "_dropper_job", None) is not None:
+            with contextlib.suppress(tk.TclError):
+                self.after_cancel(self._dropper_job)
+            self._dropper_job = None
         if self._frost_layer is not None:
             with contextlib.suppress(Exception):
                 self._frost_layer.stop()

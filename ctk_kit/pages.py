@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import time
 import tkinter as tk
 from typing import Callable, Dict, Optional, Sequence, Set
 
@@ -28,6 +29,14 @@ PageHook = Callable[[ctk.CTkFrame], None]
 # ``switch(defer=True)`` 时延迟多久重建：一帧 16 ms 左右，
 # 留够一次窗口合成的时间，好让「外壳已经换色」这一帧真的显示出来。
 _DEFER_MS = 24
+
+# 丢过页面之后，多少秒内不许后台预建把它们建回来。拖动往往是连着拖几下，
+# 刚建完就再丢一遍纯属白费。
+_PREWARM_PAUSE = 6.0
+
+
+def _noop(*_args: object, **_kwargs: object) -> None:
+    """占位回调：控件销毁前把定时轮询换成它。"""
 
 
 class PageRebuilder:
@@ -77,6 +86,7 @@ class PageRebuilder:
         self._current: Optional[str] = None
         self._prewarm_pending: list = []
         self._prewarm_job: Optional[str] = None
+        self._prewarm_resume_at = 0.0
 
     # ------------------------------------------------------------------ 查询
 
@@ -118,6 +128,10 @@ class PageRebuilder:
         """
         pending = [n for n in names if n not in self._frames and n in self._pages]
         if not pending:
+            return
+        # 刚丢过页面就别急着建回来：拖动结束后后台立刻重建，下一段拖动
+        # 又得再销毁一遍，看起来就是「拖一下就卡一下」。
+        if time.monotonic() < self._prewarm_resume_at:
             return
         self._prewarm_pending = pending
         self._prewarm_next()
@@ -205,6 +219,42 @@ class PageRebuilder:
                 continue
         return roots
 
+    def drop_hidden(self) -> int:
+        """把除了当前页以外的页面全部销毁，返回销毁的页数。
+
+        拖动窗口边框改尺寸时，已经建好的每一页都要跟着重排一次，打开过的
+        页面越多越卡。这里干脆把看不见的页扔掉——切回去时按需重建，用一次
+        构建换整段拖动的流畅。
+
+        只销毁控件，不碰 ``self._pages`` 的页面定义，所以重建随时可以发生。
+        """
+        dropped = 0
+        for name, page in list(self._frames.items()):
+            if name == self._current:
+                continue
+            # 页面工厂理论上返回新容器，但真有工厂返回传进去的 host 时，
+            # 这一刀会把整个页面区连根拔掉，切回去就报 bad window path name。
+            if page is self._host:
+                continue
+            self._call_hook(page, "on_hide")
+            self._stop_page_polling(page)
+            # 走 Tcl 一次性销毁整棵子树：逐控件调 Python 的 destroy 时，
+            # 一页 500 个控件要上百毫秒，十几页就是好几秒。
+            try:
+                self._host.tk.call("destroy", page._w)
+            except Exception:  # noqa: BLE001 - 回退到逐个销毁
+                try:
+                    page.destroy()
+                except Exception:  # noqa: BLE001 - 已经在别处销毁了
+                    pass
+            self._frames.pop(name, None)
+            dropped += 1
+        if dropped:
+            # 后台预建会把刚丢掉的页面又建回来，这里连它也按住几秒。
+            self.cancel_prewarm()
+            self._prewarm_resume_at = time.monotonic() + _PREWARM_PAUSE
+        return dropped
+
     def build_all(
         self,
         progress: Optional[Callable[[int, int, str], None]] = None,
@@ -286,6 +336,26 @@ class PageRebuilder:
                 pass
         self._pages.remove(name)
         self._stale.discard(name)
+
+    @staticmethod
+    def _stop_page_polling(page: tk.Misc) -> None:
+        """停掉页内控件自己排的定时轮询。
+
+        customtkinter 的 ``CTkTextbox`` 用 ``after(50)`` 反复检查滚动条，
+        销毁时不取消；整棵子树被 Tcl 一次拔掉后，下一拍就会撞上
+        ``invalid command name``。先把入口换成空函数，回调再触发也只是
+        什么都不做。
+        """
+        try:
+            widgets = list(theming._walk(page))
+        except Exception:  # noqa: BLE001 - 页面已经不可遍历
+            return
+        for widget in widgets:
+            if callable(getattr(widget, "_check_if_scrollbars_needed", None)):
+                try:
+                    widget._check_if_scrollbars_needed = _noop
+                except Exception:  # noqa: BLE001 - 只读属性之类的
+                    pass
 
     def rebuild(self, name: str) -> ctk.CTkFrame:
         """按当前外观重建一页：先建新页挂好，再销毁旧页。

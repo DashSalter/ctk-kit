@@ -42,3 +42,7 @@ tests/
 _*.png
 /image/
 我的后续计划.txt
+
+# 宣传稿与本地构建脚本，只在本机保留，不进版本库
+/article/
+/tools/

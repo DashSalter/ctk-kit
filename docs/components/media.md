@@ -6,6 +6,8 @@
 
 图片、头像、轮播和取色：都是「围绕一张图或一个颜色」的控件。
 
+> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## Avatar
 
 ### 作用
@@ -122,7 +124,7 @@ carousel.next()
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(color)` | 读 / 写当前颜色 |
+| `get_value()` / `set_value(color)` | 读 / 写当前颜色（等价于 `get()` / `set()`） |
 | `open()` / `close()` | 开 / 关取色面板 |
 | `set_readonly(flag)` | 只读开关 |
 
@@ -132,7 +134,7 @@ carousel.next()
 picker = ColorPicker(card.body, value="#4f46e5",
                      colors=["#4f46e5", "#10b981", "#ef4444"])
 picker.pack(anchor="w", padx=16, pady=(0, 12))
-print(picker.get())
+print(picker.get_value())
 ```
 
 ## ColorDialog
@@ -159,7 +161,7 @@ print(picker.get())
 
 ```python
 picker = ColorPicker(card.body, value="#4f46e5")
-color = ColorDialog(app, value=picker.get()).show()
+color = ColorDialog(app, value=picker.get_value()).show()
 if color:
-    picker.set(color)
+    picker.set_value(color)
 ```

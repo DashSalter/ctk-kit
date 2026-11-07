@@ -6,6 +6,8 @@
 
 四个「点开再选」的控件：普通下拉、多标签选择、树形选择、左右加减的步进器。
 
+> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## DropField
 
 ### 作用
@@ -28,7 +30,7 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `set(value)` / `get()` | 写 / 读当前值 |
+| `set_value(value)` / `get_value()` | 写 / 读当前值（等价于 `set()` / `get()`） |
 | `set_values(values)` | 换候选项 |
 | `open_menu()` / `close_menu()` | 手动开 / 关面板 |
 | `disable(item)` / `enable(item)` | 禁用 / 恢复某一项 |
@@ -38,11 +40,11 @@
 
 ```python
 field = DropField(card.body, values_provider=lambda: ["每天", "每周", "每月"])
-field.set("每周")
+field.set_value("每周")
 field.pack(fill="x", padx=16, pady=(0, 12))
 
 field.disable("每月")            # 这一项变灰不可选
-field.set("每天")
+field.set_value("每天")
 ```
 
 ## TagSelectField
@@ -65,7 +67,7 @@ field.set("每天")
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(list)` | 读 / 写选中的标签 |
+| `get_value()` / `set_value(list)` | 读 / 写选中的标签（等价于 `get()` / `set()`） |
 | `disable(tag)` / `enable(tag)` | 置灰 / 恢复某一项 |
 | `get_disabled()` / `clear_disabled()` | 读 / 清空被禁用的项 |
 
@@ -78,7 +80,7 @@ tags = TagSelectField(
     values=["前端"],
 )
 tags.pack(fill="x", padx=16, pady=(0, 12))
-print(tags.get())        # ['前端']
+print(tags.get_value())        # ['前端']
 ```
 
 ## TreeSelectField
@@ -101,7 +103,7 @@ print(tags.get())        # ['前端']
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(title)` | 读 / 写选中值 |
+| `get_value()` / `set_value(title)` | 读 / 写选中值（等价于 `get()` / `set()`） |
 | `disable(title)` / `enable(title)` | 置灰 / 恢复某个叶节点 |
 
 ### 示例
@@ -136,7 +138,7 @@ tree.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(value)` | 读 / 写当前值 |
+| `get_value()` / `set_value(value)` | 读 / 写当前值（等价于 `get()` / `set()`） |
 | `set_range(from_, to)` | 改范围 |
 
 ### 示例

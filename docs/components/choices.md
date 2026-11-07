@@ -6,6 +6,8 @@
 
 六个「做选择」的控件：勾选、单选、开关、分段、单值滑块、双值滑块。
 
+> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## Check
 
 ### 作用
@@ -79,7 +81,7 @@ print(row.winfo_children()[0].get_value())    # 's' / 'm' / 'l'
 
 ### 作用
 
-开关：拨到右边表示开，`get()` 返回 `True` / `False`。
+开关：拨到右边表示开，`get_value()` 返回 `True` / `False`。
 
 ### 参数
 
@@ -94,7 +96,7 @@ print(row.winfo_children()[0].get_value())    # 's' / 'm' / 'l'
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(bool)` | 读 / 写状态 |
+| `get_value()` / `set_value(bool)` | 读 / 写状态（等价于 `get()` / `set()`） |
 
 ### 示例
 
@@ -122,14 +124,14 @@ dark.pack(anchor="w", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(value)` | 读 / 写选中项；初始值用 `set()` 指定 |
+| `get_value()` / `set_value(value)` | 读 / 写选中项（等价于 `get()` / `set()`）；初始值用 `set_value()` 指定 |
 | `set_values(values)` | 换各段文字 |
 
 ### 示例
 
 ```python
 seg = Segmented(card.body, values=["列表", "网格"])
-seg.set("列表")
+seg.set_value("列表")
 seg.pack(anchor="w", padx=16, pady=(0, 12))
 ```
 
@@ -152,14 +154,14 @@ seg.pack(anchor="w", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(value)` | 读 / 写当前值；初始值用 `set()` 指定 |
+| `get_value()` / `set_value(value)` | 读 / 写当前值（等价于 `get()` / `set()`）；初始值用 `set_value()` 指定 |
 
 ### 示例
 
 ```python
 volume = Slider(card.body, from_=0, to=100,
                 command=lambda v: print(int(v)))
-volume.set(60)
+volume.set_value(60)
 volume.pack(fill="x", padx=16, pady=(0, 12))
 ```
 
@@ -167,7 +169,7 @@ volume.pack(fill="x", padx=16, pady=(0, 12))
 
 ### 作用
 
-双值滑块：两个手柄框出一个区间，`get()` 返回 `(下限, 上限)`。
+双值滑块：两个手柄框出一个区间，`get_value()` 返回 `(下限, 上限)`。
 
 ### 参数
 
@@ -183,7 +185,7 @@ volume.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set((low, high))` | 读 / 写区间 |
+| `get_value()` / `set_value((low, high))` | 读 / 写区间（等价于 `get()` / `set()`） |
 
 ### 示例
 

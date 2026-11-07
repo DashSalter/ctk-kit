@@ -6,6 +6,8 @@
 
 四个收文字的地方：单行输入、数字步进、带搜索回调的输入框、多行文本。
 
+> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## CTkEntry
 
 ### 作用
@@ -29,7 +31,7 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `set(text)` / `get()` | 写 / 读内容 |
+| `set_value(text)` / `get_value()` | 写 / 读内容（等价于 `set()` / `get()`） |
 | `append(text)` | 追加到末尾 |
 | `clear()` | 清空 |
 | `set_readonly(flag)` | 只读开关 |
@@ -41,9 +43,9 @@
 ```python
 entry = CTkEntry(card.body, placeholder_text="输入名称")
 entry.pack(fill="x", padx=16, pady=(0, 12))
-entry.bind("<Return>", lambda _e: print(entry.get()))
+entry.bind("<Return>", lambda _e: print(entry.get_value()))
 
-entry.set("初始值")
+entry.set_value("初始值")
 entry.set_readonly(True)          # 用户改不了，但程序还能写
 
 with entry.unlocked():            # 需要程序写入时临时解锁，退出自动锁回
@@ -73,7 +75,7 @@ with entry.unlocked():            # 需要程序写入时临时解锁，退出�
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(value)` | 读 / 写当前值 |
+| `get_value()` / `set_value(value)` | 读 / 写当前值（等价于 `get()` / `set()`） |
 | `set_range(from_, to)` | 改范围 |
 | `set_readonly(flag)` | 只读开关 |
 
@@ -106,7 +108,7 @@ count.pack(padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `set(text)` / `get()` | 写 / 读文字 |
+| `set_value(text)` / `get_value()` | 写 / 读文字（等价于 `set()` / `get()`） |
 | `clear()` | 清空并触发一次回调 |
 | `search()` | 立刻触发回调，不等防抖 |
 | `focus()` | 让输入框获得焦点 |
@@ -140,7 +142,7 @@ box.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `set(text)` / `get()` | 写 / 读内容 |
+| `set_value(text)` / `get_value()` | 写 / 读内容（等价于 `set()` / `get()`） |
 | `clear()` | 清空 |
 | `set_readonly(flag)` | 只读开关 |
 
@@ -149,5 +151,5 @@ box.pack(fill="x", padx=16, pady=(0, 12))
 ```python
 area = TextArea(card.body, placeholder="写点什么…", height=120, show_counter=True)
 area.pack(fill="x", padx=16, pady=(0, 12))
-area.set("第一行\n第二行")
+area.set_value("第一行\n第二行")
 ```

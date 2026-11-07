@@ -6,6 +6,8 @@
 
 页面之内的导航：标签页、步骤条、向导、面包屑、菜单栏。
 
+> 带「当前值」的控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## Tabs
 
 ### 作用
@@ -26,7 +28,8 @@
 | 方法 | 说明 |
 | --- | --- |
 | `tab(name)` | 取某个标签的内容容器（不存在就建） |
-| `set(name)` | 切到某个标签 |
+| `set_value(name)` | 切到某个标签（等价于 `set(name)`） |
+| `get_value()` | 当前标签名（等价于 `current()`） |
 | `add(name)` | 追加一个标签 |
 | `current()` | 当前标签名 |
 
@@ -37,7 +40,7 @@ tabs = Tabs(area, values=["概览", "设置"])
 tabs.pack(fill="both", expand=True, padx=24)
 
 Label(tabs.tab("概览"), "这里是概览").pack(padx=12, pady=12)
-tabs.set("设置")
+tabs.set_value("设置")
 ```
 
 ## Steps
@@ -60,15 +63,16 @@ tabs.set("设置")
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set_current(n)` | 读 / 写当前步 |
-| `set_value(n)` | 同 `set_current` |
+| `get_value()` | 当前第几步 |
+| `set_value(n)` | 跳到第 n 步（等价于 `set_current(n)`） |
+| `set_current(n)` | 同 `set_value`，旧名字 |
 
 ### 示例
 
 ```python
 steps = Steps(area, steps=["选择", "确认", "完成"], current=1)
 steps.pack(fill="x", padx=24, pady=(0, 12))
-steps.set_current(2)
+steps.set_value(2)
 ```
 
 ## Wizard
@@ -89,9 +93,10 @@ steps.set_current(2)
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` | 当前第几步（从 1 开始） |
+| `get_value()` | 当前第几步（从 1 开始） |
 | `next()` / `back()` | 前进 / 后退 |
 | `go_to(n)` | 跳到第 n 步 |
+| `set_value(n)` | 同 `go_to(n)` |
 
 ### 示例
 

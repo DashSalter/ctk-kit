@@ -6,6 +6,8 @@
 
 四个日期时间控件：日期输入、时间输入、月历、时间滚轮。
 
+> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## DatePicker
 
 ### 作用
@@ -27,7 +29,7 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(date)` | 读 / 写日期，`set(None)` 清空 |
+| `get_value()` / `set_value(date)` | 读 / 写日期，`set_value(None)` 清空（等价于 `get()` / `set()`） |
 | `set_readonly(flag)` | 只读开关 |
 | `open()` / `close()` | 手动开 / 关月历 |
 
@@ -40,8 +42,8 @@ picker = DatePicker(card.body, value=date(2026, 11, 7),
                     command=lambda d: print("选了", d))
 picker.pack(fill="x", padx=16, pady=(0, 12))
 
-picker.set(None)          # 清空
-picker.set(date(2026, 1, 1))
+picker.set_value(None)          # 清空
+picker.set_value(date(2026, 1, 1))
 ```
 
 ## TimeField
@@ -65,7 +67,7 @@ picker.set(date(2026, 1, 1))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(time)` | 读 / 写时间 |
+| `get_value()` / `set_value(time)` | 读 / 写时间（等价于 `get()` / `set()`） |
 | `set_readonly(flag)` | 只读开关 |
 
 ### 示例
@@ -96,7 +98,7 @@ field.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(date)` | 读 / 写选中日期 |
+| `get_value()` / `set_value(date)` | 读 / 写选中日期（等价于 `get()` / `set()`） |
 | `prev_month()` / `next_month()` | 翻月 |
 
 ### 示例
@@ -128,7 +130,7 @@ cal.next_month()
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(time)` | 读 / 写时间 |
+| `get_value()` / `set_value(time)` | 读 / 写时间（等价于 `get()` / `set()`） |
 
 ### 示例
 

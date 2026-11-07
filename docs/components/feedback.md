@@ -7,6 +7,8 @@
 告诉用户「正在发生什么」的一组小控件：状态角标、加载占位、进度、提示气泡、
 底部状态栏和桌面通知。
 
+> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+
 ## Badge
 
 ### 作用
@@ -139,7 +141,7 @@ splash.finish()
 
 | 方法 | 说明 |
 | --- | --- |
-| `set(value)` / `get()` | 读 / 写进度（0–1） |
+| `set_value(value)` / `get_value()` | 读 / 写进度 0–1（等价于 `set()` / `get()`） |
 | `start_indeterminate()` | 进入不确定状态 |
 | `stop_indeterminate()` | 退出并回到确定状态 |
 
@@ -148,7 +150,7 @@ splash.finish()
 ```python
 bar = Progress(card.body, value=0.3)
 bar.pack(fill="x", padx=16, pady=(0, 12))
-bar.set(0.8)
+bar.set_value(0.8)
 ```
 
 ## RingProgress
@@ -170,7 +172,7 @@ bar.set(0.8)
 
 | 方法 | 说明 |
 | --- | --- |
-| `set(value)` / `get()` | 读 / 写进度 |
+| `set_value(value)` / `get_value()` | 读 / 写进度（等价于 `set()` / `get()`） |
 
 ### 示例
 

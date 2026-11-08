@@ -124,22 +124,19 @@ class ChoicesPageUI(PageBase):
         box = Card(area, title="分段选择")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "分类", width=72).pack(side="left")
         self.segmented = Segmented(row, SEGMENT_VALUES, self._on_segment, width=300)
         self.segmented.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "紧凑", width=72).pack(side="left")
         self.compact = Segmented(
             row, COMPACT_VALUES, self._on_compact, width=200, height=30
         )
         self.compact.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "空列表", width=72).pack(side="left")
         self.empty_segment = Segmented(row, [], width=200)
         self.empty_segment.pack(side="left")
@@ -155,16 +152,14 @@ class ChoicesPageUI(PageBase):
         box = Card(area, title="开关")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         CTkLabel(
             row, text="启用某项设置", font=T.FONT_BODY, text_color=T.COLOR_TEXT
         ).pack(side="left")
         self.toggle = Switch(row, value=True)
         self.toggle.pack(side="left", padx=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         CTkLabel(
             row, text="紧凑尺寸", font=T.FONT_BODY, text_color=T.COLOR_TEXT
         ).pack(side="left")
@@ -182,14 +177,12 @@ class ChoicesPageUI(PageBase):
         box = Card(area, title="勾选框")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         self.device_check = Checkbox(row, "记住这台设备")
         self.device_check.pack(side="left")
         self.device_check.set_value(True)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         self.sync_check = Checkbox(row, "启动时自动同步")
         self.sync_check.pack(side="left")
 

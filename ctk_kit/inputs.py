@@ -1508,3 +1508,201 @@ class Spinner(Valuable, ctk.CTkFrame):
         super().configure(**kwargs)
         if "fg_color" in kwargs or "border_color" in kwargs:
             self._draw()
+
+
+class CompoundEntry(Enablable, Valuable, ctk.CTkFrame):
+    """前缀 / 后缀固定的复合输入框。
+
+    左边可以固定 ``https://``，右边可以固定 ``@qq.com``，两边都传也行，
+    传哪边就显示哪边。固定文字只是展示，``get()`` 只返回中间输入的部分；
+    要连固定部分一起提交，用 ``get_full_value()``。
+
+    结构照 :class:`Spinner`：外框是 ``CTkFrame``，套输入框的底色和描边；
+    里面的 ``CTkEntry`` 透明、无描边，视觉上和外框连成一块。点前缀 / 后缀
+    文字会把焦点交给输入框，不用精确点进中间那一段。
+
+    参数:
+        master: 父容器。
+        prefix: 左侧固定文字，空字符串表示不显示。
+        suffix: 右侧固定文字，空字符串表示不显示。
+        placeholder: 输入框为空时的灰色占位文字。
+        width: 整体宽度（像素），默认 260。
+        height: 整体高度（像素），默认 38。
+        font: 输入文字与固定文字的字体规格，默认 :data:`tokens.FONT_BODY`。
+        menu: 右键菜单，含义同 :class:`CTkEntry`。
+        readonly: 初始只读：能选中、复制，不能改内容。
+
+    方法:
+        get(): 中间的输入内容（不含固定部分）。
+        set(text): 写入输入内容。
+        get_full_value(): 前缀 + 输入 + 后缀 的完整字符串。
+        set_full_value(value): 按完整值写入，自动去掉匹配的前后缀。
+        get_text(): 同 ``get()``，给 ``Textual`` 风格的代码用。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        prefix: str = "",
+        suffix: str = "",
+        placeholder: str = "",
+        width: int = 260,
+        height: int = 38,
+        font: T.FontSpec = T.FONT_BODY,
+        menu: Any = True,
+        readonly: bool = False,
+    ) -> None:
+        super().__init__(
+            master,
+            width=width,
+            height=height,
+            fg_color=T.COLOR_INPUT,
+            border_width=1,
+            border_color=T.COLOR_BORDER_INPUT,
+            corner_radius=T.RADIUS_SMALL,
+        )
+        self.pack_propagate(False)
+        # 和 Spinner 同一个坑：默认绘制高度取整到偶数，奇数物理像素时
+        # 底边描边会被裁掉。
+        self._draw_engine.set_round_to_even_numbers(False, False)
+        self._draw()
+
+        self._prefix = str(prefix or "")
+        self._suffix = str(suffix or "")
+        self._readonly = bool(readonly)
+        self._enabled = True
+        self._prefix_label: Optional[ctk.CTkLabel] = None
+        self._suffix_label: Optional[ctk.CTkLabel] = None
+
+        self.entry = CTkEntry(
+            self,
+            fg_color="transparent",
+            border_width=0,
+            corner_radius=0,
+            font=font,
+            text_color=T.COLOR_TEXT,
+            placeholder_text=placeholder,
+            placeholder_text_color=T.COLOR_FAINT,
+            menu=menu,
+        )
+
+        if self._prefix:
+            self._prefix_label = self._make_fixed_label(self._prefix)
+            self._prefix_label.pack(side="left", padx=(12, 2))
+        if self._suffix:
+            self._suffix_label = self._make_fixed_label(self._suffix)
+            self._suffix_label.pack(side="right", padx=(2, 12))
+
+        # 固定文字先占两侧，输入框最后 pack 才能吃掉中间剩下的宽度。
+        self.entry.pack(
+            side="left",
+            fill="both",
+            expand=True,
+            padx=(2 if self._prefix else 12, 2 if self._suffix else 12),
+            pady=1,
+        )
+
+        if self._readonly:
+            self._apply_readonly()
+
+    # ------------------------------------------------------------ 读写
+    def get(self) -> str:
+        """中间的输入内容，不含前缀 / 后缀。"""
+        try:
+            return str(self.entry.get())
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return ""
+
+    def set(self, text: Any) -> None:
+        """写入输入内容（不动固定部分）。"""
+        self.entry.set("" if text is None else str(text))
+
+    def set_text(self, text: Any) -> None:
+        """同 :meth:`set`；复合控件的「文字」就是输入内容。"""
+        self.set(text)
+
+    def get_text(self) -> str:
+        """同 :meth:`get`，给 ``Textual`` 风格的代码用。"""
+        return self.get()
+
+    def get_full_value(self) -> str:
+        """前缀 + 输入内容 + 后缀 拼成的完整字符串。"""
+        return f"{self._prefix}{self.get()}{self._suffix}"
+
+    def set_full_value(self, value: Any) -> None:
+        """按完整值写入：能对上前缀 / 后缀就先剥掉，再写进中间。"""
+        text = "" if value is None else str(value)
+        if self._prefix and text.startswith(self._prefix):
+            text = text[len(self._prefix):]
+        if self._suffix and text.endswith(self._suffix):
+            text = text[: len(text) - len(self._suffix)]
+        self.set(text)
+
+    def _draw(self, no_color_updates: bool = False) -> None:
+        """绘制前把逻辑尺寸对齐到物理像素。
+
+        ``CTkFrame`` 用「逻辑尺寸 × 缩放」画描边，125% 这类非整数缩放
+        下乘积会落在画布最后一像素以外，底边 / 右边那 1px 就看不见。
+        这里改用实际像素尺寸减 1 再换算回逻辑值，描边正好落在画布内。
+        """
+        try:
+            width, height = self.winfo_width(), self.winfo_height()
+        except tk.TclError:
+            width, height = 0, 0
+        if width > 1 and height > 1:
+            scale = self._get_widget_scaling()
+            self._current_width = width / scale
+            self._current_height = height / scale
+        super()._draw(no_color_updates)
+
+    # ------------------------------------------------------------ 状态
+    def _make_fixed_label(self, text: str) -> ctk.CTkLabel:
+        """建一枚固定文字标签，点它也能把焦点交给输入框。"""
+        label = ctk.CTkLabel(
+            self,
+            text=text,
+            font=get_font(T.FONT_BODY),
+            text_color=T.COLOR_MUTED,
+            fg_color="transparent",
+        )
+        label.bind("<Button-1>", self._focus_entry)
+        return label
+
+    def _focus_entry(self, _event: Optional[tk.Event] = None) -> str:
+        """点前缀 / 后缀时聚焦中间的输入框。"""
+        self.entry.focus_set()
+        return "break"
+
+    def _apply_enabled(self, enabled: bool) -> None:
+        """禁用时输入框拒收键盘，固定文字变灰。"""
+        self._enabled = bool(enabled)
+        try:
+            if enabled:
+                self.entry.set_enabled(True)
+                self.entry.set_readonly(self._readonly)
+            else:
+                self.entry.set_enabled(False)
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return
+        self._sync_label_color()
+
+    def _apply_readonly(self) -> None:
+        """只读时输入框还能选中、复制，但改不了内容。"""
+        if not self._enabled:
+            return
+        try:
+            self.entry.set_readonly(self._readonly)
+        except Exception:  # noqa: BLE001 - 窗口销毁中
+            return
+
+    def _sync_label_color(self) -> None:
+        """固定文字跟着启用状态换深浅。"""
+        color = T.COLOR_MUTED if self._enabled else T.COLOR_FAINT
+        for label in (self._prefix_label, self._suffix_label):
+            if label is not None:
+                label.configure(text_color=color)
+
+    def unlocked(self):
+        """临时解除只读；真正要解锁的是里面的输入框。"""
+        return self.entry.unlocked()

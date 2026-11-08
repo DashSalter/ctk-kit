@@ -12,6 +12,7 @@ from __future__ import annotations
 import tkinter as tk
 
 from ctk_kit import (
+    Accordion,
     Card,
     Checkbox,
     Collapsible,
@@ -20,6 +21,7 @@ from ctk_kit import (
     FormEntry,
     Frame,
     HintLabel,
+    Label,
     PageBase,
     PageHeader,
     PrimaryButton,
@@ -97,6 +99,23 @@ EXPANDED_CODE = '''panel = Collapsible(
 )
 panel.pack(fill="x")'''
 
+ACCORDION_CODE = '''from ctk_kit import Accordion, Label
+
+acc = Accordion(card, mode="single")
+acc.pack(fill="x", padx=16)
+
+basic = acc.add("基本信息", detail="3 项", expanded=True)
+Label(basic.body, "姓名：张三").pack(fill="x", padx=12, pady=10)
+acc.add("高级选项", detail="2 项")
+acc.add("危险操作", detail="只读")
+
+acc.expand(1)            # 程序控制：展开第 2 节
+acc.collapse_all()       # 全部收起
+acc.expanded_items()     # 当前展开的节序号，如 [0]
+
+# 多开模式：各节互不影响
+faq = Accordion(card, mode="multiple")'''
+
 
 class CollapsePageUI(PageBase):
     """展开页 UI：只建控件，事件留给 CollapsePage。"""
@@ -121,6 +140,7 @@ class CollapsePageUI(PageBase):
                 self._build_texts,
                 self._build_nested,
                 self._build_expanded,
+                self._build_accordion,
             ],
         )
 
@@ -247,8 +267,7 @@ class CollapsePageUI(PageBase):
         box = Card(area, title="塞进已有卡片不影响原排版")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         HintLabel(
             row,
             "这一行是卡片本来的内容，折叠面板加在它下面。",
@@ -316,6 +335,85 @@ class CollapsePageUI(PageBase):
             "expanded 只决定初始状态，之后仍可自由展开 / 收起。",
         )
 
+    def _build_accordion(self, area: tk.Misc) -> None:
+        """手风琴：单开、多开、摘要和程序控制。"""
+        box = Card(area, title="手风琴：一组分节")
+        box.pack(fill="x", pady=(12, 0))
+
+        HintLabel(
+            box,
+            "单开模式一次只展开一节；多开模式各管各的。标题右侧的小字收起时也看得见。",
+        ).pack(fill="x", padx=16, pady=(14, 8))
+
+        self.accordion = Accordion(
+            box,
+            mode="single",
+            on_change=self._on_accordion_change,
+        )
+        self.accordion.pack(fill="x", padx=16)
+        self.acc_state = None
+
+        item = self.accordion.add("基本信息", detail="3 项", expanded=True)
+        Label(
+            item.body,
+            "姓名：张三\n角色：管理员\n状态：已启用",
+            anchor="w",
+            justify="left",
+        ).pack(fill="x", padx=12, pady=10)
+
+        item = self.accordion.add("高级选项", detail="2 项")
+        row = Frame(item.body)
+        row.pack(fill="x", padx=12, pady=10)
+        Switch(row).pack(side="left")
+        Checkbox(row, "记住这次选择").pack(side="left", padx=(16, 0))
+
+        item = self.accordion.add("危险操作", detail="只读")
+        HintLabel(
+            item.body,
+            "这里的操作会直接删除数据，需要二次确认。",
+        ).pack(fill="x", padx=12, pady=10)
+
+        row = box.row(1, fill="x", padx=16, pady=(10, 6))
+        self.acc_collapse = SecondaryButton(row, "全部收起")
+        self.acc_collapse.pack(side="left")
+        self.acc_open = SecondaryButton(row, "展开第 2 节")
+        self.acc_open.pack(side="left", padx=(8, 0))
+        self.acc_state = HintLabel(row, "当前展开：第 1 节")
+        self.acc_state.pack(side="right")
+
+        HintLabel(box, "多开模式：").pack(fill="x", padx=16, pady=(10, 4))
+        self.accordion_multi = Accordion(box, mode="multiple")
+        self.accordion_multi.pack(fill="x", padx=16, pady=(0, 6))
+
+        item = self.accordion_multi.add(
+            "问题一：怎么安装？", detail="FAQ", expanded=True
+        )
+        Label(item.body, "pip install ctk-kit", anchor="w").pack(
+            fill="x", padx=12, pady=10
+        )
+
+        item = self.accordion_multi.add("问题二：支持哪些主题？", detail="FAQ")
+        Label(item.body, "浅色、深色、跟随系统，三选一。", anchor="w").pack(
+            fill="x", padx=12, pady=10
+        )
+
+        CodePanel(
+            box,
+            ACCORDION_CODE,
+            "add() 返回这一节，内容放进 item.body；摘要用 detail=，随时可 set_detail()。",
+        )
+
+    def _on_accordion_change(self, index: int, expanded: bool) -> None:
+        """单开手风琴的状态变化：把当前展开的节写回右侧文字。"""
+        if self.acc_state is None:
+            return
+        opened = self.accordion.expanded_items()
+        if opened:
+            names = "、".join(f"第 {i + 1} 节" for i in opened)
+            self.acc_state.configure(text=f"当前展开：{names}")
+        else:
+            self.acc_state.configure(text="当前展开：无")
+
 
 class CollapsePage(CollapsePageUI):
     """事件类：构造时自动调用 bind_events()。"""
@@ -342,6 +440,9 @@ class CollapsePage(CollapsePageUI):
         self.save.configure(command=lambda: self._show("面板里的保存"))
         self.cancel.configure(command=lambda: self._show("面板里的取消"))
         self.orig_button.configure(command=lambda: self._show("卡片原本的按钮"))
+
+        self.acc_collapse.configure(command=self.accordion.collapse_all)
+        self.acc_open.configure(command=lambda: self.accordion.expand(1))
 
     def _bind_toggle(self, panel: Collapsible, label: str) -> None:
         """折叠面板的标题栏点击：切换后把状态写回回显条。"""

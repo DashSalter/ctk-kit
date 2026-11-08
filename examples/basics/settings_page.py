@@ -52,8 +52,7 @@ class SettingsPageUI(PageBase):
         box = Card(area, title="外观模式")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         FieldLabel(row, "主题", width=64).pack(side="left")
 
@@ -67,8 +66,7 @@ class SettingsPageUI(PageBase):
         self.bg_box = box
         self.bg_rows: list[tk.Frame] = []
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "背景颜色", width=110).pack(side="left")
         self.bg_color = Segmented(
             row,
@@ -78,8 +76,7 @@ class SettingsPageUI(PageBase):
         self.bg_color.pack(side="left", padx=(4, 0))
         self.bg_rows.append(row)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 14))
+        row = box.row(3, fill="x", padx=16, pady=(0, 14))
         FieldLabel(row, "背景透明度", width=110).pack(side="left")
         self.bg_alpha = Slider(row, from_=0, to=255, width=180)
         self.bg_alpha.pack(side="left", padx=(4, 8))
@@ -93,36 +90,31 @@ class SettingsPageUI(PageBase):
         box = Card(area, title="窗口Debug")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "窗口圆角", width=64).pack(side="left")
         self.glass_corners = Segmented(
             row, ["默认", "不圆", "圆", "小圆"], width=280
         )
         self.glass_corners.pack(side="left", padx=(4, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "边框色", width=64).pack(side="left")
         self.glass_border = Segmented(row, ["灰", "无", "黑", "白"], width=280)
         self.glass_border.pack(side="left", padx=(4, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "标题栏色", width=64).pack(side="left")
         self.glass_caption = Segmented(row, ["玻璃", "黑", "白"], width=210)
         self.glass_caption.pack(side="left", padx=(4, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(4, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "整体透明度", width=64).pack(side="left")
         self.glass_opacity = Slider(row, from_=10, to=100, width=180)
         self.glass_opacity.pack(side="left", padx=(4, 8))
         self.glass_opacity_value = FieldLabel(row, "100%", width=44)
         self.glass_opacity_value.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(5, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "透明色", width=64).pack(side="left")
         self.glass_veil = Segmented(row, ["纯黑", "近黑", "深灰", "暖黑"], width=260)
         self.glass_veil.pack(side="left", padx=(4, 0))
@@ -139,8 +131,7 @@ class SettingsPageUI(PageBase):
 
     def _glass_switch(self, box: tk.Misc, label: str, key: str, *, last: bool = False) -> Switch:
         """一行「标签 + 开关」，开关回调按 ``key`` 走对应的专用方法。"""
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
+        row = box.row(6, fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         FieldLabel(row, label, width=64).pack(side="left")
         switch = Switch(row, command=lambda k=key: self._on_glass_switch(k))
         switch.pack(side="left", padx=(4, 0))
@@ -151,12 +142,12 @@ class SettingsPageUI(PageBase):
         box = Card(area, title="标题栏")
         box.pack(fill="x", pady=(12, 0))
 
-        self.titlebar_icon = self._titlebar_switch(box, "显示图标", "icon")
-        self.titlebar_title = self._titlebar_switch(box, "显示标题", "title")
-        self.titlebar_buttons = self._titlebar_switch(box, "显示窗口按钮", "buttons")
-        self.titlebar_minimize = self._titlebar_switch(box, "显示最小化按钮", "minimize")
+        self.titlebar_icon = self._titlebar_switch(box, "显示图标", "icon", 1)
+        self.titlebar_title = self._titlebar_switch(box, "显示标题", "title", 2)
+        self.titlebar_buttons = self._titlebar_switch(box, "显示窗口按钮", "buttons", 3)
+        self.titlebar_minimize = self._titlebar_switch(box, "显示最小化按钮", "minimize", 4)
         self.titlebar_maximize = self._titlebar_switch(
-            box, "显示最大化按钮", "maximize", last=True, width=90
+            box, "显示最大化按钮", "maximize", 5, last=True, width=90
         )
 
         HintLabel(
@@ -173,13 +164,13 @@ class SettingsPageUI(PageBase):
         box: tk.Misc,
         label: str,
         key: str,
+        index: int,
         *,
         last: bool = False,
         width: int = 64,
     ) -> Switch:
         """一行「标签 + 开关」，开关回调按 ``key`` 交给标题栏的专用方法。"""
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
+        row = box.row(index, fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         FieldLabel(row, label, width=width).pack(side="left")
         switch = Switch(row, command=lambda k=key: self._on_titlebar_switch(k))
         switch.pack(side="left", padx=(4, 0))
@@ -191,10 +182,11 @@ class SettingsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         self._debug_labels: dict[str, FieldLabel] = {}
-        self.debug_transitions = self._debug_switch(box, "关过渡动画", "transitions")
+        self.debug_transitions = self._debug_switch(
+            box, "关过渡动画", "transitions", 1
+        )
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "真实边界", width=64).pack(side="left")
         self.debug_read = SecondaryButton(
             row, "读取", self.on_debug_bounds, width=76
@@ -211,11 +203,16 @@ class SettingsPageUI(PageBase):
         self.debug_hint.pack(anchor="w", padx=16, pady=(0, 14))
 
     def _debug_switch(
-        self, box: tk.Misc, label: str, key: str, *, last: bool = False
+        self,
+        box: tk.Misc,
+        label: str,
+        key: str,
+        index: int,
+        *,
+        last: bool = False,
     ) -> Switch:
         """一行「标签 + 开关」，开关回调按 ``key`` 交给窗口调试的专用方法。"""
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 14) if last else (0, 8))
+        row = box.row(index, fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         label_widget = FieldLabel(row, label, width=64)
         label_widget.pack(side="left")
         self._debug_labels[key] = label_widget

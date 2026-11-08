@@ -105,48 +105,41 @@ class MiscPageUI(PageBase):
         box = Card(area, title="进度条")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "连续", width=72).pack(side="left")
         self.plain = Progress(row, value=0.35, width=260)
         self.plain.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "分格", width=72).pack(side="left")
         self.stepped = Progress(row, value=0.6, steps=5, height=10, width=260)
         self.stepped.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "带文字", width=72).pack(side="left")
         self.labeled = Progress(row, value=0.45, height=10, show_text=True, width=260)
         self.labeled.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(4, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "不确定", width=72).pack(side="left")
         self.busy = Progress(row, value=0.3, width=260)
         self.busy.pack(side="left")
         self.busy_button = FlatButton(row, "播放", self._on_busy_toggle)
         self.busy_button.pack(side="left", padx=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(5, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "拖动", width=72).pack(side="left")
         self.driver = Progress(
             row, value=0.35, height=6, handle=True, width=260, on_change=self._on_slide
         )
         self.driver.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(6, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "条纹", width=72).pack(side="left")
         self.striped = Progress(row, value=0.6, height=12, striped=True, width=260)
         self.striped.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(7, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "细线", width=72).pack(side="left")
         self.thin = Progress(row, value=0.55, height=3, radius=0, width=260)
         self.thin.pack(side="left")
@@ -163,8 +156,7 @@ class MiscPageUI(PageBase):
         box = Card(area, title="圆环进度")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         self.ring = RingProgress(row, value=0.35, size=140)
         self.ring.pack(side="left", padx=(0, 28))
         self.ring_ticks = RingProgress(
@@ -202,8 +194,7 @@ class MiscPageUI(PageBase):
         HintLabel(box, "虚线").pack(fill="x", padx=16, pady=(0, 0))
         divider(box, dashed=True, color=T.COLOR_BORDER_INPUT, pady=(6, 12))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(4, 12))
+        row = box.row(1, fill="x", padx=16, pady=(4, 12))
         for index, text in enumerate(("左", "中", "右")):
             if index:
                 vertical_divider(

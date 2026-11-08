@@ -100,8 +100,7 @@ class ButtonPageUI(PageBase):
         box = Card(area, title="基础按钮")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.primary = PrimaryButton(row, "主按钮")
         self.primary.pack(side="left")
@@ -131,8 +130,7 @@ class ButtonPageUI(PageBase):
         box = Card(area, title="微型按钮（宽度按文字实测）")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.flat = FlatButton(row, "FlatButton")
         self.flat.pack(side="left")
@@ -161,22 +159,19 @@ class ButtonPageUI(PageBase):
 
         self.size_buttons = []
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         for width, height in ((84, 30), (120, 38), (160, 46)):
             button = PrimaryButton(row, f"{width}×{height}", width=width, height=height)
             button.pack(side="left", padx=(0, 8))
             self.size_buttons.append(button)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         for width in (60, 76, 120):
             button = SecondaryButton(row, f"次要 {width}", width=width)
             button.pack(side="left", padx=(0, 8))
             self.size_buttons.append(button)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 14))
+        row = box.row(3, fill="x", padx=16, pady=(0, 14))
         for height in (26, 30, 38):
             button = DangerButton(row, f"危险 {height} 高", height=height)
             button.pack(side="left", padx=(0, 8))
@@ -198,8 +193,7 @@ class ButtonPageUI(PageBase):
         box = Card(area, title="禁用态")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         for factory, text in (
             (PrimaryButton, "主按钮"),

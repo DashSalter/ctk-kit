@@ -17,6 +17,7 @@ from typing import Any
 
 from ctk_kit import (
     Card,
+    CompoundEntry,
     DropField,
     DropZone,
     FieldLabel,
@@ -82,6 +83,20 @@ FormEntry(frame, height=28)       # 紧凑行
 
 # get() / set() 与 CTkEntry 一致；placeholder 在空且失焦时显示
 # 返回的就是 ctk.CTkEntry，bind、configure 都照常'''
+
+COMPOUND_CODE = '''from ctk_kit import CompoundEntry
+
+url = CompoundEntry(frame, prefix="https://", placeholder="example.com")
+url.pack(fill="x")
+url.get()               # "example.com"：只拿输入部分
+url.get_full_value()    # "https://example.com"：连前缀一起
+
+mail = CompoundEntry(frame, suffix="@qq.com", placeholder="输入 QQ 号")
+mail.set_full_value("123456@qq.com")   # 自动剥掉后缀，输入框里是 123456
+
+# prefix / suffix 可以只传一个，也可以两个都传
+# 点前缀或后缀文字会把焦点交给输入框
+# get() 返回中间输入；get_full_value() 拼上固定部分'''
 
 PATH_CODE = '''from ctk_kit import PathField
 
@@ -213,6 +228,7 @@ class InputsPageUI(PageBase):
             area,
             [
                 self._build_entries,
+                self._build_compound,
                 self._build_spinner,
                 self._build_edit_menu,
                 self._build_paths,
@@ -250,21 +266,46 @@ class InputsPageUI(PageBase):
             "height / password / show 三个参数最常用；返回的就是 CTkEntry，照常 bind。",
         )
 
+    def _build_compound(self, area: tk.Misc) -> None:
+        """前后缀固定：网址前缀、邮箱后缀。"""
+        box = Card(area, title="前后缀输入")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "网址", width=72).pack(side="left")
+        self.site_entry = CompoundEntry(
+            row, prefix="https://", placeholder="example.com"
+        )
+        self.site_entry.pack(side="left", fill="x", expand=True)
+
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "邮箱", width=72).pack(side="left")
+        self.mail_entry = CompoundEntry(
+            row, suffix="@qq.com", placeholder="输入 QQ 号"
+        )
+        self.mail_entry.pack(side="left", fill="x", expand=True)
+
+        HintLabel(
+            box,
+            "get() 只返回中间输入；get_full_value() 才拼上前缀 / 后缀。"
+            " 点固定文字也能激活输入框。",
+        ).pack(fill="x", padx=16, pady=(0, 10))
+
+        CodePanel(box, COMPOUND_CODE, "前缀和后缀可以单独用，也可以一起用。")
+
     def _build_spinner(self, area: tk.Misc) -> None:
         """步进输入：数字范围、小数步长、一组文字、紧凑步进器。"""
         box = Card(area, title="步进输入")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "数量", width=72).pack(side="left")
         self.spinner = Spinner(
             row, from_=1, to=10, increment=1, value=1, command=self._on_spinner
         )
         self.spinner.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "小数", width=72).pack(side="left")
         self.float_spinner = Spinner(
             row,
@@ -278,8 +319,7 @@ class InputsPageUI(PageBase):
         )
         self.float_spinner.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "备选", width=72).pack(side="left")
         self.size_spinner = Spinner(
             row,
@@ -290,8 +330,7 @@ class InputsPageUI(PageBase):
         )
         self.size_spinner.pack(side="left")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(4, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "紧凑", width=72).pack(side="left")
         self.stepper = Stepper(
             row,
@@ -319,15 +358,13 @@ class InputsPageUI(PageBase):
         box = Card(area, title="输入框右键菜单")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "默认", width=72).pack(side="left")
         self.menu_entry = FormEntry(row)
         self.menu_entry.pack(side="left", fill="x", expand=True)
         self.menu_entry.insert(0, MENU_SAMPLE)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "自定义", width=72).pack(side="left")
         self.custom_entry = FormEntry(row)
         self.custom_entry.pack(side="left", fill="x", expand=True)
@@ -337,8 +374,7 @@ class InputsPageUI(PageBase):
         menu.add_separator()
         menu.add_command("插入时间戳", self._insert_stamp)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "关闭", width=72).pack(side="left")
         self.plain_entry = FormEntry(row, menu=False)
         self.plain_entry.pack(side="left", fill="x", expand=True)
@@ -361,8 +397,7 @@ class InputsPageUI(PageBase):
         box = Card(area, title="文件 / 文件夹选择")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "文件", width=72).pack(side="left")
         self.file_field = PathField(
             row,
@@ -371,8 +406,7 @@ class InputsPageUI(PageBase):
         )
         self.file_field.pack(side="left", fill="x", expand=True)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "文件夹", width=72).pack(side="left")
         self.dir_field = PathField(
             row,
@@ -398,8 +432,7 @@ class InputsPageUI(PageBase):
         box = Card(area, title="拖入取路径")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "结果", width=72).pack(side="left")
         self.dropped = FormEntry(
             row, placeholder="拖进来的文件或文件夹路径会出现在这里"
@@ -435,8 +468,7 @@ class InputsPageUI(PageBase):
         box = Card(area, title="下拉框")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "普通", width=72).pack(side="left")
         self.dropdown = DropField(
             row,
@@ -446,8 +478,7 @@ class InputsPageUI(PageBase):
         )
         self.dropdown.pack(side="left", fill="x", expand=True)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "空候选", width=72).pack(side="left")
         self.empty_dropdown = DropField(
             row,
@@ -456,8 +487,7 @@ class InputsPageUI(PageBase):
         )
         self.empty_dropdown.pack(side="left", fill="x", expand=True)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "预设值", width=72).pack(side="left")
         self.preset = DropField(
             row,
@@ -494,8 +524,7 @@ class InputsPageUI(PageBase):
         )
         self.note.pack(fill="x", padx=16, pady=(14, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(1, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "只读日志", width=72).pack(side="left")
         HintLabel(row, "预设内容，不可编辑，可选中复制").pack(side="left", padx=(8, 0))
 
@@ -552,6 +581,13 @@ class InputsPage(InputsPageUI):
 
         self._bind_path("文件", self.file_field)
         self._bind_path("文件夹", self.dir_field)
+        for name, entry in (("网址", self.site_entry), ("邮箱", self.mail_entry)):
+            entry.entry.bind(
+                "<KeyRelease>",
+                lambda _event, n=name, w=entry: self._show(
+                    f"{n}：{w.get_full_value()}" if w.get() else f"{n}：（空）"
+                ),
+            )
         self.preset.entry.on_key_release(self._on_preset_key)
         # 菜单挂上之后还能继续追加：这里演示「创建后再补一项」
         attach_edit_menu(self.custom_entry).add_command(

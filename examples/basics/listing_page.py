@@ -128,8 +128,7 @@ class ListingPageUI(PageBase):
         box = Card(area, title="搜索与筛选")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.search = ToolbarEntry(row, "输入关键词筛选…")
         self.search.pack(side="left", fill="x", expand=True)
@@ -157,8 +156,7 @@ class ListingPageUI(PageBase):
         box = Card(area, title="懒加载列表")
         box.pack(fill="x", pady=(12, 0))
 
-        body = Frame(box)
-        body.pack(fill="x", padx=16, pady=(14, 8))
+        body = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.listing = LazyList(
             body,
@@ -218,8 +216,7 @@ class ListingPageUI(PageBase):
         card = Card(parent, height=ITEM_CARD_HEIGHT)
         card.pack_propagate(False)
 
-        head = Frame(card)
-        head.pack(fill="x", padx=14, pady=(12, 0))
+        head = card.row(1, fill="x", padx=14, pady=(12, 0))
 
         FieldLabel(head, item["title"], width=140).pack(side="left")
 

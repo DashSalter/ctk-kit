@@ -85,8 +85,7 @@ class ThemePageUI(PageBase):
         box.pack(fill="x")
 
         # 第一行：两种按钮 + 窄输入框
-        first = Frame(box)
-        first.pack(fill="x", padx=16, pady=(14, 8))
+        first = box.row(1, fill="x", padx=16, pady=(14, 8))
         self.preview_button = PrimaryButton(first, "主按钮", width=100)
         self.preview_button.pack(side="left")
         self.preview_secondary = SecondaryButton(first, "次按钮", width=100)
@@ -96,8 +95,7 @@ class ThemePageUI(PageBase):
         self.preview_entry.pack(side="left", padx=(10, 0))
 
         # 第二行：分段选择（开 / 关）+ 开关 + 勾选框
-        second = Frame(box)
-        second.pack(fill="x", padx=16, pady=(0, 8))
+        second = box.row(2, fill="x", padx=16, pady=(0, 8))
         self.preview_segment = Segmented(second, ["开", "关"], width=120)
         self.preview_segment.pack(side="left")
         self.preview_switch = Switch(second, text="开关")
@@ -108,8 +106,7 @@ class ThemePageUI(PageBase):
         self.preview_check.select()
 
         # 第三行：两个单选项（共享一个变量才互斥）+ 进度条
-        third = Frame(box)
-        third.pack(fill="x", padx=16, pady=(0, 14))
+        third = box.row(3, fill="x", padx=16, pady=(0, 14))
         self._radio_var = tk.StringVar(value="甲")
         self.preview_radio_one = Radio(
             third, "单选框一", "甲", variable=self._radio_var
@@ -143,8 +140,7 @@ class ThemePageUI(PageBase):
                 Tooltip(picker, usage, delay=300)
                 self._pickers[token] = picker
 
-        footer = Frame(box)
-        footer.pack(fill="x", padx=16, pady=(4, 14))
+        footer = box.row(1, fill="x", padx=16, pady=(4, 14))
         self.reset_button = SecondaryButton(
             footer, "恢复默认配色", self.on_reset, width=116
         )

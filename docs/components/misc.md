@@ -4,7 +4,7 @@
 
 ## 作用
 
-几个结构型组件和三个小工具：折叠面板、代码面板、分栏、时间线、分隔线、空状态。
+几个结构型组件和三个小工具：折叠面板、手风琴、代码面板、分栏、时间线、分隔线、空状态。
 
 ## Collapsible
 
@@ -20,16 +20,18 @@
 | `collapsed_text` | `str` | `"显示代码"` | 收起时的文字 |
 | `expanded_text` | `str` | `"隐藏代码"` | 展开时的文字 |
 | `expanded` | `bool` | `False` | 初始是否展开 |
+| `detail` | `str` | `""` | 标题右侧的摘要小字，空表示不显示 |
 | `on_toggle` | `Callable[[bool], None]` | `None` | 展开状态回调 |
 
 ### 方法
 
 | 方法 | 说明 |
 | --- | --- |
-| `expanded()` | 当前是否展开 |
+| `expanded` | 当前是否展开（属性） |
 | `expand()` / `collapse()` / `toggle()` | 展开 / 收起 / 切换 |
 | `set_expanded(flag)` | 直接设置 |
 | `set_texts(collapsed_text=..., expanded_text=...)` | 换两段文字 |
+| `set_detail(text)` | 换标题右侧的摘要 |
 
 ### 示例
 
@@ -40,6 +42,65 @@ collapse.pack(fill="x", padx=16, pady=(0, 8))
 Label(collapse.body, "这些内容默认是收起来的").pack(padx=12, pady=12)
 collapse.expand()
 ```
+
+## Accordion
+
+### 作用
+
+一组可折叠的分节：点标题展开一节，收起时内容不占高度。单开模式（`mode="single"`）同一时刻最多一节展开，多开模式（`mode="multiple"`）各节互不影响。标题右侧可以常驻一行摘要，收起时也看得见。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父容器 |
+| `mode` | `str` | `"single"` | `"single"` 单开互斥 / `"multiple"` 多开 |
+| `on_change` | `Callable[[int, bool], None]` | `None` | 状态回调，参数是（节序号, 是否展开） |
+
+### 属性
+
+| 属性 | 说明 |
+| --- | --- |
+| `mode` | 当前模式 |
+| `items` | 所有节，按添加顺序（副本） |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `add(title, *, detail="", expanded=False, button_height=36)` | 追加一节，返回 `AccordionItem` |
+| `expanded_items()` | 当前展开的节序号，升序 |
+| `expand(i)` / `collapse(i)` / `toggle(i)` | 按序号展开 / 收起 / 切换 |
+| `collapse_all()` | 全部收起 |
+| `set_mode(mode)` | 切换单开 / 多开；切到单开时只保留序号最小的展开节 |
+| `clear()` | 移除所有节 |
+| `len(acc)` | 节的数量 |
+
+`AccordionItem` 由 `add()` 创建，常用的有：
+
+| 成员 | 说明 |
+| --- | --- |
+| `body` | 内容容器，往里 pack 控件 |
+| `title` / `detail` / `expanded` | 标题、右侧摘要、当前是否展开 |
+| `set_title(text)` / `set_detail(text)` | 换标题 / 换摘要 |
+| `expand()` / `collapse()` / `toggle()` / `set_expanded(flag)` | 控制这一节 |
+
+### 示例
+
+```python
+acc = Accordion(card.body, mode="single")
+acc.pack(fill="x", padx=16)
+
+basic = acc.add("基本信息", detail="3 项", expanded=True)
+Label(basic.body, "姓名：张三").pack(fill="x", padx=12, pady=10)
+acc.add("高级选项", detail="2 项")
+acc.add("危险操作", detail="只读")
+
+acc.expand(1)          # 程序控制：展开第 2 节
+acc.collapse_all()     # 全部收起
+```
+
+单开模式下点开一节会先收起其它展开的节，`on_change` 会依次收到「被收起那节 → 本次展开节」的回调；允许全部收起。
 
 ## CodePanel
 

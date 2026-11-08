@@ -70,13 +70,14 @@ class OverviewPageUI(PageBase):
         box = Card(area, title="三层结构")
         box.pack(fill="x")
 
-        for name, desc in (
-            ("tokens", "设计令牌：深浅两套颜色、字体、圆角与间距"),
-            ("theme", "取色、外观切换，以及原生 tk 控件的重绘"),
-            ("组件", "buttons / inputs / dropdown / layout / scroll_list"),
+        for index, (name, desc) in enumerate(
+            (
+                ("tokens", "设计令牌：深浅两套颜色、字体、圆角与间距"),
+                ("theme", "取色、外观切换，以及原生 tk 控件的重绘"),
+                ("组件", "buttons / inputs / dropdown / layout / scroll_list"),
+            )
         ):
-            row = Frame(box)
-            row.pack(fill="x", padx=16, pady=(12, 0))
+            row = box.row(index + 1, fill="x", padx=16, pady=(12, 0))
             FieldLabel(row, name, width=68).pack(side="left")
             HintLabel(row, desc).pack(side="left", padx=(8, 0))
 
@@ -91,9 +92,8 @@ class OverviewPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         self.view_buttons = {}
-        for name, desc in INDEX:
-            row = Frame(box)
-            row.pack(fill="x", padx=16, pady=(10, 0))
+        for index, (name, desc) in enumerate(INDEX):
+            row = box.row(index + 1, fill="x", padx=16, pady=(10, 0))
             FieldLabel(row, name, width=68).pack(side="left")
             HintLabel(row, desc).pack(side="left", padx=(8, 0))
             button = SoftButton(row, "查看")

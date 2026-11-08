@@ -175,8 +175,7 @@ class ImagePageUI(PageBase):
         box = Card(area, title="交互预览")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.fit_button = SecondaryButton(row, "适配窗口")
         self.fit_button.pack(side="left")
@@ -222,16 +221,14 @@ class ImagePageUI(PageBase):
         box = Card(area, title="图片来源与空态")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "图片来源", width=68).pack(side="left")
         HintLabel(
             row,
             "路径 / pathlib.Path / PIL.Image 都可以传；传 None 回到空态。",
         ).pack(side="left", padx=(8, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
 
         self.fill_button = SecondaryButton(row, "放入示意图")
         self.fill_button.pack(side="left")

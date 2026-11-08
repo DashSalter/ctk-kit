@@ -52,6 +52,58 @@ with entry.unlocked():            # 需要程序写入时临时解锁，退出�
     entry.insert("end", "追加")
 ```
 
+## CompoundEntry
+
+### 作用
+
+前后缀固定的复合输入框：左边可以固定 `https://`，右边可以固定 `@qq.com`，
+两边都传也行。固定文字只是展示，`get()` 只返回中间输入的部分；要连固定
+部分一起提交，用 `get_full_value()`。
+
+外框是 `CTkFrame`，套输入框的底色和描边，里面的 `CTkEntry` 透明、无描边，
+视觉上和外框连成一块。点前缀 / 后缀文字也会把焦点交给输入框。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父容器 |
+| `prefix` | `str` | `""` | 左侧固定文字，空字符串不显示 |
+| `suffix` | `str` | `""` | 右侧固定文字，空字符串不显示 |
+| `placeholder` | `str` | `""` | 输入框为空时的占位文字 |
+| `width` | `int` | `260` | 整体宽度（像素） |
+| `height` | `int` | `38` | 整体高度（像素） |
+| `font` | `FontSpec` | `FONT_BODY` | 输入文字与固定文字的字体 |
+| `menu` | `Any` | `True` | 右键菜单，含义同 `CTkEntry` |
+| `readonly` | `bool` | `False` | 初始只读 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `get()` | 中间的输入内容，不含固定部分 |
+| `set(text)` | 写入输入内容 |
+| `get_value()` | 同 `get()` |
+| `get_text()` | 同 `get()` |
+| `get_full_value()` | 前缀 + 输入 + 后缀 的完整字符串 |
+| `set_full_value(value)` | 按完整值写入，自动去掉匹配的前后缀 |
+| `set_readonly(flag)` | 只读：能选中、复制，不能改内容 |
+| `set_enabled(flag)` | 禁用：输入框拒收键盘，固定文字变灰 |
+
+### 示例
+
+```python
+from ctk_kit import CompoundEntry
+
+url = CompoundEntry(card.body, prefix="https://", placeholder="example.com")
+url.pack(fill="x", padx=16, pady=(0, 12))
+url.get()               # "example.com"
+url.get_full_value()    # "https://example.com"
+
+mail = CompoundEntry(card.body, suffix="@qq.com", placeholder="输入 QQ 号")
+mail.set_full_value("123456@qq.com")   # 自动剥掉后缀，输入框里是 123456
+```
+
 ## Spinner
 
 ### 作用

@@ -145,8 +145,7 @@ class MenuPageUI(PageBase):
         box = Card(area, title="给控件挂右键菜单")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.file_buttons = {}
         for index, name in enumerate(FILE_NAMES):
@@ -171,8 +170,7 @@ class MenuPageUI(PageBase):
         box = Card(area, title="回调拿到的第一个参数")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         FieldLabel(row, "目标控件", width=72).pack(side="left")
         self.target = SecondaryButton(row, "点我右键", width=130)
@@ -194,15 +192,13 @@ class MenuPageUI(PageBase):
         box = Card(area, title="自己控制弹出时机")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.zone = Frame(row, fg_color=T.COLOR_SOFT, corner_radius=T.RADIUS_MEDIUM)
         self.zone.pack(fill="x", expand=True)
         HintLabel(self.zone, ZONE_TEXT).pack(fill="x", padx=16, pady=14)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
 
         self.manual_button = PrimaryButton(row, "用 ContextMenu 弹出", width=180)
         self.manual_button.pack(side="left")
@@ -227,8 +223,7 @@ class MenuPageUI(PageBase):
         box = Card(area, title="输入框默认就带菜单")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "单行", width=72).pack(side="left")
         self.menu_entry = FormEntry(row)
         self.menu_entry.pack(side="left", fill="x", expand=True)
@@ -238,8 +233,7 @@ class MenuPageUI(PageBase):
         self.menu_note.pack(fill="x", padx=16, pady=(0, 8))
         self.menu_note.set("多行文本区也默认带同一套菜单；只读时复制可用、清空会灰掉。")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         self.menu_add_btn = SecondaryButton(row, "+ 插入时间戳", None, width=140)
         self.menu_add_btn.pack(side="left")
         self.menu_rename_btn = SecondaryButton(row, "改名", None, width=84)

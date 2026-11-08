@@ -232,6 +232,10 @@ class Card(ctk.CTkFrame):
         }
         given.update(options)
         explicit_pady = pady is not _UNCHANGED
+        # 显式 pady 要直接进 pack 参数：新建行时 _restack_rows 会跳过「显式设过
+        # pady」的行，若不在这里带上，新行就会用 Tk 默认的 0 间距、贴在一起。
+        if explicit_pady:
+            given["pady"] = pady
 
         frame = self._rows.get(index)
         if frame is None or not frame.winfo_exists():

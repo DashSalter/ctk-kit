@@ -162,8 +162,7 @@ class SelectPageUI(PageBase):
         box = Card(area, title="单选")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "普通", width=72).pack(side="left")
         self.single = DropField(
             row,
@@ -173,8 +172,7 @@ class SelectPageUI(PageBase):
         )
         self.single.pack(side="left", fill="x", expand=True)
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "预设值", width=72).pack(side="left")
         self.preset = DropField(
             row,
@@ -185,8 +183,7 @@ class SelectPageUI(PageBase):
         self.preset.pack(side="left", fill="x", expand=True)
         self.preset.set("Alpha")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "禁用项", width=72).pack(side="left")
         self.disabled_field = DropField(
             row,
@@ -215,8 +212,7 @@ class SelectPageUI(PageBase):
         box = Card(area, title="多选标签")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "语言", width=72).pack(side="left")
         self.tags = TagSelectField(
             row,
@@ -247,8 +243,7 @@ class SelectPageUI(PageBase):
         box = Card(area, title="层级树")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "分组", width=72).pack(side="left")
         self.tree = TreeSelectField(
             row,

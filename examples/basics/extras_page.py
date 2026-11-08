@@ -200,8 +200,7 @@ class ExtrasPageUI(PageBase):
             "soft 是淡底、solid 是实底、outline 只描边；dot=True 只画圆点。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 6))
+        row = box.row(1, fill="x", padx=16, pady=(0, 6))
         for text, color in (
             ("已同步", "success"),
             ("进行中", "accent"),
@@ -211,8 +210,7 @@ class ExtrasPageUI(PageBase):
         ):
             Badge(row, text, color=color).pack(side="left", padx=(0, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 6))
+        row = box.row(2, fill="x", padx=16, pady=(0, 6))
         for text, color in (
             ("成功", "success"),
             ("主色", "accent"),
@@ -224,8 +222,7 @@ class ExtrasPageUI(PageBase):
                 side="left", padx=(0, 8)
             )
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(3, fill="x", padx=16, pady=(0, 8))
         Tag(row, "描边标签", variant="outline").pack(side="left", padx=(0, 8))
         Badge(row, "sm", size="sm").pack(side="left", padx=(0, 8))
         for color in ("success", "warning", "danger"):
@@ -257,8 +254,7 @@ class ExtrasPageUI(PageBase):
         self.page_hint = HintLabel(box, "当前第 1 / 12 页")
         self.page_hint.pack(fill="x", padx=16, pady=(0, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(1, fill="x", padx=16, pady=(0, 8))
         self.page5 = SoftButton(row, "代码跳到第 5 页")
         self.page5.pack(side="left")
         self.clear_btn = SoftButton(row, "清空数据")
@@ -266,8 +262,7 @@ class ExtrasPageUI(PageBase):
         self.restore_btn = SoftButton(row, "恢复 238 条")
         self.restore_btn.pack(side="left", padx=(8, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 12))
+        row = box.row(2, fill="x", padx=16, pady=(0, 12))
         self.size10 = SoftButton(row, "每页 10 条")
         self.size10.pack(side="left")
         self.size20 = SoftButton(row, "每页 20 条")
@@ -314,8 +309,7 @@ class ExtrasPageUI(PageBase):
             "区间滑块两个圆球不会交叉，松手才回调；搜索框输入防抖，回车立即触发。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 10))
+        row = box.row(1, fill="x", padx=16, pady=(0, 10))
         self.range = RangeSlider(row, from_=0, to=100, values=(20, 80))
         self.range.pack(side="left")
         self.range_hint = HintLabel(row, "20 – 80")
@@ -364,8 +358,7 @@ class ExtrasPageUI(PageBase):
             "头像右下角的状态点表示在线状态；面包屑中间层级可点；时间线用圆点和竖线串起来。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 10))
+        row = box.row(1, fill="x", padx=16, pady=(0, 10))
         Avatar(row, text="ZK", size=44, status="online").pack(side="left")
         Avatar(row, text="李", size=44, color="success", status="busy").pack(
             side="left", padx=(10, 0)
@@ -415,8 +408,7 @@ class ExtrasPageUI(PageBase):
             "加载中的占位可以用骨架屏；分栏拖动中间手柄，比例会回显到页面底部。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(1, fill="x", padx=16, pady=(0, 8))
         self.skeleton1 = Skeleton(row, width=220, height=14)
         self.skeleton1.pack(side="left")
         self.skeleton2 = Skeleton(row, width=120, height=14)
@@ -452,8 +444,7 @@ class ExtrasPageUI(PageBase):
             "「取色面板…」打开完整色板，支持 RGB / HSV / HSL 与 hex 输入。",
         ).pack(fill="x", padx=16, pady=(14, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 10))
+        row = box.row(1, fill="x", padx=16, pady=(0, 10))
         self.filter_button = SoftButton(row, "筛选条件")
         self.filter_button.pack(side="left")
         self.acrylic_button = SoftButton(row, "系统玻璃")
@@ -463,8 +454,7 @@ class ExtrasPageUI(PageBase):
         self.color_hint = HintLabel(row, "#2563eb")
         self.color_hint.pack(side="left", padx=(10, 0))
 
-        dialog_row = Frame(box)
-        dialog_row.pack(fill="x", padx=16, pady=(0, 10))
+        dialog_row = box.row(2, fill="x", padx=16, pady=(0, 10))
         self.color_dialog_button = SoftButton(dialog_row, "取色面板…")
         self.color_dialog_button.pack(side="left")
         self.color_dialog_hint = HintLabel(dialog_row, "#2563eb")
@@ -508,8 +498,7 @@ class ExtrasPageUI(PageBase):
         self.status = StatusBar(box, text="就绪", right="ctk-kit 0.9.2")
         self.status.pack(fill="x", padx=16, pady=(0, 8))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(0, 8))
+        row = box.row(1, fill="x", padx=16, pady=(0, 8))
         for text, tone in (
             ("保存成功", "success"),
             ("注意", "warning"),

@@ -1,5 +1,9 @@
 import ctk_kit as ctk
 
+"""
+组件如何快速放在容器的一行，以下是示例
+"""
+
 app = ctk.App(title="按钮示例", size=(640, 420))
 
 card = ctk.Card(app, title="动作")

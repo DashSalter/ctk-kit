@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctk-kit"
-version = "0.12.0"
+version = "0.12.1"
 description = "面向 CustomTkinter 的轻量界面基件：深浅色令牌、常用控件与懒加载列表"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -60,7 +60,9 @@ include = ["ctk_kit*"]
 exclude = ["examples*"]
 
 [tool.setuptools.package-data]
-ctk_kit = ["py.typed"]
+# py.typed 给类型检查器；logo/ 是运行时资源（Sidebar、启动遮罩、窗口图标
+# 都按 ctk_kit/logo/ 读），不声明的话 wheel 和 sdist 里都不会有。
+ctk_kit = ["py.typed", "logo/*.png", "logo/*.ico"]
 # core/ 里是编译好的 .pyd（和配套的 .pyi）；不显式写进来，wheel 里就只剩
 # 一个空的 core/__init__.py，装上后 import 立刻失败。
 "ctk_kit.core" = ["*.pyd", "*.pyi"]

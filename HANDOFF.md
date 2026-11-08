@@ -1,190 +1,145 @@
-# ctk-kit 交接（2026-11-07）
+# ctk-kit 交接（2026-11-08）
 
-> 下一轮方向：**页面翻页流畅度 + 组件加载/绘制速度**。性能相关的实测数据全在第 4 节。
+> 下一轮方向：**手风琴（Accordion）组件**。性能优化、文档、主题、配色这些已经收尾，
+> 除非用户另说，别再回头动它们。
 
 ## 1. 一眼看懂
 
-- 路径 `F:\ctk-ui-kit`，分支 `main`，版本 `0.11.0`（本轮之后未发版）。
+- 路径 `F:\ctk-ui-kit`，分支 `main`，版本 **0.12.0**（`pyproject.toml:7`、`ctk_kit/__init__.py:42`）。
 - 环境：`.venv\Scripts\python.exe`（3.12.9 64bit）、CustomTkinter 6.0.0、Cython 3.3.1、MSVC 2022。
-- 远端 `origin` / `gitee` 都指向 <https://gitee.com/kuangjianke/ctk-kit>。
-- `ctk_kit/` 是纯 Python 库（55 个模块），`len(__all__) == 130`，约 1.87 万行。
-- Windows 底层在 `_src/{win32,glass,frost_layer}.py`，经 `tools/build_core.py` 用 Cython 编成
-  `ctk_kit/core/*.pyd`，存根 `ctk_kit/core/win32.pyi`。**改 `_src` 必须重编 pyd**（窗口开着会「拒绝访问」）。
-- 示例：`examples/basics/window.py`（`DemoApp`，16 个公开页 + 2 个隐藏页）、
-  `examples/demo/`（最小示例：按钮 / 输入框 / 开关 / 主题切换 / 组件分行布局 / 开关状态管理）。
-- 文档站：MkDocs + Material，`docs/`，`mkdocs build --strict`，GitHub Pages
-  <https://dashsalter.github.io/ctk-kit/>（只有「按钮」页写完了）。
+- 远端 `origin` / `gitee` 都指向 <https://gitee.com/kuangjianke/ctk-kit>，两边是同一个仓库。
+- `ctk_kit/` 纯 Python 库，`len(__all__) == 130`。
+- Windows 底层在 `_src/{win32,glass,frost_layer}.py`，用 `tools/build_core.py` 编成
+  `ctk_kit/core/*.pyd`。**注意：`tools/` 和 `article/` 已经移出版本库**（本地还在），
+  改 `_src` 时本机照常能编，但别人 clone 下来没有这个脚本。
+- 示例：`examples/basics/window.py`（`DemoApp`，16 公开页 + 2 隐藏页）、`examples/demo/`。
+- 文档站：MkDocs + Material，`docs/components/` 下有 **15 份组件页**，`mkdocs.yml` 的 nav 已登记，
+  配图在 `docs/assets/guide-*.png`。线上 <https://dashsalter.github.io/ctk-kit/>。
 
 ```
 .venv\Scripts\python.exe -m compileall -q ctk_kit examples
 .venv\Scripts\python.exe -m tools.build_core            # 只在改了 _src 时
 .venv\Scripts\python.exe examples\basics\window.py      # 起演示
-.venv\Scripts\python.exe -m mkdocs build --strict       # 文档
+.venv\Scripts\python.exe -m mkdocs build --strict       # 文档（需先装 docs/requirements.txt）
 ```
 
-## 2. 本轮（0.11.0 之后）做了什么
+## 2. 0.12.0 这一轮做了什么
 
-### 2.1 运行时换色 `ctk_kit/theming.py`（新模块）
+### 2.1 页面翻页与加载
 
-- `apply_palette({令牌: "#RRGGBB"}, root=None, repaint=True, shade=True)`：改 `tokens` 全局并重刷控件树，
-  只换「变化的令牌」；`reset_palette()` 回基线。
-- 刷新机制：遍历控件树，先对有 `apply_theme()` 的控件调一次（自绘件靠这个），
-  再做「旧色 → 新色」字符串替换表（`_single_map`）。**不反查令牌名**，代价是同值令牌会互相牵连
-  （目前只有 `COLOR_SOFT` 和 `COLOR_INPUT` 都是 `#22242c`）。
-- `set_darken(factor)`：毛玻璃主题下自定义颜色自动暗 20%。
-- 只读查询：`find_usage(token)` / `usage_summary(token)` / `describe_usage(token)`。
-- `register_redraw(widget, cb)`：给没有 `apply_theme` 的自绘件兜底。
+- `ctk_kit/page.py`：`cards_first` 默认 2（先同步出前两张卡，其余分帧）；`_run_build_step`
+  改成「在 `_BUILD_SLICE = 0.012` 秒内尽量多建几张卡，一帧只 `update_idletasks()` 一次」，
+  不再每建一张就 `update()`（旧实现比同步建还慢 11–25%）。
+- 15 个 `examples/basics/*_page.py` 改成调用 `build_cards(area, [几个 builder])`；
+  `settings_page` / `theme_page` 用 `when_built()` 等分帧建完再刷新状态。
+- `ctk_kit/pages.py`：`prewarm()` 串行预建相邻页；`_PREWARM_PAUSE = 6.0` 秒内暂停预建；
+  `drop_hidden()` 拖动窗口时把看不见的页整棵 `destroy` 掉（`_stop_page_polling` 先停
+  `CTkTextbox` 的 `after` 轮询，`window.py` 里 `_install_destroy_guard` 吞掉
+  `invalid command name`）。
+- 切页横纹：试过 flush、`LockWindowUpdate`、PrintWindow 快照，都无效；最终靠
+  「所有页保持 place、只换 z 序」解决，代价是后台页会跟着 resize 重排（已用固定像素尺寸缓解）。
 
-### 2.2 颜色令牌单色化（破坏性）
+### 2.2 换色 / 主题
 
-- `tokens.py` 的 32 个令牌从 `(浅, 深)` 二元组 / 三元组改成**单个 `#RRGGBB` 字符串**，
-  对应原来的毛玻璃配色。删掉 `GLASS_COLORS` 与 `_flatten_glass_colors()`。
-- `theme.color_of(token)`：字符串原样返回，旧二元组取最后一项（仅为兼容）。
-- 主题切换仍保留（`frosted / dark / acrylic / mica`），外观模式固定 dark。
+- `ctk_kit/theming.py`：`apply_palette(..., skip=)` 只刷可见页，靠 `color_version()` 版本号 +
+  `repaint_page()` 在切页时补刷落后页；全树 735 ms → 只刷当前页 102 ms。
+- 主题统一成四个名字：**Mica / Frosted / Dark / Acrylic**（`window.py` 的 `_THEME_PRESETS`），
+  `set_theme(name)` 一条路径搞定外观、backdrop、暗化、玻璃参数；未知主题抛 `ValueError`。
+- 窗口按钮：`theme.set_caption_buttons(window, visible, minimize=, maximize=)` +
+  `App.show_window_buttons/show_minimize_button/show_maximize_button`。关整组会连带图标消失
+  （系统行为，无解）；恢复按钮时会重新挂图标。
 
-### 2.3 快捷方法 `ctk_kit/sugar.py`（新模块）
+### 2.3 输入类控件
 
-- `Enablable`：`enable()` / `disable()` / `toggle_enabled()` / `set_enabled(bool)` / `is_enabled()`。
-  混入按钮、输入框、下拉、开关、勾选、单选、分段、滑块、范围滑块、搜索框、颜色选择、文本区、步进器、标签选择。
-- `Textual`：`set_text()` / `get_text()`。
-- `Valuable`：`get_value()` / `set_value()`，铺到 20 个有 `get()/set()` 的控件。
-- `Options`：`__getattr__` 动态给出 `set_<option>` / `get_<option>`（`btn.set_fg_color("#f00").set_height(44)`），
-  **只认 `_OPTIONS` 里的名字和 `*_color`**，其余抛 `AttributeError`。
-- `Bindable`：`on_click` / `on_double_click` / `on_right_click` / `on_enter` / `on_leave` / `on_drag` /
-  `on_focus` / `on_blur` / `on_key` / `on_key_release` / `on_scroll` / `on_resize` / `on_move`。
-  混入 `App`、`_ButtonBase`、`CTkEntry`、`SearchBox`、`Badge`。
+- `sugar.Enablable` 统一：`set_readonly(flag)` / `is_readonly()` / `unlocked()`
+  （上下文管理器，只读下临时解锁，写文件/写值用）。
+- 覆盖：`CTkEntry`、`SearchBox`、`TextArea`、`PathField`、`Spinner`、`DropField`、
+  `DatePicker`、`TimeField`、`ColorPicker`。
+- `DatePicker` 改成三段式（年 - 月 - 日，`readonly=False` 时可键入，回车/失焦生效），
+  只有右侧三角形弹层；`TimeField` 同样。
+- `Radio` 新增 `group="名字"`，同组内部共用一个 `StringVar` 互斥，不用自己建变量。
 
-### 2.4 窗口 API（`ctk_kit/window.py`）
+### 2.4 文档
 
-- 主题：`set_theme(name="mica", color=None)` / `set_theme_color()` / `get_theme()` / `get_theme_color()`。
-  `_THEME_PRESETS`：`frosted`（毛玻璃，透桌面）/ `dark`（纯深实底）/ `acrylic` / `mica`（默认）。
-- 外观专用 setter（18 个，全部 `return self`）：`set_glass_kind` / `set_glass_state` / `set_system_backdrop` /
-  `set_tint` / `set_tint_alpha` / `set_window_corners` / `set_border_color` / `set_caption_color` /
-  `set_opacity` / `set_veil` / `set_extend` / `set_titlebar_glass` / `set_glass_dark` / `set_wca` /
-  `show_titlebar_icon` / `show_titlebar_title` / `hide_frame_border` / `set_transitions`。
-- 几何：`set_size` / `get_size` / `set_position` / `get_position` / `center` / `get_scale`。
-- 事件：`on_close`、`on_resize` 等（来自 `Bindable`）。
+- `docs/components/` 15 份，结构统一：`## 作用` → 每组件 `## 名称` → `### 作用 / ### 参数 / ### 方法 / ### 示例`；
+  只列常用参数与方法，纯配色变体合并到「变体」小节。
+- 每份顶部一张 `docs/assets/guide-<name>.png`，由 `PrintWindow` 抓真实控件生成。
+- `README.md` 重写成「优势 / 特点 / 功能」导向（原来 1057 行的参数手册已删）。
 
-### 2.5 布局
+### 2.5 其他
 
-- `Card.row(index=1, fill=..., padx=..., pady=...)`：按编号复用同一行容器，
-  `ctk.PrimaryButton(card.row(1), "保存").pack(side="left")`。
-- 自动 pady：首行 `(14, 10)`、中间 `(0, 10)`、末行 `(0, 14)`；显式传过 pady 的行不参与重排。
-- 参数是显式签名 + `_UNCHANGED` 哨兵（IDE 里显示「未设置」），复用行只更新显式传入的项。
+- `pyproject.toml`：`conf_base` 从必需依赖移到 `[demo]` 可选组，核心库零持久化代码。
+- `notify.py`：级别图标改用 Pillow 4 倍超采样画真圆（原来用 `CTkLabel` 的 `corner_radius`，
+  22px 下是折线近似，边缘有锯齿）。
+- 淡入结束后统一 `clear_window_alpha()` 摘掉 `WS_EX_LAYERED`（layered 窗口在 125% 缩放下
+  文字会被 DWM 重采样发虚），涉及 `notify / dropdown / select / context_menu / tooltip / dialog`。
+- `App.destroy()` 改成 `tk.call("destroy", ".")` 一次性销毁整棵树：3185 个控件从 ~2.5 s 降到 ~0.36 s。
 
-### 2.6 组件
+## 3. 代码结构速查
 
-- `ColorPicker`：右键菜单（复制 / 粘贴，粘贴前校验剪贴板是不是颜色）；12 个参考色块移到
-  `ColorDialog` 底部；`ColorDialog(colors=...)` 可自定义。
-- `Tooltip`：底色 `#2B2B2B`、14px、(14, 10) 内边距，和下拉面板/右键菜单同一套。
-- `Segmented` / `Switch` / `Check` / `Radio` / `Progress` / `RingProgress` / `Slider` / `RangeSlider`
-  都补了 `apply_theme()`。
-- `Switch(value=..., set_value/get_value)`；`Check` 同步。
+| 关注点 | 位置 |
+| --- | --- |
+| 窗口、背景、玻璃、主题 | `ctk_kit/window.py` |
+| 页面基类、分帧建卡 | `ctk_kit/page.py` |
+| 页面栈、预建、丢页 | `ctk_kit/pages.py` |
+| 侧边导航 | `ctk_kit/sidebar.py` |
+| 换色 | `ctk_kit/theming.py` |
+| 颜色令牌 | `ctk_kit/tokens.py` |
+| 卡片 / 滚动容器 | `ctk_kit/layout.py` |
+| 折叠面板（单节） | `ctk_kit/collapse.py` |
+| 提示 toast | `ctk_kit/notify.py` |
+| 窗口特效 | `ctk_kit/core/*.pyd` ← `_src/*.py` |
 
-### 2.7 文档
+## 4. 性能现状（只作参考，不是待办）
 
-- `docs/`：MkDocs + Material，`docs/components/buttons.md` 按「作用 / 类型 / 参数 / 方法」四段重写（217 行）。
-- `docs/index.md`：主题切换、窗口外观两节。
-- `CHANGELOG.md` 的「## 未发布」段记录了上面全部条目。
-
-## 3. 代码结构速查（性能优化会碰到的）
-
-| 文件 | 作用 | 关键点 |
-|---|---|---|
-| `ctk_kit/window.py` | `App(Bindable, CTk)` | `__init__` 依次：读 state → `set_appearance_mode` → `apply_backdrop` → `_restore_palette` → 建导航；`_refresh_backdrop` 走 `after(10, ...)` |
-| `ctk_kit/page.py` | `PageBase(Frame)` | `cards_first`、`build_cards()`、`build_later()`（`after(1, _run_build_step)`，每步 `update()` 一次）；`when_built()` |
-| `ctk_kit/pages.py` | `PageRebuilder` | 切页时按需建页、缓存已建页面 |
-| `ctk_kit/sidebar.py` | `SidebarNav` | `show(name)` 切换页面；导航区是 `layout.Scrollable` |
-| `ctk_kit/styles.py` | `SHEETS` 快照 | `refresh_tokens()` 只重抓背景相关几项 |
-| `ctk_kit/theming.py` | 换色 | `_repaint()` 遍历整棵控件树 + `_draw()` |
-| `ctk_kit/frames.py` | `Frame` | 所有页/卡片的底座（`CTkFrame` 子类） |
-| `ctk_kit/layout.py` | `Card` / `PageHeader` / `Scrollable` | `Card.row()` 的行容器缓存 |
-| `ctk_kit/core/*.pyd` | Win32 / 玻璃 | 由 `_src/*.py` 编译，别手改 |
-
-## 4. 性能现状（下一轮从这里开始）
-
-### 4.1 已知数据（本机 2560×1440、DPI 125%）
-
-| 指标 | 数值 | 说明 |
-|---|---|---|
-| `import ctk_kit` | **326 ms** | 含 Pillow、customtkinter、pyd |
-| `DemoApp()` 构造 | **0.81–1.08 s** | 292 个控件，含首页分帧构建 |
-| 玻璃合成挂上 | +893 ms | `_refresh_backdrop` 之后 |
-| frost layer 建好 | +999 ms | 窗口在 ~400ms 已显示，这半秒透桌面 |
-| `theming.apply_palette` 一次 | **76 ms** | 改 1 个令牌、重刷全树 |
-| `theming.reset_palette` | **94 ms** | 同上 |
-| 200 次 idle `update()` | 118 ms | 每次 ~0.6 ms，是事件循环空转的基线 |
-
-复现脚本（临时，已删过）：起 `DemoApp` → 记 `performance_counter` 差值 → 遍历 `winfo_children()` 数控件。
-
-### 4.2 已确认的瓶颈方向
-
-1. **CTk 每个控件都用 Pillow 现画背景图**：圆角矩形、开关、勾选、滑块都是 `Image.new` + `draw` 生成的
-   PNG，再包成 `CTkImage`。换色 / 改尺寸 / 首次布局都会重新生成。
-   我们自己的 `@cached` 只覆盖 badge / breadcrumb 等少数几个，**CTk 自身的不在缓存里**。
-2. **切页是「销毁重建」**：`PageRebuilder` 缓存已建页面，但每个页面首次切过去才建，
-   页面内用 `build_later` 按 12ms 时间片补卡片（每步 `self.update()` 一次）。
-   → 首次切页会有明显的「逐块出现」；反过来，`update()` 每步都跑，会打断动画。
-3. **换色是整树遍历**：`_repaint()` 对 292 个控件逐个 `_patch_widget` + `_draw()`，
-   76ms 里大部分是 CTk 的 `_draw()`。
-4. **启动期透明窗口**：`backdrop="acrylic"` 时窗口底/侧栏是 veil 色（透明键），
-   玻璃合成要等 `after(10, _refresh_backdrop)`，这期间透出桌面。
-
-### 4.3 可选的优化方向（未开工，按性价比排序）
-
-- **A. 控件绘制缓存**：给 CTk 的 `_draw()` 加一层按「尺寸 + 圆角 + 颜色」的 LRU 图缓存
-  （库级 monkeypatch 或子类重写），换色时不用重新 Pillow 画图。
-- **B. 切页预建**：`PageRebuilder` 增加「相邻页预建」（切到第 N 页时，空闲后台建 N±1），
-  用户感知的等待变短；或者切页时先把新页 `place` 上来再撤旧页（已有部分逻辑）。
-- **C. 分帧策略调整**：`build_later` 的 `after(1)` 改成「同一帧内连续建到 12ms 用完」的循环
-  （现在每步都 `update()`，一帧只建一张）。
-- **D. 启动不透明预热**：`backdrop` 生效前先给 `COLOR_BG` 不透明底，玻璃挂上后再切 veil。
-- **E. 批量更新 API**：`App.batch()` 上下文管理器（挂起重绘、退出统一刷），配合高频数据刷新。
-- **F. 后台任务 API**：`App.background(fn)` / `App.every(ms, fn)`（线程池 + `queue.Queue` + `after` 轮询）。
-
-### 4.4 参考：一篇外部文章的分析结论
-
-用户拿 <https://www.php.cn/faq/2892962.html> 问过是否有帮助。结论：**对库本身约 20% 有用**，
-它讲的是应用层写法（别用 `after(0)`、少 `config()`、线程池走队列、少嵌套）。
-其中两条我们已满足（全库无 `after(0)`；分帧用 `after(1)`），两条是缺口（没有后台任务 API、没有批量更新）。
-文章里「批量更新先 `pack_forget` 再 `pack` 更快」「别用 `try/except queue.Empty`」两句是错的，别照抄。
+- `import ctk_kit` 约 300 ms；`DemoApp()` 构造约 780 ms。
+- 首次切组件页：首帧 186 ms 可见，整页建完约 1.7 s；已建好的页切回 0–24 ms。
+- `apply_palette` 全树 735 ms → 只刷当前页 102 ms。
+- resize 时单页重绘约 150 ms（Tk 内部成本，`cProfile` 里没有 Python 热点，别再优化了）。
 
 ## 5. 坑（务必先看）
 
-1. **绝对不要用 PowerShell 的 `Set-Content` / `Out-File` 改源码或 JSON**。该环境 `Get-Content` 默认按 GBK 读，
-   UTF-8 源码会被写坏（本轮 `ctk_kit/window.py` 被毁过一次，277 行乱码）。
-   改文件只用 `edit` / `write` 工具，或 Python 里 `io.open(path, "w", encoding="utf-8", newline="\n")`。
-   要写 JSON 且不能带 BOM：`[IO.File]::WriteAllText($p, $s, (New-Object System.Text.UTF8Encoding($false)))`。
-2. **CTk 的 `withdraw()` / `deiconify()` 被重写过**：窗口还没真正存在时调用会置
-   `_withdraw_called_before_window_exists`，而 CTk 的 `mainloop()` 看到这个标志就不再 deiconify，
-   结果窗口永远不出现。要绕过必须用 `tk.Wm.withdraw(self)` / `tk.Wm.deiconify(self)`。
-   （本轮试过「先隐藏、算完尺寸再显示」来消掉启动闪白，结果就是这个坑，已整段回退。）
-3. **DPI**：`geometry("700x500")` 是逻辑像素，`winfo_width()` 返回屏幕像素（125% 缩放下 700→875）。
-   `App.get_size()` 会按 `_pixel_scale()` 换算回来。
-4. **`bind()` 默认替换已有绑定**：`sugar._bind_event` / `_bind_configure` 必须带 `"+"`，
-   否则后注册的会顶掉前面的（本轮 `on_resize` 顶掉过 `<Configure>` 监听）。
-5. **`save_palette` / `window_state` 写入**：`C:\Users\admin\.ctk-kit\window.json` 是用户真实状态，
-   测试别调 `page.on_color()`（会写盘），用 `theming.apply_palette(..., root=app)`。
-6. **示例进程开着时 pyd 被占用**：重编 `core/*.pyd` 前先关窗口。
-7. **`tokens` 不要再写二元组**：已经单色化，写元组会让 `color_of()` 取最后一项，行为不直观。
+- **不要用 PowerShell `Set-Content` / `Out-File` 改源码**（GBK 会把 UTF-8 读坏）。
+  只用 `edit` / `write`，或 Python `io.open(..., encoding="utf-8", newline="\n")`。
+- CTk 的 `place()` 不接受 `width` / `height`（会抛 `ValueError`），要改尺寸用 `place_configure`。
+- `_src` 里的 pyd 在示例进程开着时被占用，编译会「拒绝访问」，先关窗口。
+- `Card.body` 是属性，不是方法。
+- `Switch(master, command, *, text=)`：第二个位置参数是 `command`，文字必须用 `text=`。
+- `DropField` / `TagSelectField` 用 `values_provider=`，不是 `values=`。
+- `ContextMenu` 是 `show(x, y, source=None)`，不是 `popup(event)`。
+- 系统标题栏是非客户区，Tk 控件放不进去；要放只能自绘整条标题栏（已试过，用户不要）。
+- 别调 `page.on_color()`，会写盘 `C:\Users\admin\.ctk-kit\window.json`。
 
-## 6. 未完成 / 悬而未决
+## 6. 下一步：手风琴组件
 
-- **性能优化两个方向**（本轮研究目标）：翻页流畅度、组件加载与绘制速度。见 4.3 的 A–F。
-- 启动闪白 / 透桌面：方案 D（不透明预热）未做。
-- 字体块（字号 / 颜色 / 加粗，一号 = 页面标题字体）：用户提过，调研完成，**未开工**。
-  事实：`tokens.py:23-38` 是静态 `FontSpec`，34 个模块引用；`CTkLabel.cget("font")` 原样返回 tuple，
-  所以「遍历控件比对 font tuple 再 `configure(font=新tuple)`」可行。
-- 阶段 2：其余自绘组件（`select` 面板、`dropdown`、`table`、`steps`、`timeline`、`calendar`、`tabs`、
-  `breadcrumb`、`carousel`、`splitter`、`treeview`、`search`、`timepicker`）补 `apply_theme()`。
-- 文档站只有「按钮」一页，其余组件页待写（按 buttons.md 的四段结构）。
-- `article/`（CSDN / 掘金宣传稿 + 9 张配图）已提交但未发布；`image/` 下 8 张旧截图（浅色旧版）没入库，
-  `我的后续计划.txt` 是用户自己的笔记，别提交。
+用户原话：「我打算后面弄手提琴方面的组件」（手风琴 / Accordion）。
 
-## 7. 验收清单（改完跑一遍）
+现状：`ctk_kit/collapse.py` 已有单节 `Collapsible`，
+构造 `Collapsible(master, *, collapsed_text="显示代码", expanded_text="隐藏代码", expanded=False,
+button_height=36, on_toggle=None, **kwargs)`，方法 `expand() / collapse() / toggle() /
+set_expanded(flag) / set_texts(collapsed, expanded)`，内容容器是 `collapse.body`。
 
+建议新增 `Accordion`（新文件 `ctk_kit/accordion.py`，复用 Collapsible，不要重写动画）：
+
+```python
+acc = Accordion(card.body, mode="single")      # single 互斥 / multiple 可多开
+panel = acc.add("基本信息")                    # 返回内容容器，往里放控件
+acc.expand(0); acc.collapse(0); acc.toggle(1)
+acc.expanded_items() -> list[int]
 ```
-.venv\Scripts\python.exe -m compileall -q ctk_kit examples
-.venv\Scripts\python.exe examples\basics\window.py         # 16 页都能切、换色生效、主题能切
-.venv\Scripts\python.exe -m mkdocs build --strict
-```
+
+要点：
+
+- `mode="single"` 时展开某节先收起同组其它节；`mode="multiple"` 各管各的。
+- 每节标题右侧可放一句 `count` / `detail` 摘要（折叠时也能看到）。
+- 节之间用 `layout.divider()` 或 `pady` 分隔，别用嵌套 CTkFrame 加深。
+- 写完后：`docs/components/misc.md` 补一节（照现有结构），`examples/basics/collapse_page.py`
+  加一张演示卡，`CHANGELOG.md`「未发布」加一条。
+
+## 7. 验收清单
+
+1. `compileall -q ctk_kit examples` 无错。
+2. `python -c "import ctk_kit"` 无错。
+3. 起 `examples/basics/window.py`，切几页看有没有横纹、拖动窗口是否还卡。
+4. 文档：`mkdocs build --strict`（或至少检查新 md 的代码块能编译、图片路径存在）。
+5. 提交前 `git status` 确认 `article/` 与 `tools/` 没有被重新加进来。

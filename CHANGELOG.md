@@ -3,8 +3,22 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
-## 未发布
+## 0.12.1 — 2026-11-08
 
+- 修复打包：`ctk_kit/logo/` 下的内置 logo（`logo.png`、各尺寸 PNG、`logo.ico`）
+  现在会随 wheel 和 sdist 一起发布。此前 `package-data` 只声明了 `py.typed`，
+  pip 安装后 `Sidebar(logo=True)`、`LoadingOverlay`、默认窗口图标会找不到图片
+- 新增 `CompoundEntry` 前后缀复合输入框：`prefix=` / `suffix=` 可单独或同时传，
+  固定文字画在输入框两侧；`get()` 只返回中间输入部分，`get_full_value()` 拼上
+  前缀 / 后缀，`set_full_value()` 写入时自动剥掉匹配的固定部分
+- 新增 `Accordion` / `AccordionItem` 手风琴：一组可折叠的分节，`mode="single"`
+  单开互斥（点开一节自动收起其它节，也允许全部收起），`mode="multiple"` 多开；
+  每节标题右侧可带 `detail=` 摘要，收起时也可见。`add()` 返回 `AccordionItem`，
+  内容放进 `item.body`；支持 `expand(i)` / `collapse(i)` / `toggle(i)` /
+  `collapse_all()` / `expanded_items()` / `set_mode()` 与 `on_change(index, expanded)`
+  回调
+- `Collapsible` 新增 `detail=` 参数与 `set_detail(text)`：在标题右侧常驻一行小字；
+  不传时视觉与原来完全一致
 - 新增 `DatePicker` / `TimeField` 的 `readonly` 参数与 `set_readonly(flag)` 方法：
   只读时不能键入、也点不开弹层，文字压灰、光标变普通箭头，`get()` / `set()`
   与显示值照常

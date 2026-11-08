@@ -93,8 +93,7 @@ class DialogPageUI(PageBase):
         box = Card(area, title="信息框")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "级别", width=72).pack(side="left")
         self.info_button = SecondaryButton(row, "信息", width=84)
         self.info_button.pack(side="left")
@@ -117,8 +116,7 @@ class DialogPageUI(PageBase):
         box = Card(area, title="确认框")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "类型", width=72).pack(side="left")
         self.confirm_button = SecondaryButton(row, "普通确认", width=96)
         self.confirm_button.pack(side="left")
@@ -151,8 +149,7 @@ class DialogPageUI(PageBase):
         box = Card(area, title="输入框")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "重命名", width=72).pack(side="left")
         self.prompt_button = SecondaryButton(row, "换个名字", width=96)
         self.prompt_button.pack(side="left")
@@ -169,8 +166,7 @@ class DialogPageUI(PageBase):
         box = Card(area, title="自定义按钮")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
         FieldLabel(row, "三选一", width=72).pack(side="left")
         self.custom_button = SecondaryButton(row, "合并还是覆盖", width=120)
         self.custom_button.pack(side="left")

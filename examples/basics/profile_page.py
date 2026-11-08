@@ -38,8 +38,7 @@ class ProfilePage(PageBase):
         box = Card(area, title="账号")
         box.pack(fill="x")
 
-        center = Frame(box)
-        center.pack(fill="x", pady=(28, 24))
+        center = box.row(1, fill="x", pady=(28, 24))
 
         self.avatar = Avatar(center, text="加点盐", size=96, status="online")
         self.avatar.pack()

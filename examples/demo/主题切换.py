@@ -1,6 +1,6 @@
 import ctk_kit as ctk
 
-"""主题切换：一个下拉/分段就能换玻璃主题，颜色可以单独改。"""
+"""主题切换：一个分段就能换玻璃主题，颜色可以单独改。"""
 
 app = ctk.App(title="主题切换", size=(760, 540), backdrop="acrylic")
 

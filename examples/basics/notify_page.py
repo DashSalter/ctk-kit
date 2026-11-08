@@ -109,8 +109,7 @@ class NotifyPageUI(PageBase):
         box = Card(area, title="级别 level")
         box.pack(fill="x")
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.level_buttons = {}
         for level, label in LEVEL_LABELS.items():
@@ -134,8 +133,7 @@ class NotifyPageUI(PageBase):
         box = Card(area, title="形态 style")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.pill_button = SecondaryButton(row, "窄条 pill", width=110)
         self.pill_button.pack(side="left")
@@ -160,8 +158,7 @@ class NotifyPageUI(PageBase):
         box = Card(area, title="位置 position")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.top_button = PrimaryButton(row, "顶部 top", width=110)
         self.top_button.pack(side="left")
@@ -185,8 +182,7 @@ class NotifyPageUI(PageBase):
         box = Card(area, title="堆叠与常驻")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.burst_button = SecondaryButton(row, "连发三条", width=100)
         self.burst_button.pack(side="left")
@@ -213,8 +209,7 @@ class NotifyPageUI(PageBase):
         box = Card(area, title="悬浮提示")
         box.pack(fill="x", pady=(12, 0))
 
-        row = Frame(box)
-        row.pack(fill="x", padx=16, pady=(14, 8))
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.save_button = PrimaryButton(row, "保存")
         self.save_button.pack(side="left")

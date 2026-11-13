@@ -43,6 +43,9 @@ _*.png
 /image/
 我的后续计划.txt
 
+# 配置绑定 demo 运行时生成的本地配置
+examples/demo/ui_prefs.json
+
 # 宣传稿与本地构建脚本，只在本机保留，不进版本库
 /article/
 /tools/

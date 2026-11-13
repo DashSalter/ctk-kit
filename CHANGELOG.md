@@ -5,11 +5,12 @@
 
 ## 0.12.2 — 2026-11-14
 
-- 新增 `bind_config()` / `unbind_config()` 与 `CTkEntry.bind_config()` /
-  `Switch.bind_config()`：把输入框、开关绑定到 conf_base 配置项
-  （`UiPrefs.nickname` 这种 `PropertyProxy`），建控件时读初值，输入/拨动
-  立刻写回配置，配置变化也会回填控件；读写或类型转换失败只警告，不影响
-  程序启动
+- 新增 `bind_config()` / `unbind_config()` 与输入框、文本区、开关、勾选、单选、
+  分段选择、下拉、步进、滑块上的 `bind_config()`：把控件绑定到 conf_base 配置项
+  （`UiPrefs.nickname` 这种 `PropertyProxy`），建控件时读初值，输入/拨动/切换/
+  拖动立刻写回配置，配置变化也会回填控件；字符串类控件只能绑 `str` 配置、开关类
+  只能绑 `bool`/`str` 配置、步进/滑块只能绑 `int`/`float`/`str` 配置，类型不匹配
+  会警告并跳过绑定，读写或类型转换失败只警告，不影响程序启动
 - `Card` 新增 `inside_title` 参数：传了标题就画在卡片内部顶部，并带一条
   分隔线；不传时标题仍在卡片外面（`title=`）
 - 新增 `ChildWindow` 子窗口：默认带系统标题栏，窗口本身就是内容容器（`body`

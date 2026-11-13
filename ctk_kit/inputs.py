@@ -405,6 +405,23 @@ class Segmented(Enablable, ctk.CTkFrame):
         if self._command is not None:
             self._command(value)
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：切换即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.theme``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def configure(self, require_redraw: bool = False, **kwargs: Any) -> Any:
         """支持 ``values=`` / ``command=``，其余参数转给 ``CTkFrame``。"""
         if "values" in kwargs:
@@ -1111,6 +1128,23 @@ class Slider(Enablable, ctk.CTkFrame):
 
     # ---- 取值 / 赋值 ----------------------------------------------------
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：拖动变化即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.volume``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def get(self) -> float:
         """当前值。"""
         return self._value
@@ -1402,6 +1436,23 @@ class Spinner(Valuable, ctk.CTkFrame):
             self._apply_readonly()
 
     # ------------------------------------------------------------ 读写
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：步进变化即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.font_size``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def get(self) -> Any:
         """当前值：数字模式按 ``as_int`` 返回 int/float，列表模式返回文字。"""
         text = self.entry.get().strip()

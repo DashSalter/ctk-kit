@@ -495,6 +495,23 @@ class Check(_Mark):
         """取消勾选（``set_value(False)`` 的旧名字）。"""
         self.set_value(False)
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：每次勾选即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.autologin``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
 
 class Radio(_Mark):
     """单选项：圆形指示符，同一个 ``group`` 里只用点一个。
@@ -594,6 +611,23 @@ class Radio(_Mark):
         """选中这一项。"""
         self._set_checked(True)
         self._animate_to(1.0)
+
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：选中变化即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.notify``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
 
     def get_value(self) -> str:
         """当前选中的值（同组共用的那个变量）。"""

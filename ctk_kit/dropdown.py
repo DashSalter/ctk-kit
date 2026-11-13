@@ -250,6 +250,23 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
             self._close_menu()
 
     # --- 读写 ---
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：选中变化即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.language``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def get(self) -> str:
         """当前输入框里的文字。"""
         return self.entry.get()

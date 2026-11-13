@@ -3,6 +3,20 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.12.2 — 2026-11-14
+
+- 新增 `bind_config()` / `unbind_config()` 与 `CTkEntry.bind_config()` /
+  `Switch.bind_config()`：把输入框、开关绑定到 conf_base 配置项
+  （`UiPrefs.nickname` 这种 `PropertyProxy`），建控件时读初值，输入/拨动
+  立刻写回配置，配置变化也会回填控件；读写或类型转换失败只警告，不影响
+  程序启动
+- `Card` 新增 `inside_title` 参数：传了标题就画在卡片内部顶部，并带一条
+  分隔线；不传时标题仍在卡片外面（`title=`）
+- 新增 `ChildWindow` 子窗口：默认带系统标题栏，窗口本身就是内容容器（`body`
+  返回窗口自己）；玻璃主题（`Frosted` / `Mica` / `Acrylic`）下同步挂玻璃，
+  `Dark` 下用不透明深色底，`App` 切主题后自动刷新；Windows 11 上四角跟随
+  系统圆角，`modal=True` 时锁住父窗口
+
 ## 0.12.1 — 2026-11-08
 
 - 修复打包：`ctk_kit/logo/` 下的内置 logo（`logo.png`、各尺寸 PNG、`logo.ico`）

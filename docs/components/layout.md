@@ -19,6 +19,7 @@
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
 | `title` | `str` | `""` | 标题，空则不显示标题行 |
+| `inside_title` | `str` | `""` | 传了就在卡片内部顶部画标题，并带一条分隔线；不传标题在卡片外上方 |
 
 其余关键字透传给 CTk 的 `CTkFrame`（`fg_color`、`border_width`、`corner_radius` 等）。
 
@@ -38,6 +39,10 @@ card.pack(fill="x", padx=24, pady=(0, 12))
 
 CTkEntry(card.body).pack(fill="x", padx=16, pady=(0, 12))
 PrimaryButton(card.row(1), "保存").pack(side="right", padx=(0, 16))
+
+# 标题放进卡片内部：标题行 + 分隔线都在卡片里
+panel = Card(area, inside_title="账号信息")
+panel.pack(fill="x", padx=24, pady=(0, 12))
 ```
 
 ## Scrollable

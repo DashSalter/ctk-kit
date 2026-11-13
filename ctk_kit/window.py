@@ -561,6 +561,12 @@ class App(Bindable, CTk):
                     glass=bool(getattr(layer, "glass", False)),
                     spread=int(getattr(layer, "spread", 0)),
                 )
+        # 6) 独立子窗口（ChildWindow）也要跟着换玻璃
+        for widget in getattr(self, "_themeables", []):
+            apply = getattr(widget, "apply_theme", None)
+            if callable(apply):
+                with contextlib.suppress(Exception):
+                    apply(key)
         return self
 
     def set_theme_color(self, color: str) -> "App":

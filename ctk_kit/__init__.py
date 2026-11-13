@@ -39,7 +39,7 @@ from typing import Any
 
 #: 改这里时记得同步 ``pyproject.toml`` 的 ``version``（打包以那份为准，
 #: 这行只给 ``ctk_kit.__version__`` 用）。
-__version__ = "0.12.1"
+__version__ = "0.12.2"
 
 # 核心模块（win32 / glass / frost_layer）发布时是编译好的 .pyd，源码不在仓库里。
 # 装错平台或 Python 版本时，import 那一层会报得很晚、很难懂，这里提前说清楚。
@@ -119,10 +119,11 @@ from .buttons import (
 )
 from .choices import Check, Radio
 from .collapse import Collapsible
+from .config_bind import bind_config, unbind_config
 from .code_panel import CodePanel
 from .color import ColorDialog, ColorPicker
 from .context_menu import ContextMenu, attach_edit_menu, attach_menu
-from .dialog import Dialog, alert, confirm, prompt
+from .dialog import ChildWindow, Dialog, alert, confirm, prompt
 from .dropdown import DropField
 from .files import DropZone, PathField, has_dnd, pick_path
 from .frames import Frame
@@ -227,6 +228,7 @@ __all__ = [
     "Card",
     "Checkbox",
     "Check",
+    "ChildWindow",
     "CodePanel",
     "Collapsible",
     "ColorDialog",
@@ -297,6 +299,7 @@ __all__ = [
     "apply_backdrop",
     "attach_edit_menu",
     "attach_menu",
+    "bind_config",
     "bind_focus_border",
     "color_of",
     "confirm",
@@ -326,6 +329,7 @@ __all__ = [
     "sugar",
     "theme",
     "theming",
+    "unbind_config",
     "tokens",
 ]
 

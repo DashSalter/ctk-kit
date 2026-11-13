@@ -128,6 +128,23 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
         with self.unlocked():
             self.delete(0, "end")
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：输入即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.nickname``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
 
 def bind_focus_border(
         widget: tk.Misc,
@@ -916,6 +933,25 @@ class Switch(Enablable, Textual, ctk.CTkFrame):
             return str(self._label.cget("text"))
         except tk.TclError:
             return ""
+
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：每次拨动即写，配置变化即回填。
+
+        原有的 ``command`` 会保留，绑定后先执行原回调、再写配置。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.remember``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
 
 
 def Checkbox(

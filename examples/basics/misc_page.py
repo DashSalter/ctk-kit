@@ -75,6 +75,14 @@ vertical_divider(row, height=20, padx=(12, 12))
 
 divider(frame, color="#ff8800")      # 线色也能单独给'''
 
+CARD_INSIDE_CODE = '''from ctk_kit import Card
+
+# 默认：标题放在卡片外面的上方
+Card(area, title="账号")
+
+# 标题放在卡片里面：标题行 + 分隔线都画在卡片内
+Card(area, inside_title="账号")'''
+
 
 class MiscPageUI(PageBase):
     """杂项页 UI：只建控件，事件留给 MiscPage。"""
@@ -97,6 +105,7 @@ class MiscPageUI(PageBase):
                 self._build_progress,
                 self._build_ring,
                 self._build_divider,
+                self._build_card_inside,
             ],
         )
 
@@ -213,6 +222,28 @@ class MiscPageUI(PageBase):
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, DIVIDER_CODE, "text 给了就从左边起排一行字，右边接实线。")
+
+    def _build_card_inside(self, area: tk.Misc) -> None:
+        """标题在卡片内部的卡片：适合整页只有一张大卡时用。"""
+        box = Card(area, inside_title="内嵌标题的卡片")
+        box.pack(fill="x", pady=(12, 0))
+
+        HintLabel(
+            box,
+            "inside_title= 时标题画在卡片内部、下面带一条分隔线；"
+            "不传这个参数时，标题仍然放在卡片外面。",
+        ).pack(fill="x", padx=16, pady=(12, 8))
+
+        CTkLabel(
+            box,
+            text="内容区从分隔线下面开始，row() 和普通卡片一样用。",
+            font=T.FONT_SMALL,
+            text_color=T.COLOR_MUTED,
+            fg_color="transparent",
+            anchor="w",
+        ).pack(fill="x", padx=16, pady=(0, 12))
+
+        CodePanel(box, CARD_INSIDE_CODE, "其它参数和 Card 完全一样。")
 
 
 class MiscPage(MiscPageUI):

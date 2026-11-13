@@ -15,12 +15,16 @@ import tkinter as tk
 from ctk_kit import (
     CTkButton,
     Card,
+    ChildWindow,
     CodePanel,
     FieldLabel,
+    FormEntry,
     Frame,
     HintLabel,
+    Label,
     PageBase,
     PageHeader,
+    PrimaryButton,
     Scrollable,
     SecondaryButton,
     tokens as T,
@@ -62,6 +66,20 @@ choice = Dialog(
 ).show()
 # show() 返回被点按钮的第二个元素；Esc / 关窗返回 None'''
 
+CHILD_WINDOW_CODE = '''from ctk_kit import ChildWindow, FormEntry, Label, PrimaryButton
+
+win = ChildWindow(app, title="编辑资料", width=420, height=320)
+
+Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
+entry = FormEntry(win, placeholder="输入昵称")
+entry.pack(fill="x", padx=16, pady=(6, 16))
+PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
+
+win.show()
+# 窗口本身就是内容容器：按钮、文本、输入框都能直接往里放；内边距自己控制
+# modal=True 时打开期间锁住主窗口；窗口配色跟随 App 主题'''
+
+
 
 class DialogPageUI(PageBase):
     """只建控件；按钮的动作在事件类里绑。"""
@@ -85,6 +103,7 @@ class DialogPageUI(PageBase):
                 self._build_confirm,
                 self._build_prompt,
                 self._build_custom,
+                self._build_child_window,
             ],
         )
 
@@ -178,6 +197,24 @@ class DialogPageUI(PageBase):
 
         CodePanel(box, DIALOG_CODE, "需要几个选项就写几个，返回值自己定。")
 
+    def _build_child_window(self, area: tk.Misc) -> None:
+        """子窗口：按钮、文本、输入框都自己放进 body。"""
+        box = Card(area, title="子窗口")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "自由排版", width=72).pack(side="left")
+        self.child_button = SecondaryButton(row, "打开子窗口", width=120)
+        self.child_button.pack(side="left")
+
+        HintLabel(
+            box,
+            "ChildWindow 用系统标题栏，只给一个 body 容器，按钮、文本、输入框"
+            "都自己往里放；窗口配色跟随 App 主题。",
+        ).pack(fill="x", padx=16, pady=(0, 10))
+
+        CodePanel(box, CHILD_WINDOW_CODE, "modal=True 时打开期间锁住主窗口。")
+
     # ------------------------------------------------------------ 钩子
     def _show_alert(self, level: str) -> None:
         """四种级别的信息框：UI 类里空实现，由事件类覆写。"""
@@ -227,6 +264,7 @@ class DialogPage(DialogPageUI):
         self.small_corners_button.configure(command=self._show_small_corners)
         self.prompt_button.configure(command=self._show_prompt)
         self.custom_button.configure(command=self._show_custom)
+        self.child_button.configure(command=self._open_child_window)
 
     def _show_alert(self, level: str) -> None:
         """按级别弹一条信息框。"""
@@ -307,3 +345,28 @@ class DialogPage(DialogPageUI):
     def _show(self, text: str) -> None:
         """把结果写回底部回显条。"""
         self.feedback.configure(text=text)
+
+    def _open_child_window(self) -> None:
+        """子窗口：往窗口里放文本、输入框和按钮。"""
+        win = ChildWindow(self, title="编辑资料", width=420, height=320)
+
+        Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
+        entry = FormEntry(win, placeholder="输入昵称")
+        entry.pack(fill="x", padx=16, pady=(6, 14))
+
+        row = Frame(win)
+        row.pack(fill="x", padx=16, pady=(0, 16))
+        SecondaryButton(row, "取消", width=84, command=win.close).pack(side="right")
+        PrimaryButton(
+            row,
+            "保存",
+            width=84,
+            command=lambda: self._save_child(win, entry),
+        ).pack(side="right", padx=(0, 8))
+
+        win.show()
+
+    def _save_child(self, win: ChildWindow, entry: FormEntry) -> None:
+        """子窗口保存：回显输入内容并关窗。"""
+        self._show(f"子窗口：{entry.get() or '（空）'}")
+        win.close()

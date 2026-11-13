@@ -110,6 +110,42 @@ if name is not None:
     print("改成", name)
 ```
 
+## ChildWindow
+
+### 作用
+
+可以自由放内容的子窗口：默认带系统标题栏，窗口本身就是内容容器，按钮、文本、输入框直接 `pack` 到窗口上，内边距自己控制。窗口可以拖动、最小化和关闭；默认跟随 `App` 的主题——`Frosted` / `Mica` / `Acrylic` 下挂同样的玻璃，`Dark` 下用不透明深色底，`App.set_theme()` 或调色板变化后自动刷新；Windows 11 22H2+ 上四角是系统圆角。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父窗口；子窗口相对它居中 |
+| `title` | `str` | `""` | 窗口标题（显示在系统标题栏） |
+| `width` / `height` | `int` | `420` / `320` | 尺寸（逻辑像素） |
+| `modal` | `bool` | `False` | `True` 时打开期间锁住父窗口，关闭时自动释放 |
+
+### 属性 / 方法
+
+| 名称 | 说明 |
+| --- | --- |
+| `body` | 窗口本身（`win.body is win`），保留它是为了和 `Card.body` 写法一致；内容直接 `pack` 到窗口上 |
+| `show()` | 显示；`modal=True` 时同时锁住父窗口 |
+| `close()` | 关闭并销毁，模态时先释放 grab |
+
+### 示例
+
+```python
+from ctk_kit import ChildWindow, FormEntry, Label, PrimaryButton
+
+win = ChildWindow(app, title="编辑资料", width=420, height=320)
+Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
+entry = FormEntry(win, placeholder="输入昵称")
+entry.pack(fill="x", padx=16, pady=(6, 16))
+PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
+win.show()
+```
+
 ## Popover
 
 ### 作用

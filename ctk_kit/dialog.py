@@ -40,7 +40,7 @@ import customtkinter as ctk
 from PIL import Image, ImageDraw, ImageTk
 
 from . import tokens as T
-from .branding import dim_image
+from .branding import dim_image, set_window_icon
 from .fonts import get_font
 from .core.glass import backdrop_image, excluding_from_capture, gradient_image
 from .inputs import FormEntry
@@ -50,13 +50,13 @@ from .core.win32 import (
     acrylic_window,
     clear_window_alpha,
     client_frame_inset,
+    disable_acrylic,
     enable_acrylic,
     set_client_rect,
     set_dwm_attribute,
 )
-from .theme import color_of, is_win11
-
-__all__ = ["Dialog", "alert", "confirm", "prompt"]
+from .theme import color_of, is_win11, set_titlebar_dark, set_window_brush
+__all__ = ["ChildWindow", "Dialog", "alert", "confirm", "prompt"]
 
 #: Win11 上 ``SetWindowCompositionAttribute`` 只有 30 号属性有效，
 #: 19 号（``WCA_ACCENT_POLICY``）会被忽略，窗口保持纯黑。pywinstyles 的
@@ -1057,3 +1057,224 @@ def prompt(
         prompt=value,
     ).show()
     return result if isinstance(result, str) else None
+
+
+def _is_dark_color(color: str) -> bool:
+    """颜色是否偏暗；用来决定系统标题栏画深色还是浅色。"""
+    value = str(color).lstrip("#")
+    if len(value) != 6:
+        return True
+    try:
+        red, green, blue = (int(value[index : index + 2], 16) for index in (0, 2, 4))
+    except ValueError:
+        return True
+    return (red * 299 + green * 587 + blue * 114) / 1000 < 128
+
+
+def _glass_tint(opts: dict) -> int:
+    """把玻璃配置里的底色和透明度拼成 ``0xAABBGGRR``。"""
+    rgb = str(opts.get("color") or "#1A1A1A").lstrip("#")
+    red, green, blue = int(rgb[0:2], 16), int(rgb[2:4], 16), int(rgb[4:6], 16)
+    alpha = int(opts.get("alpha", 0xE6)) & 0xFF
+    return alpha << 24 | blue << 16 | green << 8 | red
+
+
+class ChildWindow(ctk.CTkToplevel):
+    """带系统标题栏的子窗口，内容自由排版。
+
+    和 :class:`Dialog` 的区别：Dialog 的标题 / 正文 / 按钮是排好的，这里只给
+    一个空窗口，按钮、文本、输入框都直接 ``pack`` 到窗口上::
+
+        win = ChildWindow(app, title="编辑资料", width=420, height=320)
+        Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
+        FormEntry(win, placeholder="输入昵称").pack(fill="x", padx=16, pady=(6, 12))
+        PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
+        win.show()
+
+    ``win.body`` 仍然可用，直接返回窗口自己，方便和 ``Card.body`` 写法保持一致；
+    内边距由内容自己控制。
+
+    窗口走系统标题栏，可以拖动、最小化和关闭；颜色与 ``App`` 里登记过主题的
+    外壳一起刷新，父窗口切深浅色时子窗口跟着变。Windows 11 22H2+ 上四角由
+    DWM 画成圆角，更老的系统保持系统默认的直角。
+
+    参数:
+        master: 父窗口；子窗口相对它居中。
+        title: 窗口标题。
+        width: 宽度（逻辑像素），默认 420。
+        height: 高度（逻辑像素），默认 320。
+        modal: ``True`` 时显示后锁住父窗口，关闭时自动释放。
+
+    属性:
+        body: 内容容器，就是窗口本身；``win.body is win``。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        title: str = "",
+        width: int = 420,
+        height: int = 320,
+        modal: bool = False,
+    ) -> None:
+        super().__init__(master, fg_color=T.COLOR_BG)
+        self.withdraw()
+        self._parent = master.winfo_toplevel()
+        self._modal = bool(modal)
+        self._width = max(240, int(width))
+        self._height = max(160, int(height))
+        self.title(title)
+        # 系统标题栏不会自动继承 App 的图标，这里显式挂一下内置 logo
+        set_window_icon(self)
+        # 窗口底色对齐主窗口：浅色外观用 CTk 的浅色，深色外观用页面底色
+        with contextlib.suppress(tk.TclError):
+            self.configure(fg_color=self._window_bg())
+
+        self.protocol("WM_DELETE_WINDOW", self.close)
+        with contextlib.suppress(tk.TclError):
+            self.transient(self._parent)
+
+        self.apply_theme()
+        # 登记到父窗口：App.set_appearance_mode() 切主题时会调 apply_theme()
+        register = getattr(self._parent, "register_themeable", None)
+        if callable(register):
+            register(self)
+        self._place()
+
+    @property
+    def body(self) -> "ChildWindow":
+        """内容容器，就是窗口自己；控件可以直接 ``pack`` 到窗口上。"""
+        return self
+
+    def _window_bg(self) -> Any:
+        """窗口底色：浅色外观用 CTk 的浅色底，深色外观跟页面令牌走。"""
+        if ctk.get_appearance_mode() == "Light":
+            # 返回二元组，让 CTk 按当前外观自己挑；这里要的是浅色那一档
+            return self._parent.cget("fg_color")
+        return T.COLOR_BG
+
+    def _sync_surface(self) -> None:
+        """把父窗口当前的玻璃主题（Frosted / Acrylic 等）复制到子窗口。"""
+        app = self._parent
+        opts = getattr(app, "_glass", None)
+        glass = (
+            getattr(app, "_theme_name", "") != "dark"
+            and getattr(app, "_backdrop", None) == "acrylic"
+            and isinstance(opts, dict)
+        )
+        if glass:
+            # 玻璃主题：窗口底铺透明键色，DWM 再把纯黑当透明，露出模糊背板
+            with contextlib.suppress(tk.TclError):
+                self.configure(fg_color=str(opts.get("veil") or "#000000"))
+            kind = str(opts.get("kind") or "accent")
+            system_backdrop = int(opts.get("backdrop", 0) or 0) or {
+                "system": 3,
+                "mica": 2,
+            }.get(kind, 0)
+            with contextlib.suppress(Exception):
+                enable_acrylic(
+                    self,
+                    tint=None if system_backdrop else _glass_tint(opts),
+                    dark=bool(opts.get("dark", True)),
+                    system_backdrop=system_backdrop,
+                    frame=bool(opts.get("frame", False)),
+                    accent=int(opts.get("state", 3) or 3),
+                    attribute=int(opts.get("wca", 30)),
+                    extend=bool(opts.get("extend", True)),
+                )
+            with contextlib.suppress(Exception):
+                set_titlebar_dark(self, True, glass=bool(opts.get("titlebar", True)))
+            with contextlib.suppress(Exception):
+                set_window_brush(self)
+            return
+
+        # 非玻璃主题：恢复普通底色和普通标题栏
+        with contextlib.suppress(Exception):
+            disable_acrylic(self)
+        color = self._window_bg()
+        if isinstance(color, str):
+            dark = _is_dark_color(color)
+        else:
+            dark = ctk.get_appearance_mode() == "Dark"
+        with contextlib.suppress(tk.TclError):
+            self.configure(fg_color=color)
+        with contextlib.suppress(Exception):
+            set_titlebar_dark(self, dark)
+        with contextlib.suppress(Exception):
+            set_window_brush(self)
+
+    # ------------------------------------------------------------ 位置 / 显示
+    def _place(self) -> None:
+        """相对父窗口居中；宽高按逻辑像素交给 CTk 自己去乘缩放。"""
+        self.update_idletasks()
+        scaling = 1.0
+        with contextlib.suppress(Exception):
+            scaling = self._get_window_scaling() or 1.0
+        width = int(round(self._width * scaling))
+        height = int(round(self._height * scaling))
+        try:
+            left = self._parent.winfo_rootx() + (self._parent.winfo_width() - width) // 2
+            top = self._parent.winfo_rooty() + (self._parent.winfo_height() - height) // 2
+        except Exception:  # noqa: BLE001 - 父窗口还没映射时退到屏幕中央
+            left = (self.winfo_screenwidth() - width) // 2
+            top = (self.winfo_screenheight() - height) // 2
+        left = max(0, int(left))
+        top = max(0, int(top))
+        self.geometry(f"{self._width}x{self._height}+{left}+{top}")
+
+    def show(self) -> None:
+        """显示子窗口；``modal=True`` 时同时锁住父窗口。"""
+        # 构造时父窗口可能还没映射，winfo_rootx() 还是 0，先等布局完成再居中
+        with contextlib.suppress(tk.TclError):
+            self._parent.update_idletasks()
+        self._place()
+        self.deiconify()
+        self.lift()
+        self.focus_force()
+        # 窗口映射之后 hwnd 才有效，这时再把父窗口的玻璃主题复制过来
+        self.update_idletasks()
+        self._sync_surface()
+        # 窗口映射之后 DWM 才真正接管标题栏和圆角
+        self.after(10, self.apply_theme)
+        self.after(10, self._round_corners)
+        if self._modal:
+            with contextlib.suppress(tk.TclError):
+                self.grab_set()
+
+    def close(self) -> None:
+        """关闭并销毁子窗口；模态时先释放 grab。"""
+        with contextlib.suppress(tk.TclError):
+            self.grab_release()
+        self.destroy()
+
+    # ------------------------------------------------------------ 主题 / 圆角
+    def apply_theme(self, mode: Optional[str] = None) -> None:
+        """按父窗口当前的主题刷一遍窗口表面，并通知内容控件换色。
+
+        参数:
+            mode: 保留兼容 ``App.set_appearance_mode()`` 的回调签名；具体
+                颜色从父窗口的 ``_glass`` / ``_backdrop`` 状态里取。
+        """
+        self._sync_surface()
+        # 内容里带 apply_theme() 的库控件（输入框、下拉框等）也跟着换色
+        with contextlib.suppress(tk.TclError):
+            for child in self.winfo_children():
+                hook = getattr(child, "apply_theme", None)
+                if callable(hook):
+                    with contextlib.suppress(Exception):
+                        hook()
+
+    def _round_corners(self) -> None:
+        """Windows 11 22H2+ 让四角跟随系统圆角；更老的系统不动。"""
+        if sys.platform != "win32":
+            return
+        with contextlib.suppress(Exception):
+            import ctypes
+
+            self.update_idletasks()
+            hwnd = ctypes.windll.user32.GetParent(self.winfo_id()) or self.winfo_id()
+            preference = ctypes.c_int(2)  # DWMWCP_ROUND
+            ctypes.windll.dwmapi.DwmSetWindowAttribute(
+                hwnd, 33, ctypes.byref(preference), ctypes.sizeof(preference)
+            )

@@ -3,6 +3,11 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.12.3 — 2026-11-14
+
+- `bind_config()` 支持范围扩展到文本区、步进、滑块、单选、下拉：9 类控件都能
+  绑定到 conf_base 配置项，输入/拖动/切换立刻写回，配置变化也会回填控件
+
 ## 0.12.2 — 2026-11-14
 
 - 新增 `bind_config()` / `unbind_config()` 与输入框、文本区、开关、勾选、单选、

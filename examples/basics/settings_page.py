@@ -3,12 +3,12 @@ import tkinter as tk
 from ctk_kit import (
     Card,
     FieldLabel,
-    Frame,
     get_appearance_mode,
     HintLabel,
     is_dark,
     PageBase,
     PageHeader,
+    Row,
     Scrollable,
     SecondaryButton,
     Segmented,
@@ -54,35 +54,36 @@ class SettingsPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
-        FieldLabel(row, "主题", width=64).pack(side="left")
-
         self.theme = Segmented(
             row,
             ["Mica", "Frosted", "Dark", "Acrylic"],
             width=380,
         )
+        FieldLabel(row, "主题", width=64).pack(side="left")
         self.theme.pack(side="left", padx=(4, 0))
 
         self.bg_box = box
-        self.bg_rows: list[tk.Frame] = []
+        self.bg_rows: list[Row] = []
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "背景颜色", width=110).pack(side="left")
         self.bg_color = Segmented(
             row,
             ["黑", "白", "红", "橙", "黄", "绿", "青", "蓝", "紫"],
             width=630,
         )
+        FieldLabel(row, "背景颜色", width=110).pack(side="left")
         self.bg_color.pack(side="left", padx=(4, 0))
         self.bg_rows.append(row)
 
         row = box.row(3, fill="x", padx=16, pady=(0, 14))
-        FieldLabel(row, "背景透明度", width=110).pack(side="left")
+        label = FieldLabel(row, "背景透明度", width=110)
         self.bg_alpha = Slider(row, from_=0, to=255, width=180)
-        self.bg_alpha.pack(side="left", padx=(4, 8))
         self.bg_alpha_value = FieldLabel(row, "56", width=36)
-        self.bg_alpha_value.pack(side="left")
-        HintLabel(row, "0 全透，255 最实").pack(side="left", padx=(10, 0))
+        hint = HintLabel(row, "0 全透，255 最实")
+        label.pack(side="left")
+        self.bg_alpha.pack(side="left", padx=(4, 8))
+        self.bg_alpha_value.pack(side="left", padx=0)
+        hint.pack(side="left", padx=(10, 0))
         self.bg_rows.append(row)
 
     def _build_glass(self, area: tk.Misc) -> None:
@@ -91,32 +92,32 @@ class SettingsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "窗口圆角", width=64).pack(side="left")
         self.glass_corners = Segmented(
             row, ["默认", "不圆", "圆", "小圆"], width=280
         )
+        FieldLabel(row, "窗口圆角", width=64).pack(side="left")
         self.glass_corners.pack(side="left", padx=(4, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "边框色", width=64).pack(side="left")
         self.glass_border = Segmented(row, ["灰", "无", "黑", "白"], width=280)
+        FieldLabel(row, "边框色", width=64).pack(side="left")
         self.glass_border.pack(side="left", padx=(4, 0))
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "标题栏色", width=64).pack(side="left")
         self.glass_caption = Segmented(row, ["玻璃", "黑", "白"], width=210)
+        FieldLabel(row, "标题栏色", width=64).pack(side="left")
         self.glass_caption.pack(side="left", padx=(4, 0))
 
         row = box.row(4, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "整体透明度", width=64).pack(side="left")
         self.glass_opacity = Slider(row, from_=10, to=100, width=180)
-        self.glass_opacity.pack(side="left", padx=(4, 8))
         self.glass_opacity_value = FieldLabel(row, "100%", width=44)
-        self.glass_opacity_value.pack(side="left")
+        FieldLabel(row, "整体透明度", width=64).pack(side="left")
+        self.glass_opacity.pack(side="left", padx=(4, 8))
+        self.glass_opacity_value.pack(side="left", padx=0)
 
         row = box.row(5, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "透明色", width=64).pack(side="left")
         self.glass_veil = Segmented(row, ["纯黑", "近黑", "深灰", "暖黑"], width=260)
+        FieldLabel(row, "透明色", width=64).pack(side="left")
         self.glass_veil.pack(side="left", padx=(4, 0))
 
         self.glass_extend = self._glass_switch(
@@ -132,8 +133,8 @@ class SettingsPageUI(PageBase):
     def _glass_switch(self, box: tk.Misc, label: str, key: str, *, last: bool = False) -> Switch:
         """一行「标签 + 开关」，开关回调按 ``key`` 走对应的专用方法。"""
         row = box.row(6, fill="x", padx=16, pady=(0, 14) if last else (0, 8))
-        FieldLabel(row, label, width=64).pack(side="left")
         switch = Switch(row, command=lambda k=key: self._on_glass_switch(k))
+        FieldLabel(row, label, width=64).pack(side="left")
         switch.pack(side="left", padx=(4, 0))
         return switch
 
@@ -171,8 +172,8 @@ class SettingsPageUI(PageBase):
     ) -> Switch:
         """一行「标签 + 开关」，开关回调按 ``key`` 交给标题栏的专用方法。"""
         row = box.row(index, fill="x", padx=16, pady=(0, 14) if last else (0, 8))
-        FieldLabel(row, label, width=width).pack(side="left")
         switch = Switch(row, command=lambda k=key: self._on_titlebar_switch(k))
+        FieldLabel(row, label, width=width).pack(side="left")
         switch.pack(side="left", padx=(4, 0))
         return switch
 
@@ -187,13 +188,13 @@ class SettingsPageUI(PageBase):
         )
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "真实边界", width=64).pack(side="left")
         self.debug_read = SecondaryButton(
             row, "读取", self.on_debug_bounds, width=76
         )
-        self.debug_read.pack(side="left", padx=(4, 8))
         self.debug_bounds = FieldLabel(row, "点「读取」看 DWM 与 Tk 的差值", width=430)
-        self.debug_bounds.pack(side="left")
+        FieldLabel(row, "真实边界", width=64).pack(side="left")
+        self.debug_read.pack(side="left", padx=(4, 0))
+        self.debug_bounds.pack(side="left", padx=(8, 0))
 
         self.debug_hint = HintLabel(
             box,
@@ -214,9 +215,9 @@ class SettingsPageUI(PageBase):
         """一行「标签 + 开关」，开关回调按 ``key`` 交给窗口调试的专用方法。"""
         row = box.row(index, fill="x", padx=16, pady=(0, 14) if last else (0, 8))
         label_widget = FieldLabel(row, label, width=64)
-        label_widget.pack(side="left")
         self._debug_labels[key] = label_widget
         switch = Switch(row, command=lambda k=key: self._on_debug_switch(k))
+        label_widget.pack(side="left")
         switch.pack(side="left", padx=(4, 0))
         return switch
 
@@ -236,7 +237,8 @@ class SettingsPageUI(PageBase):
     def refresh_glass(self) -> None:
         """把 App 上当前的毛玻璃参数回填到控件。"""
         app = getattr(self, "app", None)
-        options = app.glass_options() if app is not None else {}
+        get_options = getattr(app, "glass_options", None)
+        options = get_options() if callable(get_options) else {}
         if not options:
             return
         opacity = int(round(float(options.get("opacity", 1.0)) * 100))

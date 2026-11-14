@@ -19,12 +19,11 @@ from ctk_kit import (
     CodePanel,
     FieldLabel,
     FormEntry,
-    Frame,
     HintLabel,
-    Label,
     PageBase,
     PageHeader,
     PrimaryButton,
+    Row,
     Scrollable,
     SecondaryButton,
     tokens as T,
@@ -66,19 +65,28 @@ choice = Dialog(
 ).show()
 # show() 返回被点按钮的第二个元素；Esc / 关窗返回 None'''
 
-CHILD_WINDOW_CODE = '''from ctk_kit import ChildWindow, FormEntry, Label, PrimaryButton
+CHILD_WINDOW_CODE = '''from ctk_kit import (
+    ChildWindow,
+    FormEntry,
+    PrimaryButton,
+    Row,
+    SecondaryButton,
+)
 
 win = ChildWindow(app, title="编辑资料", width=420, height=320)
 
-Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
-entry = FormEntry(win, placeholder="输入昵称")
-entry.pack(fill="x", padx=16, pady=(6, 16))
-PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
+row = Row(win)
+row.pack(fill="x", padx=16, pady=(16, 14))
+FormEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
+
+row = Row(win)
+row.pack(fill="x", padx=16, pady=(0, 16))
+SecondaryButton(row, "取消", command=win.close).pack(side="right")
+PrimaryButton(row, "保存", command=win.close).pack(side="right", padx=(0, 8))
 
 win.show()
-# 窗口本身就是内容容器：按钮、文本、输入框都能直接往里放；内边距自己控制
+# 窗口本身就是内容容器：Row / 任意控件都能直接往里放，内边距自己控制
 # modal=True 时打开期间锁住主窗口；窗口配色跟随 App 主题'''
-
 
 
 class DialogPageUI(PageBase):
@@ -113,14 +121,15 @@ class DialogPageUI(PageBase):
         box.pack(fill="x")
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "级别", width=72).pack(side="left")
+        label = FieldLabel(row, "级别", width=72)
         self.info_button = SecondaryButton(row, "信息", width=84)
-        self.info_button.pack(side="left")
         self.success_button = SecondaryButton(row, "成功", width=84)
-        self.success_button.pack(side="left", padx=(8, 0))
         self.warn_button = SecondaryButton(row, "警告", width=84)
-        self.warn_button.pack(side="left", padx=(8, 0))
         self.error_button = SecondaryButton(row, "错误", width=84)
+        label.pack(side="left")
+        self.info_button.pack(side="left")
+        self.success_button.pack(side="left", padx=(8, 0))
+        self.warn_button.pack(side="left", padx=(8, 0))
         self.error_button.pack(side="left", padx=(8, 0))
 
         HintLabel(
@@ -136,11 +145,9 @@ class DialogPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "类型", width=72).pack(side="left")
+        label = FieldLabel(row, "类型", width=72)
         self.confirm_button = SecondaryButton(row, "普通确认", width=96)
-        self.confirm_button.pack(side="left")
         self.acrylic_button = SecondaryButton(row, "系统玻璃", width=96)
-        self.acrylic_button.pack(side="left", padx=(8, 0))
         self.danger_button = CTkButton(
             row,
             text="危险操作",
@@ -151,8 +158,11 @@ class DialogPageUI(PageBase):
             hover_color=("#b91c1c", "#dc2626"),
             text_color=T.COLOR_ACCENT_TEXT,
         )
-        self.danger_button.pack(side="left", padx=(8, 0))
         self.small_corners_button = SecondaryButton(row, "小圆角", width=96)
+        label.pack(side="left")
+        self.confirm_button.pack(side="left")
+        self.acrylic_button.pack(side="left", padx=(8, 0))
+        self.danger_button.pack(side="left", padx=(8, 0))
         self.small_corners_button.pack(side="left", padx=(8, 0))
 
         HintLabel(
@@ -169,8 +179,9 @@ class DialogPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "重命名", width=72).pack(side="left")
+        label = FieldLabel(row, "重命名", width=72)
         self.prompt_button = SecondaryButton(row, "换个名字", width=96)
+        label.pack(side="left")
         self.prompt_button.pack(side="left")
 
         HintLabel(
@@ -186,8 +197,9 @@ class DialogPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "三选一", width=72).pack(side="left")
+        label = FieldLabel(row, "三选一", width=72)
         self.custom_button = SecondaryButton(row, "合并还是覆盖", width=120)
+        label.pack(side="left")
         self.custom_button.pack(side="left")
 
         HintLabel(
@@ -203,8 +215,9 @@ class DialogPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "自由排版", width=72).pack(side="left")
+        label = FieldLabel(row, "自由排版", width=72)
         self.child_button = SecondaryButton(row, "打开子窗口", width=120)
+        label.pack(side="left")
         self.child_button.pack(side="left")
 
         HintLabel(
@@ -350,11 +363,12 @@ class DialogPage(DialogPageUI):
         """子窗口：往窗口里放文本、输入框和按钮。"""
         win = ChildWindow(self, title="编辑资料", width=420, height=320)
 
-        Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
-        entry = FormEntry(win, placeholder="输入昵称")
-        entry.pack(fill="x", padx=16, pady=(6, 14))
+        row = Row(win)
+        row.pack(fill="x", padx=16, pady=(16, 14))
+        entry = FormEntry(row.label("昵称"), placeholder="输入昵称")
+        entry.pack(fill="x")
 
-        row = Frame(win)
+        row = Row(win)
         row.pack(fill="x", padx=16, pady=(0, 16))
         SecondaryButton(row, "取消", width=84, command=win.close).pack(side="right")
         PrimaryButton(

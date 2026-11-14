@@ -34,6 +34,7 @@ from ctk_kit import (
     Popover,
     PrimaryButton,
     RangeSlider,
+    Row,
     Scrollable,
     SearchBox,
     Skeleton,
@@ -201,32 +202,42 @@ class ExtrasPageUI(PageBase):
         ).pack(fill="x", padx=16, pady=(14, 8))
 
         row = box.row(1, fill="x", padx=16, pady=(0, 6))
-        for text, color in (
-            ("已同步", "success"),
-            ("进行中", "accent"),
-            ("待处理", "warning"),
-            ("失败", "danger"),
-            ("草稿", "neutral"),
-        ):
-            Badge(row, text, color=color).pack(side="left", padx=(0, 8))
+        badges = [
+            Badge(row, text, color=color)
+            for text, color in (
+                ("已同步", "success"),
+                ("进行中", "accent"),
+                ("待处理", "warning"),
+                ("失败", "danger"),
+                ("草稿", "neutral"),
+            )
+        ]
+        for badge in badges:
+            badge.pack(side="left", padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 6))
-        for text, color in (
-            ("成功", "success"),
-            ("主色", "accent"),
-            ("警告", "warning"),
-            ("危险", "danger"),
-            ("中性", "neutral"),
-        ):
-            Badge(row, text, color=color, variant="solid").pack(
-                side="left", padx=(0, 8)
+        solid_badges = [
+            Badge(row, text, color=color, variant="solid")
+            for text, color in (
+                ("成功", "success"),
+                ("主色", "accent"),
+                ("警告", "warning"),
+                ("危险", "danger"),
+                ("中性", "neutral"),
             )
+        ]
+        for badge in solid_badges:
+            badge.pack(side="left", padx=(8, 0))
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        Tag(row, "描边标签", variant="outline").pack(side="left", padx=(0, 8))
-        Badge(row, "sm", size="sm").pack(side="left", padx=(0, 8))
-        for color in ("success", "warning", "danger"):
-            Badge(row, dot=True, color=color).pack(side="left", padx=(0, 5))
+        Tag(row, "描边标签", variant="outline").pack(side="left", padx=(8, 0))
+        Badge(row, "sm", size="sm").pack(side="left", padx=(8, 0))
+        dot_badges = [
+            Badge(row, dot=True, color=color)
+            for color in ("success", "warning", "danger")
+        ]
+        for badge in dot_badges:
+            badge.pack(side="left", padx=(5, 0))
 
         self.badge_demo = Badge(box, _BADGE_TEXT[0], color="accent")
         self.badge_demo.pack(anchor="w", padx=16, pady=(0, 12))
@@ -256,19 +267,17 @@ class ExtrasPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(0, 8))
         self.page5 = SoftButton(row, "代码跳到第 5 页")
-        self.page5.pack(side="left")
         self.clear_btn = SoftButton(row, "清空数据")
-        self.clear_btn.pack(side="left", padx=(8, 0))
         self.restore_btn = SoftButton(row, "恢复 238 条")
-        self.restore_btn.pack(side="left", padx=(8, 0))
+        for button in (self.page5, self.clear_btn, self.restore_btn):
+            button.pack(side="left", padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 12))
         self.size10 = SoftButton(row, "每页 10 条")
-        self.size10.pack(side="left")
         self.size20 = SoftButton(row, "每页 20 条")
-        self.size20.pack(side="left", padx=(8, 0))
         self.size50 = SoftButton(row, "每页 50 条")
-        self.size50.pack(side="left", padx=(8, 0))
+        for button in (self.size10, self.size20, self.size50):
+            button.pack(side="left", padx=(8, 0))
 
         CodePanel(
             box,
@@ -311,8 +320,8 @@ class ExtrasPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(0, 10))
         self.range = RangeSlider(row, from_=0, to=100, values=(20, 80))
-        self.range.pack(side="left")
         self.range_hint = HintLabel(row, "20 – 80")
+        self.range.pack(side="left")
         self.range_hint.pack(side="left", padx=(12, 0))
 
         self.search = SearchBox(box, placeholder="搜索组件…")
@@ -359,16 +368,14 @@ class ExtrasPageUI(PageBase):
         ).pack(fill="x", padx=16, pady=(14, 8))
 
         row = box.row(1, fill="x", padx=16, pady=(0, 10))
-        Avatar(row, text="ZK", size=44, status="online").pack(side="left")
-        Avatar(row, text="李", size=44, color="success", status="busy").pack(
-            side="left", padx=(10, 0)
-        )
-        Avatar(row, text="AI", size=44, color="warning", status="away").pack(
-            side="left", padx=(10, 0)
-        )
-        Avatar(row, text="?", size=44, color="neutral", status="offline").pack(
-            side="left", padx=(10, 0)
-        )
+        avatars = [
+            Avatar(row, text="ZK", size=44, status="online"),
+            Avatar(row, text="李", size=44, color="success", status="busy"),
+            Avatar(row, text="AI", size=44, color="warning", status="away"),
+            Avatar(row, text="?", size=44, color="neutral", status="offline"),
+        ]
+        for avatar in avatars:
+            avatar.pack(side="left", padx=(10, 0))
 
         self.crumb = Breadcrumb(
             box,
@@ -410,10 +417,10 @@ class ExtrasPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(0, 8))
         self.skeleton1 = Skeleton(row, width=220, height=14)
-        self.skeleton1.pack(side="left")
         self.skeleton2 = Skeleton(row, width=120, height=14)
-        self.skeleton2.pack(side="left", padx=(10, 0))
         self.skeleton_btn = SoftButton(row, "暂停呼吸")
+        self.skeleton1.pack(side="left")
+        self.skeleton2.pack(side="left", padx=(10, 0))
         self.skeleton_btn.pack(side="right")
 
         self.split = Splitter(
@@ -446,18 +453,18 @@ class ExtrasPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(0, 10))
         self.filter_button = SoftButton(row, "筛选条件")
-        self.filter_button.pack(side="left")
         self.acrylic_button = SoftButton(row, "系统玻璃")
-        self.acrylic_button.pack(side="left", padx=(10, 0))
         self.color_picker = ColorPicker(row, value="#2563eb", command=self._on_color)
-        self.color_picker.pack(side="left", padx=(12, 0))
         self.color_hint = HintLabel(row, "#2563eb")
+        for button in (self.filter_button, self.acrylic_button):
+            button.pack(side="left", padx=(10, 0))
+        self.color_picker.pack(side="left", padx=(12, 0))
         self.color_hint.pack(side="left", padx=(10, 0))
 
         dialog_row = box.row(2, fill="x", padx=16, pady=(0, 10))
         self.color_dialog_button = SoftButton(dialog_row, "取色面板…")
-        self.color_dialog_button.pack(side="left")
         self.color_dialog_hint = HintLabel(dialog_row, "#2563eb")
+        self.color_dialog_button.pack(side="left", padx=(10, 0))
         self.color_dialog_hint.pack(side="left", padx=(10, 0))
 
         self.popover = Popover(
@@ -499,16 +506,20 @@ class ExtrasPageUI(PageBase):
         self.status.pack(fill="x", padx=16, pady=(0, 8))
 
         row = box.row(1, fill="x", padx=16, pady=(0, 8))
-        for text, tone in (
-            ("保存成功", "success"),
-            ("注意", "warning"),
-            ("出错", "danger"),
-        ):
+        tone_buttons = [
             SoftButton(
                 row,
                 text,
                 command=lambda label=text, value=tone: self._set_tone(value, label),
-            ).pack(side="left", padx=(0, 8))
+            )
+            for text, tone in (
+                ("保存成功", "success"),
+                ("注意", "warning"),
+                ("出错", "danger"),
+            )
+        ]
+        for button in tone_buttons:
+            button.pack(side="left", padx=(8, 0))
 
         self.carousel = Carousel(
             box,

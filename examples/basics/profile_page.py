@@ -12,10 +12,10 @@ from ctk_kit import (
     Badge,
     Card,
     CTkLabel,
-    Frame,
     HintLabel,
     PageBase,
     PageHeader,
+    Row,
     Scrollable,
     SoftButton,
     tokens as T,
@@ -51,11 +51,10 @@ class ProfilePage(PageBase):
         )
         self.name.pack(pady=(14, 0))
 
-        meta = Frame(center)
+        meta = Row(center)
         meta.pack(pady=(8, 0))
-        Badge(meta, "在线", color="success", variant="soft", size="sm").pack(
-            side="left"
-        )
+        badge = Badge(meta, "在线", color="success", variant="soft", size="sm")
+        badge.pack(side="left")
         HintLabel(meta, "上次登录：刚刚").pack(side="left", padx=(8, 0))
 
         SoftButton(center, "返回总览", command=self._go_home).pack(pady=(18, 0))

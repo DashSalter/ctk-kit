@@ -15,6 +15,7 @@ from ctk_kit import (
     FlatButton,
     Frame,
     HintLabel,
+    OutlineButton,
     PageBase,
     PageHeader,
     PrimaryButton,
@@ -67,6 +68,18 @@ button.configure(state="disabled")
 # 也可以是 SecondaryButton / DangerButton / FlatButton
 # state="disabled" 保留原来的配色，只降低不透明度，不会变成灰块'''
 
+OUTLINE_CODE = '''from ctk_kit import OutlineButton
+
+OutlineButton(frame, "描边主色")                    # tone="accent"，默认
+OutlineButton(frame, "描边中性", tone="neutral")     # 灰色描边
+OutlineButton(frame, "描边危险", tone="danger")      # 红色描边
+OutlineButton(frame, "切换高亮", toggle=True)        # 点一下保持，再点取消
+
+# OutlineButton(master, text, command=None, *, tone="accent",
+#               text_color=None, toggle=False, width=76, height=30,
+#               font=FONT_SMALL, radius=8)
+# 空心底 + 1px 描边，文字默认正文色；toggle 时 get_toggled() / set_toggled(True)'''
+
 
 class ButtonPageUI(PageBase):
     """按钮页 UI：只写界面，不绑事件。"""
@@ -75,7 +88,7 @@ class ButtonPageUI(PageBase):
         super().__init__(master)
 
         self.header = PageHeader(self, "按钮")
-        self.header.info.configure(text="4 个工厂函数 + 2 个类")
+        self.header.info.configure(text="5 个工厂函数 + 2 个类")
 
         # 底部回显条先于滚动区 pack：内容再多也不会被挤掉
         self.feedback = HintLabel(self, "点任意按钮，回显会出现在这里")
@@ -89,6 +102,7 @@ class ButtonPageUI(PageBase):
             area,
             [
                 self._build_basic,
+                self._build_outline,
                 self._build_micro,
                 self._build_sizes,
                 self._build_disabled,
@@ -103,16 +117,11 @@ class ButtonPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.primary = PrimaryButton(row, "主按钮")
-        self.primary.pack(side="left")
-
         self.secondary = SecondaryButton(row, "次要按钮")
-        self.secondary.pack(side="left", padx=(8, 0))
-
         self.outline = SecondaryButton(row, "描边按钮", border=True)
-        self.outline.pack(side="left", padx=(8, 0))
-
         self.danger = DangerButton(row, "危险按钮")
-        self.danger.pack(side="left", padx=(8, 0))
+        for button in (self.primary, self.secondary, self.outline, self.danger):
+            button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -125,6 +134,44 @@ class ButtonPageUI(PageBase):
             "三个工厂函数的签名都在上面；command 不接收参数，要传参就用 lambda 包一层。",
         )
 
+    def _build_outline(self, area: tk.Misc) -> None:
+        """描边按钮：空心底 + 1px 描边，三档 tone。"""
+        box = Card(area, title="描边按钮（空心底 + 1px 描边）")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        self.outline_accent = OutlineButton(row, "描边主色")
+        self.outline_neutral = OutlineButton(row, "描边中性", tone="neutral")
+        self.outline_danger = OutlineButton(row, "描边危险", tone="danger")
+        self.outline_toggle = OutlineButton(row, "切换高亮", toggle=True)
+        for button in (
+            self.outline_accent,
+            self.outline_neutral,
+            self.outline_danger,
+            self.outline_toggle,
+        ):
+            button.pack(side="left", padx=(8, 0))
+
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        self.outline_sizes = [
+            OutlineButton(row, f"描边 {height} 高", height=height)
+            for height in (26, 30, 38)
+        ]
+        for button in self.outline_sizes:
+            button.pack(side="left", padx=(8, 0))
+
+        HintLabel(
+            box,
+            "tone 换三套配色：accent 主色 / neutral 灰色 / danger 红色；"
+            "「切换高亮」是 toggle=True，点一下保持、再点取消。",
+        ).pack(fill="x", padx=16, pady=(0, 14))
+
+        CodePanel(
+            box,
+            OUTLINE_CODE,
+            "空心底 + 1px 描边，文字和描边同色；hover 只铺一层淡底。",
+        )
+
     def _build_micro(self, area: tk.Misc) -> None:
         """微型按钮：宽度按文字实测。"""
         box = Card(area, title="微型按钮（宽度按文字实测）")
@@ -133,13 +180,10 @@ class ButtonPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.flat = FlatButton(row, "FlatButton")
-        self.flat.pack(side="left")
-
         self.soft = SoftButton(row, "SoftButton")
-        self.soft.pack(side="left", padx=(8, 0))
-
         self.long_flat = FlatButton(row, "更长的文字会自动加宽")
-        self.long_flat.pack(side="left", padx=(8, 0))
+        for button in (self.flat, self.soft, self.long_flat):
+            button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -157,25 +201,32 @@ class ButtonPageUI(PageBase):
         box = Card(area, title="尺寸矩阵")
         box.pack(fill="x", pady=(12, 0))
 
-        self.size_buttons = []
-
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        for width, height in ((84, 30), (120, 38), (160, 46)):
-            button = PrimaryButton(row, f"{width}×{height}", width=width, height=height)
-            button.pack(side="left", padx=(0, 8))
-            self.size_buttons.append(button)
+        first = [
+            PrimaryButton(row, f"{width}×{height}", width=width, height=height)
+            for width, height in ((84, 30), (120, 38), (160, 46))
+        ]
+        for button in first:
+            button.pack(side="left", padx=(8, 0))
+        self.size_buttons = list(first)
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        for width in (60, 76, 120):
-            button = SecondaryButton(row, f"次要 {width}", width=width)
-            button.pack(side="left", padx=(0, 8))
-            self.size_buttons.append(button)
+        second = [
+            SecondaryButton(row, f"次要 {width}", width=width)
+            for width in (60, 76, 120)
+        ]
+        for button in second:
+            button.pack(side="left", padx=(8, 0))
+        self.size_buttons += second
 
         row = box.row(3, fill="x", padx=16, pady=(0, 14))
-        for height in (26, 30, 38):
-            button = DangerButton(row, f"危险 {height} 高", height=height)
-            button.pack(side="left", padx=(0, 8))
-            self.size_buttons.append(button)
+        third = [
+            DangerButton(row, f"危险 {height} 高", height=height)
+            for height in (26, 30, 38)
+        ]
+        for button in third:
+            button.pack(side="left", padx=(8, 0))
+        self.size_buttons += third
 
         HintLabel(
             box,
@@ -195,6 +246,7 @@ class ButtonPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
+        disabled = []
         for factory, text in (
             (PrimaryButton, "主按钮"),
             (SecondaryButton, "次要按钮"),
@@ -202,7 +254,9 @@ class ButtonPageUI(PageBase):
         ):
             button = factory(row, text)
             button.configure(state="disabled")
-            button.pack(side="left", padx=(0, 8))
+            disabled.append(button)
+        for button in disabled:
+            button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -228,6 +282,12 @@ class ButtonPage(ButtonPageUI):
         self.primary.configure(command=lambda: self._show("点了「主按钮」"))
         self.secondary.configure(command=lambda: self._show("点了「次要按钮」"))
         self.outline.configure(command=lambda: self._show("点了「描边按钮」（border=True）"))
+        self.outline_accent.configure(command=lambda: self._show("点了描边主色按钮"))
+        self.outline_neutral.configure(command=lambda: self._show("点了描边中性按钮"))
+        self.outline_danger.configure(command=lambda: self._show("点了描边危险按钮"))
+        for button in self.outline_sizes:
+            text = button.cget("text")
+            button.configure(command=lambda t=text: self._show(f"点了「{t}」"))
         self.danger.configure(command=lambda: self._show("点了「危险按钮」"))
         self.flat.configure(command=lambda: self._show("点了 FlatButton"))
         self.soft.configure(command=lambda: self._show("点了 SoftButton"))

@@ -10,7 +10,7 @@ from __future__ import annotations
 import contextlib
 import time
 import tkinter as tk
-from typing import Any, Callable, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 
 import customtkinter as ctk
 
@@ -449,10 +449,15 @@ class Check(_Mark):
         width: int = 22,
         height: int = 22,
         variable: Optional[tk.IntVar] = None,
+        value: bool = False,
         font: Any = None,
     ) -> None:
-        """建勾选框；``get()`` 返回 0/1，和 ``CTkCheckBox`` 一致。"""
-        self._variable = variable or tk.IntVar(value=0)
+        """建勾选框；``value=True`` 时初始就是勾上的。
+
+        ``get()`` 返回 0/1，和 ``CTkCheckBox`` 一致；新代码用 ``get_value()``
+        读 bool。
+        """
+        self._variable = variable or tk.IntVar(value=1 if value else 0)
         super().__init__(
             master,
             text,
@@ -636,3 +641,97 @@ class Radio(_Mark):
     def set_value(self, value: str) -> None:
         """选中值为 ``value`` 的那一项；同组里值匹配的会自动亮起。"""
         self._variable.set(str(value))
+
+
+class RadioGroup(ctk.CTkFrame):
+    """一组单选项，整体只有一个值。
+
+    ```python
+    row = card.row(1)
+    RadioGroup(
+        row.label("同步"),
+        ["每次询问", "总是同步"],
+        value="每次询问",
+        on_change=lambda value: print(value),
+    ).pack(anchor="w")
+    ```
+
+    比逐个 ``Radio(group=...)`` 省事：不用遍历成员绑 ``command``，读值只读
+    一次，改值也只调一次 ``set_value()``。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        options: Sequence[str],
+        *,
+        value: Optional[str] = None,
+        on_change: Optional[Callable[[str], None]] = None,
+        group: Optional[str] = None,
+        gap: int = 16,
+        **kwargs: Any,
+    ) -> None:
+        """建一组单选项；``value`` 省略时默认选第一项。"""
+        kwargs.setdefault("fg_color", "transparent")
+        super().__init__(master, **kwargs)
+        self._choices = [str(option) for option in options]
+        if not self._choices:
+            raise ValueError("RadioGroup 至少要有一个选项")
+        self._value = str(value) if value is not None else self._choices[0]
+        if self._value not in self._choices:
+            raise ValueError(f"value 必须是选项之一，收到 {value!r}")
+        self._on_change = on_change
+        self._group = group or f"radio-group-{id(self)}"
+        self._radios: List[Radio] = []
+        for option in self._choices:
+            radio = Radio(
+                self,
+                option,
+                value=option,
+                group=self._group,
+                command=self._on_pick,
+            )
+            radio.pack(side="left", padx=(0, gap))
+            self._radios.append(radio)
+        self._radios[0].set_value(self._value)
+
+    def _on_pick(self) -> None:
+        """点击某一项后把新值记下来，值变了才回调。"""
+        value = self._radios[0].get_value()
+        if value == self._value:
+            return
+        self._value = value
+        if self._on_change is not None:
+            self._on_change(value)
+
+    def get_value(self) -> str:
+        """当前选中的值。"""
+        return self._value
+
+    @property
+    def on_change(self) -> Optional[Callable[[str], None]]:
+        """用户切换时的回调；构造后也可以再赋值。"""
+        return self._on_change
+
+    @on_change.setter
+    def on_change(self, callback: Optional[Callable[[str], None]]) -> None:
+        self._on_change = callback
+
+    def set_value(self, value: str) -> None:
+        """按值选中对应项（不触发 ``on_change``）。"""
+        if value not in self._choices:
+            raise ValueError(f"value 必须是选项之一，收到 {value!r}")
+        self._value = value
+        self._radios[0].set_value(value)
+
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：选中变化即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)

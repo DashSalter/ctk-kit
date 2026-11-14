@@ -12,17 +12,17 @@ from functools import lru_cache
 
 from ctk_kit import (
     Card,
+    CodePanel,
     FieldLabel,
-    Frame,
     HintLabel,
     ImageViewer,
     PageBase,
     PageHeader,
+    Row,
     Scrollable,
     SecondaryButton,
     TextArea,
     tokens as T,
-    CodePanel,
 )
 
 #: 代码块字体：等宽，比正文大一点，展开后不用凑近看。
@@ -178,31 +178,31 @@ class ImagePageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.fit_button = SecondaryButton(row, "适配窗口")
-        self.fit_button.pack(side="left")
         self.zoom_in_button = SecondaryButton(row, "放大")
-        self.zoom_in_button.pack(side="left", padx=(8, 0))
         self.zoom_out_button = SecondaryButton(row, "缩小")
-        self.zoom_out_button.pack(side="left", padx=(8, 0))
         self.swap_button = SecondaryButton(row, "换一张")
-        self.swap_button.pack(side="left", padx=(8, 0))
 
         self.zoom_label = HintLabel(row, "100%")
+        for button in (
+            self.fit_button,
+            self.zoom_in_button,
+            self.zoom_out_button,
+            self.swap_button,
+        ):
+            button.pack(side="left", padx=(8, 0))
         self.zoom_label.pack(side="right")
         FieldLabel(row, "倍率", width=44).pack(side="right", padx=(8, 0))
 
-        # 固定高度的容器：ImageViewer 放在 Scrollable 里时，光靠 height 参数
-        # 撑不开（内部 canvas 的默认高度会顶掉它），这里由容器锁定预览区高度。
-        viewer_row = Frame(box, height=430)
-        viewer_row.pack(fill="x", padx=16, pady=(0, 8))
-        viewer_row.pack_propagate(False)
-
         self.viewer = ImageViewer(
-            viewer_row,
+            box,
+            height=430,
             min_zoom=1.0,
             max_zoom=8.0,
             empty_text="还没有图片",
         )
-        self.viewer.pack(fill="both", expand=True)
+        # 内部 canvas 的默认高度会顶掉 height 参数，关掉尺寸传播才能锁住高度。
+        self.viewer.pack(fill="x", padx=16, pady=(0, 8))
+        self.viewer.pack_propagate(False)
         self.viewer.set_image(_demo_image(1))
 
         HintLabel(
@@ -222,30 +222,30 @@ class ImagePageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "图片来源", width=68).pack(side="left")
-        HintLabel(
+        hint = HintLabel(
             row,
             "路径 / pathlib.Path / PIL.Image 都可以传；传 None 回到空态。",
-        ).pack(side="left", padx=(8, 0))
+        )
+        FieldLabel(row, "图片来源", width=68).pack(side="left")
+        hint.pack(side="left", padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
 
         self.fill_button = SecondaryButton(row, "放入示意图")
-        self.fill_button.pack(side="left")
         self.clear_button = SecondaryButton(row, "清空")
+        self.fill_button.pack(side="left", padx=(8, 0))
         self.clear_button.pack(side="left", padx=(8, 0))
-
-        HintLabel(row, "空态只显示 empty_text，拖拽和滚轮都不响应。").pack(side="right")
-
-        viewer_row = Frame(box, height=200)
-        viewer_row.pack(fill="x", padx=16, pady=(0, 8))
-        viewer_row.pack_propagate(False)
+        HintLabel(row, "空态只显示 empty_text，拖拽和滚轮都不响应。").pack(
+            side="right"
+        )
 
         self.empty_viewer = ImageViewer(
-            viewer_row,
+            box,
+            height=200,
             empty_text="点上面的「放入示意图」试试",
         )
-        self.empty_viewer.pack(fill="both", expand=True)
+        self.empty_viewer.pack(fill="x", padx=16, pady=(0, 8))
+        self.empty_viewer.pack_propagate(False)
 
         CodePanel(
             box,

@@ -12,20 +12,20 @@ import tkinter as tk
 
 from ctk_kit import (
     Card,
+    CodePanel,
     FieldLabel,
-    Frame,
     HintLabel,
     LazyList,
     PageBase,
     PageHeader,
     PrimaryButton,
+    Row,
     Scrollable,
     SecondaryButton,
     Segmented,
     TextArea,
     ToolbarEntry,
     tokens as T,
-    CodePanel,
 )
 
 #: 代码块字体：等宽，比正文大一点，展开后不用凑近看。
@@ -89,10 +89,11 @@ ITEM_CODE = '''def render_card(parent, item):
     card = Card(parent, height=86)
     card.pack_propagate(False)   # 行高固定，虚拟滚动才不会叠压
 
-    head = Frame(card)
-    head.pack(fill="x", padx=14, pady=(12, 0))
-    FieldLabel(head, item["title"], width=140).pack(side="left")
-    FieldLabel(head, item["tag"], width=56).pack(side="left", padx=(8, 0))
+    head = card.row(1, fill="x", padx=14, pady=(12, 0))
+    title = FieldLabel(head, item["title"], width=140)
+    tag = FieldLabel(head, item["tag"], width=56)
+    title.pack(side="left")
+    tag.pack(side="left", padx=(8, 0))
     HintLabel(card, item["subtitle"]).pack(fill="x", padx=16)
     return card                  # 不要自己 pack：LazyList 会摆'''
 
@@ -131,12 +132,10 @@ class ListingPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.search = ToolbarEntry(row, "输入关键词筛选…")
-        self.search.pack(side="left", fill="x", expand=True)
-
         self.search_button = PrimaryButton(row, "搜索", width=84, height=40)
-        self.search_button.pack(side="left", padx=(10, 0))
-
         self.category = Segmented(row, TAG_CHOICES, width=280)
+        self.search.pack(side="left", fill="x", expand=True)
+        self.search_button.pack(side="left", padx=(10, 0))
         self.category.pack(side="left", padx=(10, 0))
 
         HintLabel(
@@ -167,6 +166,7 @@ class ListingPageUI(PageBase):
             item_height=ITEM_HEIGHT,
             gap=(0, 10),
             padx=(0, 8),
+            on_load=self._on_list_load,
         )
         # 列表自己滚，给一个固定高度，卡片不会被内容撑变形。
         # LazyList 内部用 grid 摆 canvas，所以 pack/grid 两种传播都要关掉，
@@ -176,24 +176,26 @@ class ListingPageUI(PageBase):
         self.listing.grid_propagate(False)
         self.listing.pack(fill="both", expand=True)
 
-        row = Frame(body)
+        row = Row(body)
         row.pack(fill="x", pady=(10, 0))
 
         self.refresh_button = SecondaryButton(row, "刷新", width=72)
-        self.refresh_button.pack(side="left")
-
         self.clear_button = SecondaryButton(row, "清空", width=72)
-        self.clear_button.pack(side="left", padx=(8, 0))
-
         self.hint_button = SecondaryButton(row, "空态提示", width=96)
-        self.hint_button.pack(side="left", padx=(8, 0))
-
         self.rebuild_button = SecondaryButton(row, "重建", width=72)
-        self.rebuild_button.pack(side="left", padx=(8, 0))
-
+        for button in (
+            self.refresh_button,
+            self.clear_button,
+            self.hint_button,
+            self.rebuild_button,
+        ):
+            button.pack(side="left", padx=(8, 0))
         FieldLabel(row, "滚到底部自动加载下一批", width=190).pack(
             side="left", padx=(12, 0)
         )
+
+        self.load_state = HintLabel(box, "已加载 0 / 0 张")
+        self.load_state.pack(fill="x", padx=16, pady=(4, 0))
 
         HintLabel(
             box,
@@ -211,6 +213,12 @@ class ListingPageUI(PageBase):
         # 首屏：直接渲染全部数据，LazyList 自己只放前 FIRST_BATCH 条
         self.listing.render(SAMPLE_ITEMS)
 
+    def _on_list_load(self, shown: int, total: int) -> None:
+        """LazyList 每加载一批就更新下面的进度行。"""
+        state = getattr(self, "load_state", None)
+        if state is not None:
+            state.configure(text=f"已加载 {shown} / 共 {total} 张")
+
     def _render_item(self, parent: tk.Misc, item: dict) -> tk.Misc:
         """给 LazyList 用的卡片工厂：只建控件并返回，不要自己 pack。"""
         card = Card(parent, height=ITEM_CARD_HEIGHT)
@@ -218,10 +226,10 @@ class ListingPageUI(PageBase):
 
         head = card.row(1, fill="x", padx=14, pady=(12, 0))
 
-        FieldLabel(head, item["title"], width=140).pack(side="left")
-
+        title = FieldLabel(head, item["title"], width=140)
         tag = FieldLabel(head, item["tag"], width=56)
         tag.configure(text_color=T.COLOR_ACCENT)
+        title.pack(side="left")
         tag.pack(side="left", padx=(8, 0))
 
         HintLabel(card, item["subtitle"]).pack(fill="x", padx=16, pady=(2, 12))

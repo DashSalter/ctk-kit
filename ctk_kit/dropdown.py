@@ -13,7 +13,7 @@ import contextlib
 import sys
 import time
 import tkinter as tk
-from typing import Callable, Optional, Sequence
+from typing import Callable, Mapping, Optional, Sequence
 
 import customtkinter as ctk
 
@@ -39,6 +39,28 @@ _RESIZE_QUIET = 0.30
 # 面板底色和悬停色，跟右键菜单（context_menu._MENU_BG / _MENU_HOVER）保持一致。
 _PANEL_BG = "#2B2B2B"
 _PANEL_HOVER = "#575A63"
+# 候选行右侧标签最多显示多少字符，超出截断，避免把值文字挤没
+_TAG_MAX_CHARS = 20
+
+
+def _join_tags(tags: Sequence[str]) -> str:
+    """把标签列表拼成一行；太长时截断加省略号。"""
+    text = " · ".join(tags)
+    return text if len(text) <= _TAG_MAX_CHARS else text[: _TAG_MAX_CHARS - 1] + "…"
+
+
+def _pointer_inside(widget: tk.Misc) -> bool:
+    """指针是否还在这个控件（或它的子控件）上。"""
+    try:
+        x, y = widget.winfo_pointerxy()
+        under = widget.winfo_containing(x, y)
+    except tk.TclError:
+        return False
+    if under is None:
+        return False
+    name = str(under)
+    path = str(widget)
+    return name == path or name.startswith(path + ".")
 
 
 _PANEL_GAP = 2
@@ -103,7 +125,10 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         self,
         master: tk.Misc,
         *,
-        values_provider: Callable[[], Sequence[str]],
+        values: Optional[Sequence[str]] = None,
+        values_provider: Optional[Callable[[], Sequence[str]]] = None,
+        tags: Optional[Mapping[str, Sequence[str]]] = None,
+        tags_provider: Optional[Callable[[str], Sequence[str]]] = None,
         command: Optional[Callable[[str], None]] = None,
         placeholder: str = "",
         height: int = 36,
@@ -115,7 +140,12 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
 
         参数:
             master: 父容器。
-            values_provider: 返回候选列表的函数，每次展开下拉都会调用一次。
+            values: 静态候选列表；与 ``values_provider`` 二选一。
+            values_provider: 返回候选列表的函数，每次展开下拉都会调用一次；
+                数据源会变时用这个。
+            tags: 「候选 → 标签列表」的字典，标签画在候选行右侧。
+            tags_provider: 返回某个候选项标签列表的函数，按候选取；与 ``tags``
+                二选一，两个都给时 ``tags`` 里查到的优先。
             command: 选中候选后的回调，参数是被选中的字符串。
             placeholder: 输入框为空时的灰色占位文字。
             height: 整体高度（像素），默认 36。
@@ -123,6 +153,10 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
             glass: 面板边缘铺一层背后的模糊图，默认开；截图失败退回纯色。
             readonly: 初始只读：不能输入、不能展开候选。
         """
+        # 先校验再建控件：构造中途抛异常时 Tk 已登记了这个控件，
+        # 之后父窗口 destroy 会调到这里，未初始化的属性会再抛一次。
+        if values is None and values_provider is None:
+            raise ValueError("values 与 values_provider 至少传一个")
         super().__init__(
             master,
             fg_color=T.COLOR_INPUT,
@@ -139,7 +173,13 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         # 关掉取整，按真实尺寸画，四边才齐。
         self._draw_engine.set_round_to_even_numbers(False, False)
         self._draw()
-        self._values_provider: Callable[[], Sequence[str]] = values_provider
+        self._static_values: Optional[list] = list(values) if values is not None else None
+        self._values_provider: Optional[Callable[[], Sequence[str]]] = values_provider
+        self._tags: dict = {
+            str(key): [str(tag) for tag in (items or ())]
+            for key, items in (tags or {}).items()
+        }
+        self._tags_provider: Optional[Callable[[str], Sequence[str]]] = tags_provider
         self._command: Optional[Callable[[str], None]] = command
         self._disabled: set = set(disabled or ())
         # 控件本身是否可用；禁用时点不开面板、输入框也不接受键入
@@ -271,6 +311,43 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         """当前输入框里的文字。"""
         return self.entry.get()
 
+    def get_tags(self, value: str) -> list:
+        """读某个候选的标签列表；没配 ``tags`` / ``tags_provider`` 时返回空列表。"""
+        key = str(value)
+        if key in self._tags:
+            return list(self._tags[key])
+        provider = self._tags_provider
+        if provider is None:
+            return []
+        try:
+            tags = provider(value)
+        except Exception:  # noqa: BLE001 - 标签只是装饰，取不到就当没有
+            return []
+        if isinstance(tags, str):
+            tags = [tags]
+        return [str(tag) for tag in (tags or ()) if str(tag)]
+
+    def set_tag(self, value: str, tags: Sequence[str]) -> None:
+        """单独设置某个候选的标签；传空列表等于去掉这一行的标签。"""
+        self._tags[str(value)] = [str(tag) for tag in (tags or ())]
+        self._refresh_rows()
+
+    def set_tags(self, tags: Mapping[str, Sequence[str]]) -> None:
+        """整体替换标签表；传 ``None`` 或空字典等于清空。"""
+        self._tags = {
+            str(key): [str(tag) for tag in (items or ())]
+            for key, items in (tags or {}).items()
+        }
+        self._refresh_rows()
+
+    def clear_tags(self) -> None:
+        """清空所有标签。"""
+        self.set_tags({})
+
+    def get_current_tags(self) -> list:
+        """当前选中值的标签列表。"""
+        return self.get_tags(self.get())
+
     def set(self, value: str) -> None:
         """直接写入一个值（不触发 ``command``）；只读时也能写。"""
         self.entry.set(value)
@@ -291,9 +368,16 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         self.set("")
 
     # --- 下拉面板 ---
+    def _values(self) -> list:
+        """当前候选：静态列表原样返回，函数则每次重新取。"""
+        if self._static_values is not None:
+            return list(self._static_values)
+        assert self._values_provider is not None
+        return list(self._values_provider() or [])
+
     def _build_rows(self, listing: _PopupList) -> None:
-        """铺候选按钮：禁用的项置灰、点了不响应。"""
-        for value in list(self._values_provider() or []):
+        """铺候选按钮：样式和没有标签时完全一致，标签叠在按钮右端。"""
+        for value in self._values():
             disabled = value in self._disabled
             button = ctk.CTkButton(
                 listing.inner,
@@ -309,10 +393,65 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
                 command=lambda v=value: self._pick(v),
                 state="disabled" if disabled else "normal",
             )
-            # 左右 10：左边和层级树行的文字缩进（listing 5 + 10）对齐，
-            # 右边这 10 正好给滚动条让位，出不出滚动条都不挤文字。
             button.pack(fill="x", pady=1)
             listing.bind_wheel(button)
+            tags = self.get_tags(value)
+            if tags:
+                self._add_tag_label(listing, button, value, tags, disabled)
+
+    def _add_tag_label(
+        self,
+        listing: _PopupList,
+        button: ctk.CTkButton,
+        value: str,
+        tags: Sequence[str],
+        disabled: bool,
+    ) -> None:
+        """把标签贴在按钮右端：底色跟着按钮的悬停色走，圆角还是按钮的。"""
+        label = ctk.CTkLabel(
+            button.master,
+            text=_join_tags(tags),
+            anchor="e",
+            height=20,
+            font=get_font(T.FONT_TINY),
+            text_color=T.COLOR_FAINT if disabled else T.COLOR_MUTED,
+            fg_color=_PANEL_BG,
+            bg_color=_PANEL_BG,
+        )
+        label.place(in_=button, relx=1.0, rely=0.5, anchor="e", x=-10)
+
+        def still_inside() -> bool:
+            return _pointer_inside(button) or _pointer_inside(label)
+
+        def light(on: bool) -> None:
+            if disabled:
+                return
+            color = _PANEL_HOVER if on else _PANEL_BG
+            # fg_color 是 canvas 内圈，bg_color 是外圈，两个一起改边缘才不留线
+            label.configure(fg_color=color, bg_color=color)
+            if on:
+                button._on_enter()
+            else:
+                button._on_leave()
+
+        def on_enter(_event: Optional[tk.Event] = None) -> None:
+            light(True)
+
+        def on_leave(_event: Optional[tk.Event] = None) -> None:
+            # 指针只是从按钮挪到标签上时，整行保持高亮
+            if still_inside():
+                return
+            light(False)
+
+        button.bind("<Enter>", on_enter, add="+")
+        button.bind("<Leave>", on_leave, add="+")
+        label.bind("<Enter>", on_enter, add="+")
+        label.bind("<Leave>", on_leave, add="+")
+        listing.bind_wheel(label)
+        if disabled:
+            return
+        label.configure(cursor="hand2")
+        label.bind("<Button-1>", lambda _event: self._pick(value))
 
     def _refresh_rows(self) -> None:
         """面板开着的时候按新的禁用集合重铺，关着就什么都不做。"""
@@ -323,7 +462,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         for child in self._listing.inner.winfo_children():
             child.destroy()
         self._build_rows(self._listing)
-        self._rows = len(list(self._values_provider() or []))
+        self._rows = len(self._values())
         if not self._place_popup():
             self._close_menu()
 
@@ -379,7 +518,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         # 上一块面板还在淡出：立刻收掉，免得开新面板时两块叠在一起
         self._finish_closing()
 
-        values = list(self._values_provider() or [])
+        values = self._values()
         if not values:
             return
 
@@ -918,6 +1057,9 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
 
     def destroy(self) -> None:
         """销毁前先收起面板，避免浮窗残留。"""
-        self._close_menu(animate=False)
-        self._finish_closing()
+        # 构造中途失败时属性还没建好，直接跳过清理
+        if getattr(self, "_popup", None) is not None or getattr(self, "_listing", None) is not None:
+            self._close_menu(animate=False)
+        if getattr(self, "_closing", None) is not None or getattr(self, "_close_job", None) is not None:
+            self._finish_closing()
         super().destroy()

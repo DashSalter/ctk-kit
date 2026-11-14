@@ -375,6 +375,23 @@ class DatePicker(Valuable, ctk.CTkFrame):
         self._value = date
         self._sync_text()
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 配置项：每次选日期即写，配置变化即回填。
+
+        参数:
+            target: 配置项，例如 ``UiPrefs.birthday``。
+            on_error: 自定义错误处理，默认 ``warnings.warn``；绑定失败不会抛。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def set_readonly(self, flag: bool = True) -> None:
         """开关只读：只读时点不开日历，值照常显示。"""
         flag = bool(flag)

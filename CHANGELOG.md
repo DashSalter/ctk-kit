@@ -3,6 +3,34 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.12.4 — 2026-11-14
+
+- `pack()` / `grid()` / `place()` 现在返回控件本身：`kind = DropField(...).pack(fill="x")`
+  拿到的就是控件，可以直接继续 `kind.get()`（所有 ctk_kit 组件生效）
+- 新增 `Row`：`Card.row()` 现在返回 `Row`，标签用 `row.label("昵称")`
+  拿到标签右侧的容器，控件建在里面再 `pack`，不再需要 `row.add(...)`
+- 新增 `RadioGroup`：一组 `Radio` 自动互斥，`get_value()` / `set_value()`
+  直接读写，支持 `on_change` 与 `bind_config`
+- 事件回调支持无参写法：`button.on_click(lambda: …)` 不用再写 `event`
+  参数（`on_hover` / `on_scroll` / `on_resize` 等同理）
+- `bind_config` 支持 `DatePicker` / `TimePicker`：配置项类型可以是
+  `date` / `time` / `datetime` / 字符串
+- `Table` 列定义可只写列名（`columns=["名称", "状态"]`，宽度自动分配），
+  行数据可以直接传字典（按列标题取值）
+- `DropField` 新增 `values` / `tags` 静态写法：`values=[...]` 直接给候选，
+  `tags={"候选": ["标签", ...]}` 在候选行右侧显示标签；`values_provider` /
+  `tags_provider` 仍可用，静态数据不必再包 lambda
+- `DropField` 新增 `set_tag(value, tags)` / `set_tags(mapping)` / `clear_tags()`，
+  面板开着时立即重铺；标签只影响显示，`get()` 仍只返回值本身；悬停时值、
+  标签和中间空隙整行一起高亮
+- `Checkbox` / `Check` 新增 `value` 参数：默认 `False`（不勾），`value=True`
+  时初始就勾上，不用再建好控件后补 `set_value(True)`
+- 新增 `OutlineButton`：空心底 + 1px 彩色描边，`tone="accent" / "neutral" /
+  "danger"` 三套配色，`text_color` 可单独指定文字色；`toggle=True` 时点击
+  保持高亮、再点取消；按钮示例页补了「描边按钮」卡片
+- `LazyList` 新增 `on_load(已加载数, 总数)` 回调，每加载一批调用一次；列表
+  示例页在列表下方实时显示「已加载 X / 共 Y 张」
+
 ## 0.12.3 — 2026-11-14
 
 - `bind_config()` 支持范围扩展到文本区、步进、滑块、单选、下拉：9 类控件都能

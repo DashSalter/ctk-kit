@@ -1,10 +1,10 @@
-"""输入页：文本框、文件与文件夹选择、拖入取路径、下拉框、大文本区。
+"""输入页：文本框、文件与文件夹选择、拖入取路径、大文本区。
 
 从旧示例的「输入」页迁过来，按 examples 里的写法拆成「UI 类 + 事件类」：
 ``InputsPageUI`` 只建控件，``InputsPage`` 在构造时自动 ``bind_events()``。
 
-能后配的 command 一律在 ``bind_events`` 里挂；``DropZone`` / ``DropField`` /
-``TextArea`` 只在构造时接收回调，UI 类留同名钩子方法，事件类覆写即可。
+能后配的 command 一律在 ``bind_events`` 里挂；``DropZone`` / ``TextArea``
+只在构造时接收回调，UI 类留同名钩子方法，事件类覆写即可。
 每个卡片底部都带一个「查看实现」折叠面板。
 """
 
@@ -49,40 +49,51 @@ ENTRY_ROWS = [
 ]
 
 #: 三个下拉框的候选数据；values_provider 每次展开都会重新调用。
-DROPDOWN_VALUES = ["选项 A", "选项 B", "选项 C"]
-PRESET_VALUES = ["Alpha", "Beta", "Gamma"]
-
 #: 只读日志的预设内容。
 SAMPLE_LOG = "22:00  已连接\n22:01  同步 12 条记录\n22:02  完成，用时 1.4s"
 
 
-def _dropdown_values() -> list[str]:
-    """普通下拉框的候选。"""
-    return DROPDOWN_VALUES
-
-
-def _preset_values() -> list[str]:
-    """预设值下拉框的候选。"""
-    return PRESET_VALUES
-
-
-def _empty_values() -> list[str]:
-    """空候选：展开时列表里什么都没有。"""
-    return []
-
-
 FORM_CODE = '''from ctk_kit import FormEntry
 
-entry = FormEntry(frame, placeholder="请输入名称")
-entry.pack(fill="x")
-# FormEntry(master, *, show="", placeholder="", height=38, password=False)
+# 每行一个 box.row()，编号从 1 递增；row.label() 返回标签右侧的容器
+row = card.row(1, fill="x", padx=16, pady=(14, 8))
+name = FormEntry(row.label("普通文本"), placeholder="请输入名称")
+name.pack(fill="x")
 
-FormEntry(frame, password=True)   # 内部 Entry 用 • 打码
-FormEntry(frame, show="*")        # 自定义替代字符，password 优先
-FormEntry(frame, height=28)       # 紧凑行
+row = card.row(2, fill="x", padx=16, pady=(0, 8))
+pwd = FormEntry(row.label("密码"), password=True)   # 内部 Entry 用 • 打码
+pwd.pack(fill="x")
 
-# get() / set() 与 CTkEntry 一致；placeholder 在空且失焦时显示
-# 返回的就是 ctk.CTkEntry，bind、configure 都照常'''
+row = card.row(3, fill="x", padx=16, pady=(0, 8))
+compact = FormEntry(row.label("高 28"), height=28)  # 紧凑行
+compact.pack(fill="x")
+
+row = card.row(4, fill="x", padx=16, pady=(0, 14))
+loose = FormEntry(row.label("高 48"), height=48)    # 宽松行
+loose.pack(fill="x")
+
+# 控件必须建在 row.label() 返回的容器里，再 pack 进去
+# 同一张卡里 row.label() 默认 width 一致，标签列自动对齐
+# pack() 返回的仍是输入框本身，get() / set() / bind 都照常'''
+
+COMBO_CODE = '''from ctk_kit import DropField, FormEntry
+
+row = card.row(1, fill="x", padx=16, pady=(14, 8))
+keyword = FormEntry(row.label("关键词"), placeholder="输入关键词")
+keyword.pack(fill="x")
+
+row = card.row(2, fill="x", padx=16, pady=(0, 14))
+kind = DropField(row.label("类型"), values=["全部", "账号", "密码", "笔记"])
+kind.pack(fill="x")
+
+# 想并排成一行：放进同一个 Row，逐个 pack(side="left")
+row = card.row(3, fill="x", padx=16, pady=(0, 14))
+entry = FormEntry(row.label("关键词", width=56), placeholder="输入关键词")
+entry.pack(side="left", fill="x", expand=True)
+drop = DropField(
+    row.label("类型", width=44), values=["全部", "账号", "密码"]
+)
+drop.pack(side="left", fill="x", expand=True, padx=(8, 0))'''
 
 COMPOUND_CODE = '''from ctk_kit import CompoundEntry
 
@@ -127,21 +138,6 @@ zone.pack(fill="x")
 # mode="file" 只收文件、"folder" 只收文件夹、"any" 都收
 # 拖放依赖可选包：pip install "ctk-kit[dnd]"；没装时 ctk_kit.has_dnd() 为 False'''
 
-DROPDOWN_CODE = '''from ctk_kit import DropField
-
-field = DropField(
-    frame,
-    values_provider=lambda: ["选项 A", "选项 B", "选项 C"],
-    command=lambda value: print(value),
-    placeholder="点右侧箭头选择",
-)
-field.pack(fill="x")
-# DropField(master, *, values_provider, command=None, placeholder="", height=36)
-
-field.get()            # 当前文字
-field.set("选项 A")     # 直接写入
-# values_provider 每次展开都会重新调用，数据源可以随时变'''
-
 TEXT_CODE = '''from ctk_kit import TextArea
 
 note = TextArea(frame, placeholder="写备注、贴日志…", height=120)
@@ -175,7 +171,7 @@ menu.add_command("插入时间戳", stamp)
 menu.add_command("全部选中", select_all)
 
 # menu 是 ContextMenu：clear() 后可以重新定义整套菜单
-# TextArea、DropField 内部输入框同样默认带这套菜单'''
+# TextArea 内部输入框同样默认带这套菜单'''
 
 #: 输入框右键菜单卡片里的示例文字。
 MENU_SAMPLE = "选中几个字再右键，试试剪切和复制"
@@ -228,12 +224,12 @@ class InputsPageUI(PageBase):
             area,
             [
                 self._build_entries,
+                self._build_combo,
                 self._build_compound,
                 self._build_spinner,
                 self._build_edit_menu,
                 self._build_paths,
                 self._build_drop,
-                self._build_dropdown,
                 self._build_text,
             ],
         )
@@ -245,13 +241,12 @@ class InputsPageUI(PageBase):
 
         # (行标签, 输入框)：事件类按这个表给每行挂按键回显
         self.entries: list[tuple[str, object]] = []
-        for index, (text, kwargs) in enumerate(ENTRY_ROWS):
-            row = Frame(box)
-            row.pack(fill="x", padx=16, pady=(14 if index == 0 else 0, 8))
-
-            FieldLabel(row, text, width=72).pack(side="left")
-            entry = FormEntry(row, **kwargs)
-            entry.pack(side="left", fill="x", expand=True)
+        for index, (text, kwargs) in enumerate(ENTRY_ROWS, start=1):
+            row = box.row(
+                index, fill="x", padx=16, pady=(14 if index == 1 else 0, 0)
+            )
+            entry = FormEntry(row.label(text), **kwargs)
+            entry.pack(fill="x")
             self.entries.append((text, entry))
 
         HintLabel(
@@ -266,24 +261,50 @@ class InputsPageUI(PageBase):
             "height / password / show 三个参数最常用；返回的就是 CTkEntry，照常 bind。",
         )
 
+    def _build_combo(self, area: tk.Misc) -> None:
+        """输入框 + 下拉框：最常见的组合。"""
+        box = Card(area, title="输入 + 下拉")
+        box.pack(fill="x", pady=(12, 0))
+
+        row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        self.combo_keyword = FormEntry(row.label("关键词"), placeholder="输入关键词")
+        self.combo_keyword.pack(fill="x")
+
+        row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        self.combo_kind = DropField(
+            row.label("类型"),
+            values=["全部", "账号", "密码", "笔记"],
+            placeholder="选择类型",
+            command=self._on_combo_kind,
+        )
+        self.combo_kind.pack(fill="x")
+
+        HintLabel(
+            box,
+            "row.label() 返回标签右侧的容器，控件照常构造、pack 到里面；"
+            "要并排就放进同一个 Row。",
+        ).pack(fill="x", padx=16, pady=(0, 10))
+
+        CodePanel(
+            box, COMBO_CODE, "DropField 传 values 就行，静态数据不用再包 lambda。"
+        )
+
     def _build_compound(self, area: tk.Misc) -> None:
         """前后缀固定：网址前缀、邮箱后缀。"""
         box = Card(area, title="前后缀输入")
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "网址", width=72).pack(side="left")
         self.site_entry = CompoundEntry(
-            row, prefix="https://", placeholder="example.com"
+            row.label("网址"), prefix="https://", placeholder="example.com"
         )
-        self.site_entry.pack(side="left", fill="x", expand=True)
+        self.site_entry.pack(fill="x")
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "邮箱", width=72).pack(side="left")
         self.mail_entry = CompoundEntry(
-            row, suffix="@qq.com", placeholder="输入 QQ 号"
+            row.label("邮箱"), suffix="@qq.com", placeholder="输入 QQ 号"
         )
-        self.mail_entry.pack(side="left", fill="x", expand=True)
+        self.mail_entry.pack(fill="x")
 
         HintLabel(
             box,
@@ -299,46 +320,32 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "数量", width=72).pack(side="left")
         self.spinner = Spinner(
-            row, from_=1, to=10, increment=1, value=1, command=self._on_spinner
+            row.label("数量"), from_=1, to=10, increment=1, value=1,
+            width=120, command=self._on_spinner,
         )
-        self.spinner.pack(side="left")
+        self.spinner.pack(anchor="w")
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "小数", width=72).pack(side="left")
         self.float_spinner = Spinner(
-            row,
-            from_=0.0,
-            to=2.0,
-            increment=0.5,
-            value=1.0,
-            width=120,
-            as_int=False,
-            command=self._on_spinner,
+            row.label("小数"), from_=0.0, to=2.0, increment=0.5, value=1.0,
+            width=120, as_int=False, command=self._on_spinner,
         )
-        self.float_spinner.pack(side="left")
+        self.float_spinner.pack(anchor="w")
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "备选", width=72).pack(side="left")
         self.size_spinner = Spinner(
-            row,
-            values=["小", "中", "大"],
-            value="中",
-            width=120,
-            command=self._on_spinner,
+            row.label("备选"), values=["小", "中", "大"], value="中",
+            width=120, command=self._on_spinner,
         )
-        self.size_spinner.pack(side="left")
+        self.size_spinner.pack(anchor="w")
 
         row = box.row(4, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "紧凑", width=72).pack(side="left")
         self.stepper = Stepper(
-            row,
-            values=["50%", "70%", "100%"],
-            value="70%",
-            command=self._on_spinner,
+            row.label("紧凑"), values=["50%", "70%", "100%"], value="70%",
+            width=120, command=self._on_spinner,
         )
-        self.stepper.pack(side="left")
+        self.stepper.pack(anchor="w")
 
         HintLabel(
             box,
@@ -359,15 +366,13 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "默认", width=72).pack(side="left")
-        self.menu_entry = FormEntry(row)
-        self.menu_entry.pack(side="left", fill="x", expand=True)
+        self.menu_entry = FormEntry(row.label("默认"))
+        self.menu_entry.pack(fill="x")
         self.menu_entry.insert(0, MENU_SAMPLE)
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "自定义", width=72).pack(side="left")
-        self.custom_entry = FormEntry(row)
-        self.custom_entry.pack(side="left", fill="x", expand=True)
+        self.custom_entry = FormEntry(row.label("自定义"))
+        self.custom_entry.pack(fill="x")
         self.custom_entry.insert(0, "右键：默认四项 + 插入时间戳")
         # UI 类先挂上默认四项，再补一项自己的；菜单对象可以反复拿
         menu = attach_edit_menu(self.custom_entry)
@@ -375,15 +380,14 @@ class InputsPageUI(PageBase):
         menu.add_command("插入时间戳", self._insert_stamp)
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "关闭", width=72).pack(side="left")
-        self.plain_entry = FormEntry(row, menu=False)
-        self.plain_entry.pack(side="left", fill="x", expand=True)
+        self.plain_entry = FormEntry(row.label("关闭"), menu=False)
+        self.plain_entry.pack(fill="x")
         self.plain_entry.insert(0, "menu=False，右键没有菜单")
 
         HintLabel(
             box,
             "默认项跟着状态走：没选中时剪切 / 复制灰掉，剪贴板空时粘贴灰掉，"
-            "框空时清空灰掉。TextArea 和 DropField 里的输入框同样默认带上。",
+            "框空时清空灰掉。TextArea 里的输入框同样默认带上。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(
@@ -398,22 +402,20 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "文件", width=72).pack(side="left")
         self.file_field = PathField(
-            row,
+            row.label("文件"),
             mode="file",
             placeholder="点「浏览」选文件，或直接把这个文件拖进来",
         )
-        self.file_field.pack(side="left", fill="x", expand=True)
+        self.file_field.pack(fill="x")
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "文件夹", width=72).pack(side="left")
         self.dir_field = PathField(
-            row,
+            row.label("文件夹"),
             mode="folder",
             placeholder="点「浏览」选文件夹，或直接把文件夹拖进来",
         )
-        self.dir_field.pack(side="left", fill="x", expand=True)
+        self.dir_field.pack(fill="x")
 
         HintLabel(
             box,
@@ -433,11 +435,10 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "结果", width=72).pack(side="left")
         self.dropped = FormEntry(
-            row, placeholder="拖进来的文件或文件夹路径会出现在这里"
+            row.label("结果"), placeholder="拖进来的文件或文件夹路径会出现在这里"
         )
-        self.dropped.pack(side="left", fill="x", expand=True)
+        self.dropped.pack(fill="x")
 
         self.zone = DropZone(
             box,
@@ -463,54 +464,6 @@ class InputsPageUI(PageBase):
             "on_path 收到绝对路径；mode 用来只收文件或只收文件夹。",
         )
 
-    def _build_dropdown(self, area: tk.Misc) -> None:
-        """下拉框：普通、空候选、带预设值。"""
-        box = Card(area, title="下拉框")
-        box.pack(fill="x", pady=(12, 0))
-
-        row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "普通", width=72).pack(side="left")
-        self.dropdown = DropField(
-            row,
-            values_provider=_dropdown_values,
-            command=self._on_dropdown,
-            placeholder="点右侧箭头选择",
-        )
-        self.dropdown.pack(side="left", fill="x", expand=True)
-
-        row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "空候选", width=72).pack(side="left")
-        self.empty_dropdown = DropField(
-            row,
-            values_provider=_empty_values,
-            placeholder="候选项为空，点箭头不会弹",
-        )
-        self.empty_dropdown.pack(side="left", fill="x", expand=True)
-
-        row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "预设值", width=72).pack(side="left")
-        self.preset = DropField(
-            row,
-            values_provider=_preset_values,
-            command=self._on_dropdown,
-            placeholder="点右侧箭头选择",
-        )
-        self.preset.pack(side="left", fill="x", expand=True)
-        self.preset.set("Alpha")
-
-        self.preset_value = HintLabel(box, "已选：Alpha")
-        self.preset_value.pack(fill="x", padx=16, pady=(0, 2))
-
-        HintLabel(
-            box, "get() / set() 与输入框一致；选中候选后回调 command(value)。"
-        ).pack(fill="x", padx=16, pady=(0, 10))
-
-        CodePanel(
-            box,
-            DROPDOWN_CODE,
-            "values_provider 是函数而不是列表，数据变了下次展开就会生效。",
-        )
-
     def _build_text(self, area: tk.Misc) -> None:
         """大文本：可编辑备注 + 只读日志。"""
         box = Card(area, title="大文本")
@@ -526,7 +479,9 @@ class InputsPageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(0, 8))
         FieldLabel(row, "只读日志", width=72).pack(side="left")
-        HintLabel(row, "预设内容，不可编辑，可选中复制").pack(side="left", padx=(8, 0))
+        HintLabel(row, "预设内容，不可编辑，可选中复制").pack(
+            side="left", padx=(8, 0)
+        )
 
         self.log = TextArea(
             box, height=96, readonly=True, show_counter=False, bg_color=T.COLOR_CARD
@@ -552,14 +507,14 @@ class InputsPageUI(PageBase):
     def _insert_stamp(self, entry: object) -> None:
         """「插入时间戳」菜单项：UI 类里空实现，由事件类覆写。"""
 
-    def _on_dropdown(self, value: str) -> None:
-        """DropField 选中候选回调：UI 类里空实现，由事件类覆写。"""
-
     def _on_spinner(self, value: object) -> None:
         """Spinner 步进回调：UI 类里空实现，由事件类覆写。"""
 
     def _on_note(self, text: str) -> None:
         """备注 TextArea 的内容变化回调：UI 类里空实现，由事件类覆写。"""
+
+    def _on_combo_kind(self, value: str) -> None:
+        """「输入 + 下拉」里下拉框的选择回调：UI 类里空实现，由事件类覆写。"""
 
 
 class InputsPage(InputsPageUI):
@@ -588,12 +543,17 @@ class InputsPage(InputsPageUI):
                     f"{n}：{w.get_full_value()}" if w.get() else f"{n}：（空）"
                 ),
             )
-        self.preset.entry.on_key_release(self._on_preset_key)
         # 菜单挂上之后还能继续追加：这里演示「创建后再补一项」
         attach_edit_menu(self.custom_entry).add_command(
             "全部选中", lambda: self.custom_entry.select_range(0, "end")
         )
 
+        self.combo_keyword.bind(
+            "<KeyRelease>",
+            lambda _event: self._show(
+                f"关键词：{self.combo_keyword.get() or '（空）'}"
+            ),
+        )
     def _bind_path(self, name: str, field: PathField) -> None:
         """路径字段：浏览按钮与输入框改动都回显到页面底部。"""
         field.button.configure(command=lambda: self._browse(name, field))
@@ -620,12 +580,6 @@ class InputsPage(InputsPageUI):
         self.dropped.insert(0, path)
         self._show(f"拖入{self._kind(path)}：{path}")
 
-    def _on_dropdown(self, value: str) -> None:
-        """下拉选中候选：回显并在预设值那一行同步「已选」。"""
-        self._show(f"下拉选中：{value}")
-        if value in PRESET_VALUES:
-            self.preset_value.configure(text=f"已选：{value}")
-
     def _on_note(self, text: str) -> None:
         """备注文本区每改一次就报一次字数。"""
         self._show(f"备注当前 {len(text)} 字")
@@ -634,14 +588,14 @@ class InputsPage(InputsPageUI):
         """步进输入：回显当前值。"""
         self._show(f"步进：{value}")
 
+    def _on_combo_kind(self, value: str) -> None:
+        """「输入 + 下拉」的组合：回显下拉框选择。"""
+        self._show(f"类型：{value}")
+
     def _insert_stamp(self, entry: Any) -> None:
         """在光标处插入当前时间；这是「自定义菜单项」的演示。"""
         entry.insert("insert", datetime.now().strftime("%H:%M:%S "))
         self._show(f"已插入时间戳：{entry.get() or '（空）'}")
-
-    def _on_preset_key(self, _event: tk.Event) -> None:
-        """手动改预设值输入框时，同步下面的「已选」行。"""
-        self.preset_value.configure(text=f"已选：{self.preset.get() or '（空）'}")
 
     @staticmethod
     def _kind(path: str) -> str:

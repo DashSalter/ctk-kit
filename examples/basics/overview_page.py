@@ -12,10 +12,10 @@ from ctk_kit import (
     __version__,
     Card,
     FieldLabel,
-    Frame,
     HintLabel,
     PageBase,
     PageHeader,
+    Row,
     Scrollable,
     SoftButton,
 )
@@ -94,9 +94,9 @@ class OverviewPageUI(PageBase):
         self.view_buttons = {}
         for index, (name, desc) in enumerate(INDEX):
             row = box.row(index + 1, fill="x", padx=16, pady=(10, 0))
+            button = SoftButton(row, "查看")
             FieldLabel(row, name, width=68).pack(side="left")
             HintLabel(row, desc).pack(side="left", padx=(8, 0))
-            button = SoftButton(row, "查看")
             button.pack(side="right")
             self.view_buttons[name] = button
 

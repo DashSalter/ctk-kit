@@ -14,11 +14,11 @@ from ctk_kit import (
     Card,
     DangerButton,
     FormEntry,
-    Frame,
     HintLabel,
     PageBase,
     PageHeader,
     PrimaryButton,
+    Row,
     Scrollable,
     SecondaryButton,
     SoftButton,
@@ -112,10 +112,13 @@ class NotifyPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.level_buttons = {}
+        buttons = []
         for level, label in LEVEL_LABELS.items():
             button = SecondaryButton(row, f"{label} {level}", width=110)
-            button.pack(side="left", padx=(0, 8))
+            buttons.append(button)
             self.level_buttons[level] = button
+        for button in buttons:
+            button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -136,9 +139,8 @@ class NotifyPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.pill_button = SecondaryButton(row, "窄条 pill", width=110)
-        self.pill_button.pack(side="left")
-
         self.card_button = SecondaryButton(row, "卡片 card", width=110)
+        self.pill_button.pack(side="left", padx=(8, 0))
         self.card_button.pack(side="left", padx=(8, 0))
 
         HintLabel(
@@ -161,9 +163,8 @@ class NotifyPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.top_button = PrimaryButton(row, "顶部 top", width=110)
-        self.top_button.pack(side="left")
-
         self.bottom_button = PrimaryButton(row, "底部 bottom", width=110)
+        self.top_button.pack(side="left", padx=(8, 0))
         self.bottom_button.pack(side="left", padx=(8, 0))
 
         HintLabel(
@@ -185,13 +186,10 @@ class NotifyPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.burst_button = SecondaryButton(row, "连发三条", width=100)
-        self.burst_button.pack(side="left")
-
         self.sticky_button = SecondaryButton(row, "常驻卡片", width=100)
-        self.sticky_button.pack(side="left", padx=(8, 0))
-
         self.clear_button = DangerButton(row, "全部关掉", width=100)
-        self.clear_button.pack(side="left", padx=(8, 0))
+        for button in (self.burst_button, self.sticky_button, self.clear_button):
+            button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -212,9 +210,8 @@ class NotifyPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.save_button = PrimaryButton(row, "保存")
-        self.save_button.pack(side="left")
-
         self.delay_button = SoftButton(row, "延迟 300ms")
+        self.save_button.pack(side="left", padx=(8, 0))
         self.delay_button.pack(side="left", padx=(8, 0))
 
         self.tip_entry = FormEntry(row, placeholder="输入几个字，再悬停")

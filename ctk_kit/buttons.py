@@ -217,6 +217,105 @@ def DangerButton(
     )
 
 
+#: 描边按钮的三档色调：色调 -> (描边/文字色, 悬停底)。
+_OUTLINE_TONES: Dict[str, tuple] = {
+    "accent": (T.COLOR_ACCENT, T.COLOR_HOVER_FAINT),
+    "neutral": (T.COLOR_BORDER_STRONG, T.COLOR_SOFT_HOVER),
+    "danger": (T.COLOR_DANGER, T.COLOR_DANGER_SOFT),
+}
+
+
+def OutlineButton(
+    master: tk.Misc,
+    text: str,
+    command: Command = None,
+    *,
+    tone: str = "accent",
+    text_color: Optional[ColorToken] = None,
+    toggle: bool = False,
+    width: int = 76,
+    height: int = 30,
+    font: T.FontSpec = T.FONT_SMALL,
+    radius: int = T.RADIUS_SMALL,
+) -> ctk.CTkButton:
+    """描边按钮：空心底 + 1px 描边，文字默认用正文色。
+
+    适合放在次要位置，又需要比纯文字按钮更明确的边界时；``tone`` 换
+    主色 / 中性 / 危险三套描边配色，``text_color`` 可以单独改文字颜色。
+
+    ``toggle=True`` 时变成开关式按钮：点一下保持高亮，再点一下取消；
+    用 ``get_toggled()`` / ``set_toggled(True)`` 读写状态。
+
+    参数:
+        master: 父容器。
+        text: 按钮文字。
+        command: 点击回调，不接收参数；toggle 时在切换之后调用。
+        tone: ``"accent"``（主色，默认）/ ``"neutral"``（灰色）/ ``"danger"``（红色）。
+        text_color: 文字颜色，默认 ``tokens.COLOR_TEXT``（与普通按钮一致）。
+        toggle: 是否开启「点击保持高亮」的开关行为，默认 ``False``。
+        width: 宽度（像素），默认 76。
+        height: 高度（像素），默认 30。
+        font: 字体规格，默认 :data:`tokens.FONT_SMALL`。
+        radius: 圆角半径，默认 :data:`tokens.RADIUS_SMALL`。
+
+    返回:
+        尚未摆位的 ``CTkButton``；``toggle=True`` 时另带
+        ``toggled`` 属性与 ``get_toggled()`` / ``set_toggled()`` 方法。
+
+    异常:
+        ValueError: ``tone`` 不在 ``accent`` / ``neutral`` / ``danger`` 里。
+    """
+    if tone not in _OUTLINE_TONES:
+        raise ValueError('tone 只能是 "accent"、"neutral" 或 "danger"')
+    border, hover = _OUTLINE_TONES[tone]
+    idle_text = T.COLOR_TEXT if text_color is None else text_color
+    button = CTkButton(
+        master,
+        text=text,
+        width=width,
+        height=height,
+        corner_radius=radius,
+        font=font,
+        fg_color="transparent",
+        hover_color=hover,
+        text_color=idle_text,
+        border_width=1,
+        border_color=border,
+        command=command,
+    )
+    if not toggle:
+        return button
+
+    def set_toggled(on: bool) -> None:
+        button.toggled = bool(on)
+        if button.toggled:
+            button.configure(
+                fg_color=border,
+                hover_color=border,
+                text_color=T.COLOR_ACCENT_TEXT,
+            )
+        else:
+            button.configure(
+                fg_color="transparent",
+                hover_color=hover,
+                text_color=idle_text,
+            )
+
+    def get_toggled() -> bool:
+        return bool(button.toggled)
+
+    def flip() -> None:
+        set_toggled(not button.toggled)
+        if command is not None:
+            command()
+
+    button.toggled = False
+    button.set_toggled = set_toggled
+    button.get_toggled = get_toggled
+    button.configure(command=flip)
+    return button
+
+
 class FlatButton(_ButtonBase, ctk.CTkButton):
     """卡片里的小号圆角按钮（复制 / 显示 / 详情）。
 

@@ -91,6 +91,34 @@ _UNCHANGED = _Unchanged()
 _AUTO_HIDE_MS = 120
 
 
+class Row(ctk.CTkFrame):
+    """卡片里的一行；``label()`` 加一段字段名并返回右侧内容容器。
+
+    ```python
+    row = card.row(1, fill="x", padx=16, pady=8)
+    Spinner(row.label("数量"), from_=1, to=10, width=120).pack(side="left")
+    ```
+    """
+
+    def __init__(self, master: tk.Misc, **kwargs: Any) -> None:
+        kwargs.setdefault("fg_color", "transparent")
+        kwargs.setdefault("corner_radius", 0)
+        super().__init__(master, **kwargs)
+
+    def label(self, text: str, *, width: int = 72, gap: int = 8) -> ctk.CTkFrame:
+        """在行首加字段名，返回右侧内容容器，控件建在它上面。
+
+        参数:
+            text: 标签文字。
+            width: 标签宽度（逻辑像素），同一张卡里传一样的值就能对齐。
+            gap: 标签和内容之间的间距。
+        """
+        FieldLabel(self, text, width=width).pack(side="left", anchor="nw")
+        holder = ctk.CTkFrame(self, fg_color="transparent")
+        holder.pack(side="left", fill="x", expand=True, padx=(gap, 0))
+        return holder
+
+
 class Card(ctk.CTkFrame):
     """圆角卡片容器，可选在上方带标题。
 
@@ -100,8 +128,7 @@ class Card(ctk.CTkFrame):
     卡片内部::
 
         box = Card(page, title="复杂页面")
-        form = Frame(box)
-        form.pack(fill="x", padx=16, pady=12)
+        FormEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
 
         panel = Card(page, inside_title="账号信息")
 
@@ -177,7 +204,7 @@ class Card(ctk.CTkFrame):
         边框又是内容容器」这个细节，以后内部结构变了也不用改调用代码::
 
             box = Card(page, title="详情")
-            Frame(box.body).pack(fill="x", padx=16, pady=12)
+            PrimaryButton(box.row(1), "保存").pack(side="left")
         """
         return self
 
@@ -220,12 +247,12 @@ class Card(ctk.CTkFrame):
     ) -> Any:
         """取「第 ``index`` 行」的横向容器，没有就建一个。
 
-        同一个编号反复调用拿到的是同一个 Frame，往里 ``pack(side="left")``
-        的控件就自动排在同一行，不用先手写 ``row = Frame(card)``::
+        同一个编号反复调用拿到的是同一个 Row；标签用 ``row.label("文字")``
+        拿到标签右侧的容器，控件建在里面再 ``pack``::
 
-            ctk.PrimaryButton(card.row(1), "保存").pack(side="left")
-            ctk.SecondaryButton(card.row(1), "取消").pack(side="left")
-            ctk.FormEntry(card.row(2), placeholder="用户名").pack(side="left")
+            row = card.row(1)
+            FormEntry(row.label("用户名"), placeholder="用户名").pack(fill="x")
+            PrimaryButton(row, "保存").pack(side="right")
 
         参数:
             index: 行号，序号小的在上面。后建的低序号行会插到已有行前面。
@@ -269,7 +296,7 @@ class Card(ctk.CTkFrame):
 
         frame = self._rows.get(index)
         if frame is None or not frame.winfo_exists():
-            frame = ctk.CTkFrame(self, fg_color="transparent", corner_radius=0)
+            frame = Row(self)
             layout = dict(self._ROW_LAYOUT)
             layout.update(given)
             later = next(
@@ -304,13 +331,36 @@ class Card(ctk.CTkFrame):
         if self.title_label is not None:
             self.title_label.configure(**style_of("card", "title", mode))
 
-    def pack(self, cnf: Any = None, **kwargs: Any) -> None:
+    def pack(
+        self,
+        cnf: Any = None,
+        side: Optional[str] = None,
+        fill: Optional[str] = None,
+        expand: Optional[bool] = None,
+        padx: Any = None,
+        pady: Any = None,
+        anchor: Optional[str] = None,
+        ipadx: Optional[int] = None,
+        ipady: Optional[int] = None,
+        **kwargs: Any,
+    ) -> "Card":
         """``pack`` 卡片时把 ``padx`` / 顶部 ``pady`` 同步给标题。
 
         标题是 ``master`` 的子控件，不会自动跟着卡片的外边距走；这里在摆放
         卡片时顺手把同样的水平边距设给标题，并把顶部间距挪到标题上方——否则
         卡片自己的顶部 ``pady`` 会把标题和卡片之间的空隙撑大、把标题挤上去。
         """
+        options = {
+            "side": side,
+            "fill": fill,
+            "expand": expand,
+            "padx": padx,
+            "pady": pady,
+            "anchor": anchor,
+            "ipadx": ipadx,
+            "ipady": ipady,
+        }
+        kwargs = {**{key: value for key, value in options.items() if value is not None}, **kwargs}
         if self.title_label is not None and not self._title_inside:
             padx = kwargs.get("padx")
             if padx is None and cnf:
@@ -345,6 +395,7 @@ class Card(ctk.CTkFrame):
         if cnf:
             kwargs = {**cnf, **kwargs}
         super().pack(**kwargs)
+        return self
 
     @staticmethod
     def _split_pady(pady: Any) -> tuple[Any, Any]:
@@ -669,3 +720,120 @@ class HintLabel(Textual, ctk.CTkLabel):
             anchor="w",
             justify="left",
         )
+
+
+def _make_layout_chainable() -> None:
+    """让 ctk 组件的 ``pack`` / ``grid`` / ``place`` 返回控件自身。
+
+    Tk 的布局方法固定返回 ``None``，``kind = DropField(...).pack(fill="x")``
+    拿到的会是 ``None``。这里在 ``CTkBaseClass`` 上补一层包装，保留原方法的
+    参数提示，返回值改成控件本身，写法就能连起来::
+
+        kind = DropField(row.label("类型"), values=[...]).pack(fill="x")
+        kind.get()
+    """
+    base = ctk.CTkBaseClass
+    if getattr(base, "_ctk_kit_chainable", False):
+        return
+
+    original_pack = base.pack
+    original_grid = base.grid
+    original_place = base.place
+
+    def pack(
+        self: Any,
+        side: Optional[str] = None,
+        fill: Optional[str] = None,
+        expand: Optional[bool] = None,
+        padx: Any = None,
+        pady: Any = None,
+        anchor: Optional[str] = None,
+        ipadx: Optional[int] = None,
+        ipady: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """按 ``side`` / ``fill`` / ``expand`` … 摆放，返回控件本身。"""
+        options = {
+            "side": side,
+            "fill": fill,
+            "expand": expand,
+            "padx": padx,
+            "pady": pady,
+            "anchor": anchor,
+            "ipadx": ipadx,
+            "ipady": ipady,
+        }
+        original_pack(
+            self, **{key: value for key, value in options.items() if value is not None}, **kwargs
+        )
+        return self
+
+    def grid(
+        self: Any,
+        row: Optional[int] = None,
+        column: Optional[int] = None,
+        rowspan: Optional[int] = None,
+        columnspan: Optional[int] = None,
+        sticky: Optional[str] = None,
+        padx: Any = None,
+        pady: Any = None,
+        ipadx: Optional[int] = None,
+        ipady: Optional[int] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """按网格摆放，返回控件本身。"""
+        options = {
+            "row": row,
+            "column": column,
+            "rowspan": rowspan,
+            "columnspan": columnspan,
+            "sticky": sticky,
+            "padx": padx,
+            "pady": pady,
+            "ipadx": ipadx,
+            "ipady": ipady,
+        }
+        original_grid(
+            self, **{key: value for key, value in options.items() if value is not None}, **kwargs
+        )
+        return self
+
+    def place(
+        self: Any,
+        x: Any = None,
+        y: Any = None,
+        relx: Any = None,
+        rely: Any = None,
+        relwidth: Any = None,
+        relheight: Any = None,
+        width: Any = None,
+        height: Any = None,
+        anchor: Optional[str] = None,
+        bordermode: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Any:
+        """按绝对/相对坐标摆放，返回控件本身。"""
+        options = {
+            "x": x,
+            "y": y,
+            "relx": relx,
+            "rely": rely,
+            "relwidth": relwidth,
+            "relheight": relheight,
+            "width": width,
+            "height": height,
+            "anchor": anchor,
+            "bordermode": bordermode,
+        }
+        original_place(
+            self, **{key: value for key, value in options.items() if value is not None}, **kwargs
+        )
+        return self
+
+    base.pack = pack
+    base.grid = grid
+    base.place = place
+    base._ctk_kit_chainable = True
+
+
+_make_layout_chainable()

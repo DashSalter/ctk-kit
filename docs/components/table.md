@@ -17,7 +17,7 @@
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
-| `columns` | `Sequence[(标题, 宽度, 对齐)]` | 必填 | 宽度传 `None` 表示吃掉剩余宽度 |
+| `columns` | `Sequence[str \| (标题, 宽度) \| (标题, 宽度, 对齐)]` | 必填 | 只写列名时宽度自动分配；宽度传 `None` 表示吃掉剩余宽度 |
 | `row_height` | `int` | `40` | 行高 |
 | `max_visible_rows` | `int` | `8` | 最多显示几行 |
 | `page_size` | `int` | `0` | 每页行数，大于 0 时出现分页条 |
@@ -27,8 +27,8 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `set_rows(rows)` | 整批替换数据 |
-| `add_row(row)` | 追加一行 |
+| `set_rows(rows)` | 整批替换数据；行可以是序列，也可以是按列标题取值的字典 |
+| `add_row(row)` | 追加一行（序列或字典） |
 | `set_page(n)` | 跳页 |
 | `pages()` / `page()` | 总页数 / 当前页 |
 
@@ -37,12 +37,12 @@
 ```python
 table = Table(
     card.body,
-    [("名称", 220, "w"), ("大小", 90, "e"), ("时间", None, "e")],
+    ["名称", ("大小", 90, "e"), ("时间", None, "e")],
     max_visible_rows=6,
 )
 table.set_rows([
-    ["backup-01.zip", "12 MB", "2026-11-07 12:03"],
-    ["backup-02.zip", "8 MB", "2026-11-06 22:41"],
+    {"名称": "backup-01.zip", "大小": "12 MB", "时间": "2026-11-07 12:03"},
+    {"名称": "backup-02.zip", "大小": "8 MB", "时间": "2026-11-06 22:41"},
 ])
 table.pack(fill="x", padx=16, pady=(0, 12))
 ```
@@ -96,6 +96,7 @@ tree.pack(fill="x", padx=16, pady=(0, 12))
 | `first_batch` | `int` | `12` | 首屏建几条 |
 | `load_more` | `int` | `8` | 到底再建几条 |
 | `load_threshold` | `float` | `0.92` | 滚到 92% 处开始续建 |
+| `on_load` | `Callable[[int, int], None]` | `None` | 每加载一批回调 `(已加载数, 总数)`，可用来显示进度；给了 `item_height` 的虚拟模式下是已建卡片数 |
 
 ### 方法
 

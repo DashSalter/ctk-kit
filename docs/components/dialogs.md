@@ -136,12 +136,12 @@ if name is not None:
 ### 示例
 
 ```python
-from ctk_kit import ChildWindow, FormEntry, Label, PrimaryButton
+from ctk_kit import ChildWindow, FormEntry, PrimaryButton, Row
 
 win = ChildWindow(app, title="编辑资料", width=420, height=320)
-Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
-entry = FormEntry(win, placeholder="输入昵称")
-entry.pack(fill="x", padx=16, pady=(6, 16))
+row = Row(win)
+row.pack(fill="x", padx=16, pady=(16, 0))
+FormEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
 PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
 win.show()
 ```

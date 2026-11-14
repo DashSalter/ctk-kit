@@ -26,6 +26,7 @@ from __future__ import annotations
 
 import math
 import tkinter as tk
+from collections.abc import Mapping
 from tkinter import font as tkfont
 from typing import Any, Optional, Sequence, Tuple
 
@@ -45,15 +46,20 @@ _CELL_PAD = 12  # 单元格左右内边距（逻辑像素）
 _SCROLLBAR_GAP = 4  # 滚动条与内容区之间的间距（逻辑像素）
 
 
-def _normalize_column(column: Sequence[Any]) -> Column:
-    """把 ``(标题, 宽度)`` 这种简写补成完整的三元组。"""
+def _normalize_column(column: Any) -> Column:
+    """把 ``"名称"`` / ``(标题, 宽度)`` / ``(标题, 宽度, 对齐)`` 补成完整三元组。
+
+    只写列名时宽度自动分配（和其它 ``None`` 列平分剩余宽度）。
+    """
+    if isinstance(column, str):
+        return (column, None, "w")
     if len(column) == 3:
         title, width, anchor = column
     elif len(column) == 2:
         title, width = column
         anchor = "w"
     else:
-        raise ValueError(f"列定义要 2 或 3 项，收到 {column!r}")
+        raise ValueError(f"列定义要 1–3 项，收到 {column!r}")
     if anchor not in ("w", "center", "e"):
         raise ValueError(f"列对齐只能是 w / center / e，收到 {anchor!r}")
     return (str(title), width, anchor)
@@ -228,18 +234,26 @@ class Table(ctk.CTkFrame):
         """每页行数；0 表示不分页。"""
         return self._page_size
 
-    def set_rows(self, rows: Sequence[Sequence[Any]]) -> None:
+    def set_rows(self, rows: Sequence[Any]) -> None:
         """整批替换数据。
 
         参数:
-            rows: 每行一个序列，元素按列顺序排列；会被 ``str()`` 转成文本。
+            rows: 每行一个序列或字典。序列元素按列顺序排列；字典按列标题
+                取值（``{"名称": "...", "状态": "..."}``）。单元格会被
+                ``str()`` 转成文本。
         """
-        self._all_rows = [[str(cell) for cell in row] for row in rows]
+        self._all_rows = [self._row_cells(row) for row in rows]
         self._page = 1
         self._sync_page()
         self._sync_pager()
         self._sync_height()
         self._redraw()
+
+    def _row_cells(self, row: Any) -> list[str]:
+        """把一行（序列或字典）统一成按列顺序的文本列表。"""
+        if isinstance(row, Mapping):
+            return [str(row.get(title, "")) for title, _width, _anchor in self._columns]
+        return [str(cell) for cell in row]
 
     def rows(self) -> list[list[str]]:
         """全部数据的浅拷贝（分页时也是全量，不是当前页）。"""
@@ -279,13 +293,13 @@ class Table(ctk.CTkFrame):
         self._sync_height()
         self._redraw()
 
-    def add_row(self, row: Sequence[Any]) -> None:
+    def add_row(self, row: Any) -> None:
         """在末尾追加一行。
 
         参数:
-            row: 按列顺序排列的单元格；会被 ``str()`` 转成文本。
+            row: 按列顺序排列的单元格，或按列标题取值的字典。
         """
-        self.set_rows([*self._all_rows, list(row)])
+        self.set_rows([*self._all_rows, row])
 
     def remove_row(self, index: int) -> None:
         """删除指定下标的行。

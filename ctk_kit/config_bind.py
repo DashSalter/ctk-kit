@@ -21,6 +21,7 @@ import conf_base。
 
 from __future__ import annotations
 
+import datetime as _dt
 import warnings
 from typing import Any, Callable, Optional
 
@@ -45,6 +46,8 @@ _KINDS = {
     "DropField": "choice",
     "Spinner": "number",
     "Slider": "number",
+    "DatePicker": "date",
+    "TimePicker": "time",
 }
 
 
@@ -68,6 +71,22 @@ def _cast(value: Any, default: Any) -> Any:
         return value if isinstance(value, str) else str(value)
     if kind in (list, dict):
         return value if isinstance(value, kind) else default
+    if kind is _dt.datetime:
+        if isinstance(value, _dt.datetime):
+            return value
+        if isinstance(value, _dt.date):
+            return _dt.datetime.combine(value, _dt.time())
+        return _dt.datetime.fromisoformat(str(value).strip())
+    if kind is _dt.date:
+        if isinstance(value, _dt.datetime):
+            return value.date()
+        if isinstance(value, _dt.date):
+            return value
+        return _dt.date.fromisoformat(str(value).strip())
+    if kind is _dt.time:
+        if isinstance(value, _dt.time):
+            return value
+        return _dt.time.fromisoformat(str(value).strip())
     return value if isinstance(value, kind) else kind(value)
 
 
@@ -123,7 +142,7 @@ class _Binding:
         self._fill()
         if self._kind == "flag":
             self._hook_flag()
-        elif self._kind in ("choice", "number"):
+        elif self._kind in ("choice", "number", "date", "time"):
             self._hook_command_value()
         elif self._kind == "textarea":
             self._hook_textarea()
@@ -148,6 +167,13 @@ class _Binding:
             if kind not in (int, float, str):
                 self._warn(
                     f"步进/滑块只能绑定 int、float 或 str 配置，"
+                    f"{_name(self.target)} 的默认值是 {kind.__name__}，已跳过绑定"
+                )
+                return False
+        elif self._kind in ("date", "time"):
+            if kind not in (_dt.date, _dt.time, _dt.datetime, str):
+                self._warn(
+                    f"日期/时间控件只能绑定 date、time、datetime 或 str 配置，"
                     f"{_name(self.target)} 的默认值是 {kind.__name__}，已跳过绑定"
                 )
                 return False
@@ -278,12 +304,12 @@ class _Binding:
 
     # ------------------------------------------------------------------ 读写
     def _read(self) -> Any:
-        if self._kind == "flag":
+        if self._kind in ("flag", "date", "time"):
             return self.widget.get_value()
         return self.widget.get()
 
     def _write(self, value: Any) -> None:
-        if self._kind == "flag":
+        if self._kind in ("flag", "date", "time"):
             self.widget.set_value(value)
         else:
             self.widget.set(value)

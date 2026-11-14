@@ -14,13 +14,13 @@ from ctk_kit import (
     ColorPicker,
     FieldLabel,
     FormEntry,
-    Frame,
     HintLabel,
     PageBase,
     PageHeader,
     PrimaryButton,
     ProgressBar,
     Radio,
+    Row,
     Scrollable,
     SecondaryButton,
     Segmented,
@@ -87,23 +87,23 @@ class ThemePageUI(PageBase):
         # 第一行：两种按钮 + 窄输入框
         first = box.row(1, fill="x", padx=16, pady=(14, 8))
         self.preview_button = PrimaryButton(first, "主按钮", width=100)
-        self.preview_button.pack(side="left")
         self.preview_secondary = SecondaryButton(first, "次按钮", width=100)
-        self.preview_secondary.pack(side="left", padx=(10, 0))
         self.preview_entry = FormEntry(first, placeholder="输入框")
         self.preview_entry.configure(width=140)
+        self.preview_button.pack(side="left")
+        self.preview_secondary.pack(side="left", padx=(10, 0))
         self.preview_entry.pack(side="left", padx=(10, 0))
 
         # 第二行：分段选择（开 / 关）+ 开关 + 勾选框
         second = box.row(2, fill="x", padx=16, pady=(0, 8))
         self.preview_segment = Segmented(second, ["开", "关"], width=120)
-        self.preview_segment.pack(side="left")
         self.preview_switch = Switch(second, text="开关")
-        self.preview_switch.pack(side="left", padx=(16, 0))
         self.preview_switch.select()
         self.preview_check = Check(second, "勾选框")
-        self.preview_check.pack(side="left", padx=(16, 0))
         self.preview_check.select()
+        self.preview_segment.pack(side="left")
+        self.preview_switch.pack(side="left", padx=(16, 0))
+        self.preview_check.pack(side="left", padx=(16, 0))
 
         # 第三行：两个单选项（共享一个变量才互斥）+ 进度条
         third = box.row(3, fill="x", padx=16, pady=(0, 14))
@@ -111,12 +111,12 @@ class ThemePageUI(PageBase):
         self.preview_radio_one = Radio(
             third, "单选框一", "甲", variable=self._radio_var
         )
-        self.preview_radio_one.pack(side="left")
         self.preview_radio_two = Radio(
             third, "单选框二", "乙", variable=self._radio_var
         )
-        self.preview_radio_two.pack(side="left", padx=(14, 0))
         self.preview_bar = ProgressBar(third, value=0.6, width=140)
+        self.preview_radio_one.pack(side="left")
+        self.preview_radio_two.pack(side="left", padx=(14, 0))
         self.preview_bar.pack(side="left", padx=(16, 0))
 
     def _build_palette(self, area: tk.Misc) -> None:
@@ -127,14 +127,13 @@ class ThemePageUI(PageBase):
         self._pickers: dict[str, ColorPicker] = {}
 
         for index, fields in enumerate(_PALETTE_ROWS):
-            row = Frame(box)
+            row = Row(box)
             row.pack(
                 fill="x", padx=16, pady=(14, 8) if index == 0 else (0, 8)
             )
             for column, (token, title, usage) in enumerate(fields):
-                FieldLabel(row, title, width=84).pack(
-                    side="left", padx=(0 if column == 0 else 14, 0)
-                )
+                label = FieldLabel(row, title, width=84)
+                label.pack(side="left", padx=(0 if column == 0 else 14, 0))
                 picker = ColorPicker(row, width=124)
                 picker.pack(side="left", padx=(4, 0))
                 Tooltip(picker, usage, delay=300)

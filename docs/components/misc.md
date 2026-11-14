@@ -221,9 +221,8 @@ timeline.add("补充说明", "修了一个边界", "11:05")
 
 ```python
 divider(card.body, text="或者")
-toolbar = Frame(card.body)
-toolbar.pack(fill="x")
-vertical_divider(toolbar, height=22).pack(side="left", padx=8)
+row = card.row(1)
+vertical_divider(row, height=22).pack(side="left", padx=8)
 ```
 
 ## empty_hint

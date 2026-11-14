@@ -5,15 +5,15 @@ app = ctk.App(title="输入框示例", size=(640, 420))
 card = ctk.Card(app, title="输入框")
 card.pack(fill="x", padx=24, pady=(24, 12))
 
-row = ctk.Frame(card)
-row.pack(fill="x", padx=16, pady=(12, 16))
+row = card.row(1, fill="x", padx=16, pady=(12, 16))
 
 # 普通输入框：placeholder 是没输入时显示的灰色提示
 name = ctk.FormEntry(row, placeholder="请输入名称")
-name.pack(side="left")
 
 # 密码框：内容显示成圆点
 pwd = ctk.FormEntry(row, password=True)
+
+name.pack(side="left")
 pwd.pack(side="left", padx=(10, 0))
 
 # 代码里赋值、取值

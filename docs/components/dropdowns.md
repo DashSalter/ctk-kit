@@ -19,7 +19,10 @@
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
-| `values_provider` | `Callable[[], Sequence]` | 必填 | 返回候选项；每次展开都会重新调用 |
+| `values` | `Sequence[str]` | `None` | 静态候选；与 `values_provider` 二选一 |
+| `values_provider` | `Callable[[], Sequence]` | `None` | 返回候选项；每次展开都会重新调用 |
+| `tags` | `Mapping[str, Sequence[str]]` | `None` | 「候选 → 标签列表」字典，标签画在候选行右侧 |
+| `tags_provider` | `Callable[[str], Sequence[str]]` | `None` | 按候选返回标签；`tags` 里查到的优先 |
 | `placeholder` | `str` | `""` | 占位文字 |
 | `height` | `int` | `36` | 高度 |
 | `command` | `Callable[[Any], None]` | `None` | 选中回调 |
@@ -31,6 +34,9 @@
 | 方法 | 说明 |
 | --- | --- |
 | `set_value(value)` / `get_value()` | 写 / 读当前值（等价于 `set()` / `get()`） |
+| `get_tags(value)` / `get_current_tags()` | 读某个候选 / 当前值的标签列表 |
+| `set_tag(value, tags)` | 单独设置某一行的标签 |
+| `set_tags(mapping)` / `clear_tags()` | 整体替换 / 清空标签 |
 | `set_values(values)` | 换候选项 |
 | `open_menu()` / `close_menu()` | 手动开 / 关面板 |
 | `disable(item)` / `enable(item)` | 禁用 / 恢复某一项 |
@@ -45,6 +51,23 @@ field.pack(fill="x", padx=16, pady=(0, 12))
 
 field.disable("每月")            # 这一项变灰不可选
 field.set_value("每天")
+```
+
+候选行右侧也可以带标签：`tags` 是「候选 → 标签列表」的字典，`get()` 仍然只返回值本身。
+
+```python
+files = DropField(
+    card.body,
+    values=["报告.pdf", "数据.xlsx", "照片.png"],
+    tags={
+        "报告.pdf": ["1.2 MB", "PDF"],
+        "数据.xlsx": ["3.4 MB", "Excel"],
+    },
+)
+files.get()                    # "报告.pdf"
+files.get_tags("报告.pdf")      # ["1.2 MB", "PDF"]
+files.get_current_tags()       # 当前选中项的标签
+files.set_tag("照片.png", ["860 KB", "PNG"])   # 单独补一行的标签
 ```
 
 ## TagSelectField

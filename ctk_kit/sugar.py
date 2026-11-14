@@ -32,10 +32,35 @@ CTk 原生控件（``CTkButton`` / ``CTkEntry`` …）的 ``state`` 选项本来
 from __future__ import annotations
 
 import contextlib
+import inspect
 
 from typing import Any
 
 __all__ = ["Bindable", "Enablable", "Options", "Textual", "Valuable"]
+
+
+def _wrap_handler(handler: Any) -> Any:
+    """把「不想收 event」的回调包一层：Tk 事件总是会塞一个 event 进来。
+
+    没写参数（或只写 ``*args``）的回调会被包成忽略 event 的调用；写了参数
+    的回调原样返回。``handler=None`` 用于解绑，不适用这里。
+    """
+    try:
+        parameters = inspect.signature(handler).parameters.values()
+    except (TypeError, ValueError):
+        return handler
+    takes_event = any(
+        parameter.kind
+        in (
+            inspect.Parameter.POSITIONAL_ONLY,
+            inspect.Parameter.POSITIONAL_OR_KEYWORD,
+            inspect.Parameter.VAR_POSITIONAL,
+        )
+        for parameter in parameters
+    )
+    if takes_event:
+        return handler
+    return lambda _event=None: handler()
 
 #: 不用带后缀也认识的选项名；``*_color`` 会自动算进来。
 _OPTIONS = frozenset({
@@ -226,8 +251,8 @@ class Bindable:
             self.unbind(sequence)
         else:
             # 用 "+" 追加，别把别人（比如 App 的冻结布局）绑在同一个事件上的
-            # 回调顶掉：tkinter 默认是替换。
-            self.bind(sequence, handler, "+")
+            # 回调顶掉：tkinter 默认是替换。无参回调在这里自动包一层。
+            self.bind(sequence, _wrap_handler(handler), "+")
         return self
 
     def _bind_configure(self, kind: str, handler: Any) -> Any:
@@ -241,7 +266,7 @@ class Bindable:
                 self.__dict__.pop("_configure_last", None)
                 self.__dict__["_configure_bound"] = False
             return self
-        watchers[kind] = handler
+        watchers[kind] = _wrap_handler(handler)
         if not self.__dict__.get("_configure_bound", False):
             self.__dict__["_configure_bound"] = True
             # 同上：追加绑定，避免覆盖 App 冻结布局自己绑的 <Configure>。

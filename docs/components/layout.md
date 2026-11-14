@@ -28,7 +28,7 @@
 | 名称 | 说明 |
 | --- | --- |
 | `body` | 内容容器（属性，不是方法）；卡片里的控件都建在它上面 |
-| `row(index, **kwargs)` | 取第 `index` 行（自动建），用来做左右分栏 |
+| `row(index, **kwargs)` | 取第 `index` 行（自动建，返回 `Row`），用来做左右分栏 |
 | `apply_theme()` | 按当前令牌重画（换色后自动调用） |
 
 ### 示例
@@ -38,11 +38,52 @@ card = Card(area, title="账号")
 card.pack(fill="x", padx=24, pady=(0, 12))
 
 CTkEntry(card.body).pack(fill="x", padx=16, pady=(0, 12))
-PrimaryButton(card.row(1), "保存").pack(side="right", padx=(0, 16))
+row = card.row(1)
+PrimaryButton(row, "保存").pack(side="right")
 
 # 标题放进卡片内部：标题行 + 分隔线都在卡片里
 panel = Card(area, inside_title="账号信息")
 panel.pack(fill="x", padx=24, pady=(0, 12))
+```
+
+## Row
+
+### 作用
+
+卡片里的一行。用 `row.label("标签")` 在左边放一个文字标签，控件建在它返回的容器里，自己 `pack`；没有标签时直接把控件 `pack` 到 `row` 上。`Card.row(index)` 返回的就是它。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父容器 |
+
+其余关键字透传给 `CTkFrame`。
+
+### 方法
+
+| 名称 | 说明 |
+| --- | --- |
+| `label(text, *, width=72, gap=8)` | 在行首放一个标签，返回标签右侧的容器；控件建在这个容器里并 `pack` |
+
+### 示例
+
+```python
+row = card.row(1, fill="x", padx=16, pady=(14, 8))
+entry = FormEntry(row.label("昵称"), placeholder="输入昵称")
+entry.pack(fill="x")
+
+row = card.row(2)
+PrimaryButton(row, "保存").pack(side="left")
+SecondaryButton(row, "取消").pack(side="left", padx=(10, 0))
+SecondaryButton(row, "更多").pack(side="right")
+```
+
+`pack()` / `grid()` / `place()` 现在返回控件本身，也可以直接连着写：
+
+```python
+kind = DropField(row.label("类型"), values=["全部", "账号"]).pack(fill="x")
+kind.get()
 ```
 
 ## Scrollable
@@ -150,7 +191,8 @@ SectionTitle(area, "表单输入")        # 同样自动 pack(fill="x")
 ### 示例
 
 ```python
+row = card.row(1)
 FieldLabel(row, "用户名").pack(side="left")
-Label(row, "只会显示给管理员").pack(side="left", padx=8)
+Label(row, "只会显示给管理员").pack(side="left", padx=(8, 0))
 HintLabel(card.body, "改动保存后立即生效").pack(padx=16, pady=(0, 12))
 ```

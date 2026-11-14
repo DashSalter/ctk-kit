@@ -154,20 +154,15 @@ class TablePageUI(PageBase):
         box.pack(fill="x")
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-
         self.add_button = SecondaryButton(row, "追加一行")
-        self.add_button.pack(side="left")
         self.clear_button = SecondaryButton(row, "清空")
-        self.clear_button.pack(side="left", padx=(8, 0))
         self.restore_button = SecondaryButton(row, "恢复")
-        self.restore_button.pack(side="left", padx=(8, 0))
-
+        for button in (self.add_button, self.clear_button, self.restore_button):
+            button.pack(side="left", padx=(8, 0))
         HintLabel(row, "超过 8 行时内容区可滚动，表头不动。").pack(side="right")
 
-        table_row = box.row(2, fill="x", padx=16, pady=(0, 8))
-
         self.table = Table(
-            table_row,
+            box,
             COLUMNS,
             row_height=36,
             header_height=38,
@@ -175,7 +170,7 @@ class TablePageUI(PageBase):
             striped=True,
             empty_text="暂无数据",
         )
-        self.table.pack(fill="x")
+        self.table.pack(fill="x", padx=16, pady=(0, 8))
         self.table.set_rows(ROWS)
 
         HintLabel(
@@ -201,23 +196,19 @@ class TablePageUI(PageBase):
         )
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-
         self.fill_button = SecondaryButton(row, "填入 3 行")
-        self.fill_button.pack(side="left")
         self.empty_clear_button = SecondaryButton(row, "清空")
+        self.fill_button.pack(side="left", padx=(8, 0))
         self.empty_clear_button.pack(side="left", padx=(8, 0))
-
         HintLabel(row, "max_visible_rows=4：3 行时不出现滚动条。").pack(side="right")
 
-        table_row = box.row(3, fill="x", padx=16, pady=(0, 8))
-
         self.empty_table = Table(
-            table_row,
+            box,
             EMPTY_COLUMNS,
             max_visible_rows=4,
             empty_text="暂无数据",
         )
-        self.empty_table.pack(fill="x")
+        self.empty_table.pack(fill="x", padx=16, pady=(0, 8))
 
         HintLabel(
             box,
@@ -237,15 +228,13 @@ class TablePageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
         self.paged_clear = SecondaryButton(row, "清空")
-        self.paged_clear.pack(side="left")
         self.paged_restore = SecondaryButton(row, "恢复 23 行")
+        self.paged_clear.pack(side="left", padx=(8, 0))
         self.paged_restore.pack(side="left", padx=(8, 0))
         HintLabel(row, "page_size=6：只画当前页，翻页不重建控件。").pack(side="right")
 
-        table_row = box.row(2, fill="x", padx=16, pady=(0, 8))
-
         self.paged_table = Table(
-            table_row,
+            box,
             COLUMNS,
             row_height=36,
             header_height=38,
@@ -253,7 +242,7 @@ class TablePageUI(PageBase):
             striped=True,
             empty_text="暂无数据",
         )
-        self.paged_table.pack(fill="x")
+        self.paged_table.pack(fill="x", padx=16, pady=(0, 8))
         self.paged_table.set_rows(PAGED_ROWS)
 
         HintLabel(

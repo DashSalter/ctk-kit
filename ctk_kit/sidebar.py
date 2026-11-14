@@ -4,14 +4,15 @@
 :class:`SidebarNav`：把页面构建函数按名字交进来，它负责侧边栏、标题、导航
 按钮的高亮，以及页面的按需创建与切换::
 
-    from ctk_kit import App, SidebarNav
+    from ctk_kit import App, Row, SidebarNav
 
     app = App(title="ctk-kit", size=(1180, 780))
 
     def build_basic(area):
-        page = ctk.CTkFrame(area, fg_color="transparent")
+        row = Row(area)
+        row.pack(fill="x", padx=8, pady=8)
         ...
-        return page
+        return row
 
     nav = SidebarNav(
         app,

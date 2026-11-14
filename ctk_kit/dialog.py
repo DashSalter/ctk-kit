@@ -1085,9 +1085,12 @@ class ChildWindow(ctk.CTkToplevel):
     和 :class:`Dialog` 的区别：Dialog 的标题 / 正文 / 按钮是排好的，这里只给
     一个空窗口，按钮、文本、输入框都直接 ``pack`` 到窗口上::
 
+        from ctk_kit import ChildWindow, FormEntry, PrimaryButton, Row
+
         win = ChildWindow(app, title="编辑资料", width=420, height=320)
-        Label(win, "昵称").pack(anchor="w", padx=16, pady=(16, 0))
-        FormEntry(win, placeholder="输入昵称").pack(fill="x", padx=16, pady=(6, 12))
+        row = Row(win)
+        row.pack(fill="x", padx=16, pady=(16, 0))
+        FormEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
         PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
         win.show()
 

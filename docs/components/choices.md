@@ -21,6 +21,7 @@
 | `master` | `tk.Misc` | 必填 | 父容器 |
 | `text` | `str` | `""` | 右侧文字 |
 | `command` | `Callable[[], None]` | `None` | 点击回调 |
+| `value` | `bool` | `False` | 初始是否勾上；`value=True` 就是默认选中 |
 | `variable` | `tk.IntVar` | `None` | 自己管状态时才传 |
 | `width` / `height` | `int` | `22` | 指示符尺寸 |
 
@@ -75,6 +76,47 @@ for text, value in [("小", "s"), ("中", "m"), ("大", "l")]:
 
 # 任意一个都能读整组的值
 print(row.winfo_children()[0].get_value())    # 's' / 'm' / 'l'
+```
+
+## RadioGroup
+
+### 作用
+
+一组单选项：自动建好 `Radio` 并管互斥，读取和程序设置都走这一个控件，不用再碰组变量。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父容器 |
+| `options` | `Sequence[str]` | 必填 | 选项文字，值默认等于文字 |
+| `value` | `str` | `None` | 初始选中项 |
+| `on_change` | `Callable[[str], None]` | `None` | 用户切换时回调，参数是选中的值 |
+| `group` | `str` | `None` | 组名，默认自动生成 |
+| `gap` | `int` | `16` | 选项之间的间距 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `get_value()` | 当前选中的值 |
+| `set_value(value)` | 程序设置选中项（不触发 `on_change`） |
+| `on_change` | 用户切换时的回调属性，构造后也可以再赋值 |
+| `bind_config(target)` | 绑定 conf_base 配置项，双向同步 |
+
+### 示例
+
+```python
+from ctk_kit import RadioGroup, Row
+
+row = Row(card)
+row.pack(fill="x", padx=16, pady=12)
+RadioGroup(
+    row.label("同步"),
+    ["每次询问", "总是同步", "只同步一次"],
+    value="每次询问",
+    on_change=lambda value: print("选了", value),
+).pack(anchor="w")
 ```
 
 ## Switch

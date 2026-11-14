@@ -36,8 +36,9 @@
 ### 示例
 
 ```python
-Badge(card.row(0), "新", variant="soft").pack(side="left", padx=8)
-Badge(card.row(0), dot=True, color="#ef4444").pack(side="left")
+row = card.row(1)
+Badge(row, "新", variant="soft").pack(side="left")
+Badge(row, dot=True, color="#ef4444").pack(side="left", padx=(8, 0))
 ```
 
 ## Tag
@@ -60,8 +61,9 @@ Badge(card.row(0), dot=True, color="#ef4444").pack(side="left")
 ### 示例
 
 ```python
-for name in ["前端", "Python", "Windows"]:
-    Tag(row, name, variant="outline").pack(side="left", padx=(0, 6))
+row = card.row(1)
+for index, name in enumerate(["前端", "Python", "Windows"]):
+    Tag(row, name, variant="outline").pack(side="left", padx=(0 if index == 0 else 6, 0))
 ```
 
 ## Skeleton

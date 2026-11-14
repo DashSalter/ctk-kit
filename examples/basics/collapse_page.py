@@ -17,14 +17,13 @@ from ctk_kit import (
     Checkbox,
     Collapsible,
     DangerButton,
-    FieldLabel,
     FormEntry,
-    Frame,
     HintLabel,
     Label,
     PageBase,
     PageHeader,
     PrimaryButton,
+    Row,
     Scrollable,
     SecondaryButton,
     Switch,
@@ -44,17 +43,16 @@ panel.pack(fill="x")
 # body 是普通容器，按钮 / 标签 / 输入框都能放
 PrimaryButton(panel.body, "保存", on_save).pack(padx=10, pady=10)'''
 
-MIXED_CODE = '''from ctk_kit import Checkbox, Collapsible, FormEntry, Switch
+MIXED_CODE = '''from ctk_kit import Checkbox, Collapsible, FormEntry, Row, Switch
 
 panel = Collapsible(card, collapsed_text="显示完整表单", expanded_text="收起表单")
 panel.pack(fill="x")
 
-row = Frame(panel.body)
+row = Row(panel.body)
 row.pack(fill="x", padx=10, pady=(10, 4))
-FieldLabel(row, "项目名称", width=72).pack(side="left")
-FormEntry(row, placeholder="输入一个名字").pack(side="left", fill="x", expand=True)
+FormEntry(row.label("项目名称"), placeholder="输入一个名字").pack(fill="x")
 
-row = Frame(panel.body)
+row = Row(panel.body)
 row.pack(fill="x", padx=10, pady=4)
 Switch(row).pack(side="left")
 Checkbox(row, "记住这次选择").pack(side="left", padx=(16, 0))'''
@@ -79,8 +77,7 @@ panel.set_expanded(True)
 panel.set_texts(collapsed_text="查看更多", expanded_text="收起")'''
 
 NESTED_CODE = '''box = Card(page, title="塞进已有卡片不影响原排版")
-row = Frame(box)
-row.pack(fill="x", padx=16, pady=(14, 8))
+row = box.row(1, fill="x", padx=16, pady=(14, 8))
 # 卡片本来的内容
 HintLabel(row, "这一行是卡片本来的内容，折叠面板加在它下面。").pack(side="left")
 SecondaryButton(row, "原本的按钮").pack(side="right")
@@ -161,16 +158,16 @@ class CollapsePageUI(PageBase):
         )
         self.button_panel.pack(fill="x", padx=16)
 
-        row = Frame(self.button_panel.body)
+        row = Row(self.button_panel.body)
         row.pack(fill="x", padx=10, pady=(10, 6))
 
         self.p_primary = PrimaryButton(row, "主按钮")
-        self.p_primary.pack(side="left")
         self.p_secondary = SecondaryButton(row, "次要按钮")
-        self.p_secondary.pack(side="left", padx=(8, 0))
         self.p_outline = SecondaryButton(row, "描边按钮", border=True)
-        self.p_outline.pack(side="left", padx=(8, 0))
         self.p_danger = DangerButton(row, "危险按钮")
+        self.p_primary.pack(side="left")
+        self.p_secondary.pack(side="left", padx=(8, 0))
+        self.p_outline.pack(side="left", padx=(8, 0))
         self.p_danger.pack(side="left", padx=(8, 0))
 
         HintLabel(
@@ -201,24 +198,23 @@ class CollapsePageUI(PageBase):
         )
         self.mixed.pack(fill="x", padx=16)
 
-        row = Frame(self.mixed.body)
+        row = Row(self.mixed.body)
         row.pack(fill="x", padx=10, pady=(10, 4))
-        FieldLabel(row, "项目名称", width=72).pack(side="left")
-        self.name = FormEntry(row, placeholder="输入一个名字")
-        self.name.pack(side="left", fill="x", expand=True)
+        self.name = FormEntry(row.label("项目名称"), placeholder="输入一个名字")
+        self.name.pack(fill="x")
 
-        row = Frame(self.mixed.body)
+        row = Row(self.mixed.body)
         row.pack(fill="x", padx=10, pady=4)
         self.switch = Switch(row)
-        self.switch.pack(side="left")
         self.checkbox = Checkbox(row, "记住这次选择")
+        self.switch.pack(side="left")
         self.checkbox.pack(side="left", padx=(16, 0))
 
-        row = Frame(self.mixed.body)
+        row = Row(self.mixed.body)
         row.pack(fill="x", padx=10, pady=(4, 10))
         self.save = PrimaryButton(row, "保存")
-        self.save.pack(side="left")
         self.cancel = SecondaryButton(row, "取消")
+        self.save.pack(side="left")
         self.cancel.pack(side="left", padx=(8, 0))
 
         CodePanel(
@@ -268,11 +264,8 @@ class CollapsePageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        HintLabel(
-            row,
-            "这一行是卡片本来的内容，折叠面板加在它下面。",
-        ).pack(side="left")
         self.orig_button = SecondaryButton(row, "原本的按钮")
+        HintLabel(row, "这一行是卡片本来的内容，折叠面板加在它下面。").pack(side="left")
         self.orig_button.pack(side="right")
 
         self.nested = Collapsible(box, collapsed_text="展开详情")
@@ -362,7 +355,7 @@ class CollapsePageUI(PageBase):
         ).pack(fill="x", padx=12, pady=10)
 
         item = self.accordion.add("高级选项", detail="2 项")
-        row = Frame(item.body)
+        row = Row(item.body)
         row.pack(fill="x", padx=12, pady=10)
         Switch(row).pack(side="left")
         Checkbox(row, "记住这次选择").pack(side="left", padx=(16, 0))
@@ -375,10 +368,10 @@ class CollapsePageUI(PageBase):
 
         row = box.row(1, fill="x", padx=16, pady=(10, 6))
         self.acc_collapse = SecondaryButton(row, "全部收起")
-        self.acc_collapse.pack(side="left")
         self.acc_open = SecondaryButton(row, "展开第 2 节")
-        self.acc_open.pack(side="left", padx=(8, 0))
         self.acc_state = HintLabel(row, "当前展开：第 1 节")
+        self.acc_collapse.pack(side="left")
+        self.acc_open.pack(side="left", padx=(8, 0))
         self.acc_state.pack(side="right")
 
         HintLabel(box, "多开模式：").pack(fill="x", padx=16, pady=(10, 4))

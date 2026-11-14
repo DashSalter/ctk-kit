@@ -39,7 +39,7 @@ from typing import Any
 
 #: 改这里时记得同步 ``pyproject.toml`` 的 ``version``（打包以那份为准，
 #: 这行只给 ``ctk_kit.__version__`` 用）。
-__version__ = "0.12.3"
+__version__ = "0.12.4"
 
 # 核心模块（win32 / glass / frost_layer）发布时是编译好的 .pyd，源码不在仓库里。
 # 装错平台或 Python 版本时，import 那一层会报得很晚、很难懂，这里提前说清楚。
@@ -113,11 +113,12 @@ from .buttons import (
     CTkButton,
     DangerButton,
     FlatButton,
+    OutlineButton,
     PrimaryButton,
     SecondaryButton,
     SoftButton,
 )
-from .choices import Check, Radio
+from .choices import Check, Radio, RadioGroup
 from .collapse import Collapsible
 from .config_bind import bind_config, unbind_config
 from .code_panel import CodePanel
@@ -149,6 +150,7 @@ from .layout import (
     HintLabel,
     Label,
     PageHeader,
+    Row,
     Scrollable,
     SectionTitle,
     style_scrollable,
@@ -258,6 +260,7 @@ __all__ = [
     "LoadingOverlay",
     "MenuBar",
     "Notifier",
+    "OutlineButton",
     "PageBase",
     "PageHeader",
     "PageRebuilder",
@@ -269,6 +272,7 @@ __all__ = [
     "Progress",
     "RangeSlider",
     "RingProgress",
+    "Row",
     "Scrollable",
     "SearchBox",
     "SecondaryButton",
@@ -316,6 +320,7 @@ __all__ = [
     "prompt",
     "radio_group",
     "Radio",
+    "RadioGroup",
     "recolor_tree",
     "repaint_native",
     "set_appearance_mode",

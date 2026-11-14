@@ -35,7 +35,9 @@
 ### 示例
 
 ```python
-Avatar(card.row(0), text="加", size=36, status="online").pack(side="left", padx=8)
+row = card.row(1)
+avatar = Avatar(row, text="加", size=36, status="online")
+avatar.pack(side="left")
 ```
 
 ## ImageViewer

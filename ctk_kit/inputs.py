@@ -978,6 +978,7 @@ def Checkbox(
         *,
         width: int = 20,
         height: int = 20,
+        value: bool = False,
 ) -> "Check":
     """勾选框：未选中是描边空心方块，选中后填主色并打勾。
 
@@ -990,6 +991,7 @@ def Checkbox(
         command: 勾选/取消回调，不接收参数。
         width: 方块宽度（像素），默认 20。
         height: 方块高度（像素），默认 20。
+        value: 初始是否勾上，默认 ``False``；``value=True`` 就是默认选中。
 
     返回:
         尚未摆位的 ``Check``；``get()`` 返回 0/1，``select()`` / ``deselect()`` 可直接改。
@@ -1000,6 +1002,7 @@ def Checkbox(
         command,
         width=width,
         height=height,
+        value=value,
         font=get_font(T.FONT_SMALL),
     )
 

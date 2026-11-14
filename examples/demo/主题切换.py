@@ -13,13 +13,15 @@ def on_theme(value: str) -> None:
     app.set_theme(value)  # 只换主题，颜色用主题默认值
 
 
+ctk_row = card.row(1, fill="x", padx=10, pady=10)
 ctk.Segmented(
-    card, ["Mica", "Frosted", "Dark", "Acrylic"], width=380, command=on_theme
-).pack(side="left", padx=10, pady=10)
+    ctk_row, ["Mica", "Frosted", "Dark", "Acrylic"], width=380, command=on_theme
+).pack(side="left")
 
 card2 = ctk.Card(app, title="测试组件")
 card2.pack(fill="x", padx=24, pady=(24, 12))
 
-ctk.SecondaryButton(card2, text='按钮').pack(side="left",padx=10, pady=10)
+button_row = card2.row(1, fill="x", padx=10, pady=10)
+ctk.SecondaryButton(button_row, text="按钮").pack(side="left")
 
 app.mainloop()

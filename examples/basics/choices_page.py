@@ -22,11 +22,11 @@ from ctk_kit import (
     HintLabel,
     PageBase,
     PageHeader,
+    RadioGroup,
     Scrollable,
     Segmented,
     Switch,
     TextArea,
-    radio_group,
     tokens as T,
     CodePanel,
 )
@@ -69,28 +69,28 @@ toggle.toggle()           # 拨动一次，会触发 command
 
 CHECKBOX_CODE = '''from ctk_kit import Checkbox
 
-check = Checkbox(row, "记住这台设备", command)
-# Checkbox(master, text="", command=None, *, width=20, height=20)
+check = Checkbox(row, "记住这台设备", command, value=True)
+# Checkbox(master, text="", command=None, *, width=20, height=20, value=False)
 
 check.set_value(True)   # 勾上
 check.set_value(False)  # 取消
 check.get_value()       # True / False
 
-# 选中后填 COLOR_ACTIVE 并打勾；方块圆角是 RADIUS_SMALL - 2'''
+# value 是初始状态，默认 False（不勾）；选中后填 COLOR_ACTIVE 并打勾'''
 
-RADIO_CODE = '''group, var = radio_group(
-    frame,
+RADIO_CODE = '''from ctk_kit import RadioGroup
+
+group = RadioGroup(
+    row,
     ["每次询问", "总是同步", "只在本机保存"],
-    command=lambda value: print(value),
-    variable=None,   # 传自己的 StringVar 就能从外面读写
-    gap=8,           # 选项之间的行距
+    value="每次询问",
+    on_change=lambda value: print(value),
 )
-group.pack(fill="x")
+group.pack(side="left")
 
-var.get()            # 当前选中项的文字
-var.set("总是同步")   # 直接改选中项
-
-# 返回 (容器, StringVar)；控件必须共用同一个 variable 才互斥'''
+# 一组选项一个控件，读和改都走它
+group.get_value()          # "每次询问"
+group.set_value("总是同步") # 程序切换，不触发 on_change'''
 
 
 class ChoicesPageUI(PageBase):
@@ -125,21 +125,20 @@ class ChoicesPageUI(PageBase):
         box.pack(fill="x")
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "分类", width=72).pack(side="left")
-        self.segmented = Segmented(row, SEGMENT_VALUES, self._on_segment, width=300)
-        self.segmented.pack(side="left")
+        self.segmented = Segmented(
+            row.label("分类"), SEGMENT_VALUES, self._on_segment, width=300
+        )
+        self.segmented.pack(anchor="w")
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "紧凑", width=72).pack(side="left")
         self.compact = Segmented(
-            row, COMPACT_VALUES, self._on_compact, width=200, height=30
+            row.label("紧凑"), COMPACT_VALUES, self._on_compact, width=200, height=30
         )
-        self.compact.pack(side="left")
+        self.compact.pack(anchor="w")
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        FieldLabel(row, "空列表", width=72).pack(side="left")
-        self.empty_segment = Segmented(row, [], width=200)
-        self.empty_segment.pack(side="left")
+        self.empty_segment = Segmented(row.label("空列表"), [], width=200)
+        self.empty_segment.pack(anchor="w")
 
         HintLabel(
             box, "values=[] 时不预设选中项；宽度恒定，切换不会挤动右侧元素。"
@@ -153,16 +152,18 @@ class ChoicesPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        CTkLabel(
+        label = CTkLabel(
             row, text="启用某项设置", font=T.FONT_BODY, text_color=T.COLOR_TEXT
-        ).pack(side="left")
+        )
+        label.pack(side="left")
         self.toggle = Switch(row, value=True)
         self.toggle.pack(side="left", padx=(12, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        CTkLabel(
+        label = CTkLabel(
             row, text="紧凑尺寸", font=T.FONT_BODY, text_color=T.COLOR_TEXT
-        ).pack(side="left")
+        )
+        label.pack(side="left")
         self.compact_switch = Switch(row, width=60)
         self.compact_switch.pack(side="left", padx=(12, 0))
 
@@ -177,34 +178,31 @@ class ChoicesPageUI(PageBase):
         box = Card(area, title="勾选框")
         box.pack(fill="x", pady=(12, 0))
 
-        row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.device_check = Checkbox(row, "记住这台设备")
-        self.device_check.pack(side="left")
-        self.device_check.set_value(True)
+        self.device_check = Checkbox(box, "记住这台设备", value=True)
+        self.device_check.pack(anchor="w", padx=16, pady=(14, 8))
 
-        row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        self.sync_check = Checkbox(row, "启动时自动同步")
-        self.sync_check.pack(side="left")
+        self.sync_check = Checkbox(box, "启动时自动同步")
+        self.sync_check.pack(anchor="w", padx=16, pady=(0, 8))
 
         HintLabel(
-            box, "勾选后填主色并打勾；get() 返回 0/1，select() / deselect() 可直接改。"
+            box, "value=True 初始就勾上；get() 返回 0/1，select() / deselect() 可直接改。"
         ).pack(fill="x", padx=16, pady=(0, 10))
 
         CodePanel(box, CHECKBOX_CODE, "和 Switch 一样，状态要自己读 get()。")
 
     def _build_radio(self, area: tk.Misc) -> None:
-        """单选组：返回 (容器, StringVar)。"""
+        """单选组：一个控件管一组选项，读和改都走它。"""
         box = Card(area, title="单选组")
         box.pack(fill="x", pady=(12, 0))
 
-        self.radio_group, self.radio_var = radio_group(box, RADIO_VALUES)
-        self.radio_group.pack(fill="x", padx=16, pady=(14, 8))
+        self.radio_group = RadioGroup(box, RADIO_VALUES, value=RADIO_VALUES[0])
+        self.radio_group.pack(anchor="w", padx=16, pady=(14, 8))
 
         HintLabel(
-            box, "返回 (容器, StringVar)：同一个 variable 才互斥，读变量拿当前项。"
+            box, "一组选项一个控件；get_value() / set_value() 直接读写。"
         ).pack(fill="x", padx=16, pady=(0, 10))
 
-        CodePanel(box, RADIO_CODE, "传自己的 variable 就能从外部读写选中项。")
+        CodePanel(box, RADIO_CODE, "不用自己建 StringVar，也不用逐个 Radio。")
 
     # --- 分段控件：command 必须构造时传（内部靠它重绘选中段文字），事件类覆写 ---
     def _on_segment(self, value: str) -> None:
@@ -227,11 +225,7 @@ class ChoicesPage(ChoicesPageUI):
         self.compact_switch.configure(command=self._on_compact_switch)
         self.device_check.configure(command=self._on_device_check)
         self.sync_check.configure(command=self._on_sync_check)
-
-        # radio_group 只在构造时收 command；建好之后逐个改内部单选框的 command，
-        # 选中项本身由共享的 StringVar 维护。
-        for button in self.radio_group.winfo_children():
-            button.configure(command=self._on_radio)
+        self.radio_group.on_change = self._on_radio
 
     def _on_toggle(self) -> None:
         """开关只回调、不带参数，状态自己读。"""
@@ -249,9 +243,9 @@ class ChoicesPage(ChoicesPageUI):
         """第二个勾选框：只说切换了。"""
         self._show("自动同步已切换")
 
-    def _on_radio(self) -> None:
-        """单选框的 command 不带参数，当前项从 StringVar 读。"""
-        self._show(f"单选：{self.radio_var.get()}")
+    def _on_radio(self, value: str) -> None:
+        """单选组切换：回调直接收到选中的值。"""
+        self._show(f"单选：{value}")
 
     def _on_segment(self, value: str) -> None:
         """主分类分段：command 收到选中项文字。"""

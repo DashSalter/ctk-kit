@@ -34,6 +34,8 @@ from .theme import color_of, repaint_native
 RenderCard = Callable[[tk.Misc, Any], tk.Misc]
 # ``key_of(item) -> 可哈希的签名``：用于判断数据是否变化。
 KeyOf = Callable[[Any], Any]
+# ``on_load(shown, total)``：每加载一批卡片后回调，用来显示进度。
+LoadListener = Callable[[int, int], None]
 
 
 class LazyList(tk.Frame):
@@ -72,6 +74,7 @@ class LazyList(tk.Frame):
         gap: tuple[int, int] = (0, 10),
         padx: tuple[int, int] = (0, 8),
         item_height: Optional[int] = None,
+        on_load: Optional[LoadListener] = None,
     ) -> None:
         """建滚动列表；卡片由 ``render_card`` 按需生成。"""
         super().__init__(master, bg=color_of(T.COLOR_BG), highlightthickness=0)
@@ -86,6 +89,8 @@ class LazyList(tk.Frame):
         #: 固定卡片高度（含间距）。给定时开启虚拟滚动：只把视口附近的卡片
         #: 放上布局，滚过去的卡片留在内存里复用，不销毁，回滚时直接放回来。
         self.item_height: Optional[int] = item_height
+        #: 每加载一批卡片后回调 ``on_load(已加载张数, 总张数)``，可用来显示进度。
+        self.on_load: Optional[LoadListener] = on_load
 
         self._items: list[Any] = []
         self._shown: int = 0
@@ -163,6 +168,7 @@ class LazyList(tk.Frame):
         self._signature = signature
         self._items = list(items)
         self._shown = 0
+        self._notify_load()
         self._suppress = True
         self._refresh_colors()
         self._clear_cards()
@@ -300,7 +306,15 @@ class LazyList(tk.Frame):
         self._shown = end
         self._sync_scrollregion()
         self.canvas.configure(yscrollcommand=self._on_scroll)
+        self._notify_load()
         self.after(1, self._refresh_scroll)
+
+    def _notify_load(self) -> None:
+        """把「已加载 / 总数」告诉调用方；虚拟模式按已建卡片数算。"""
+        if self.on_load is None:
+            return
+        shown = len(self._built) if self.item_height is not None else self._shown
+        self.on_load(shown, len(self._items))
 
     def _refresh_scroll(self) -> None:
         """同步滚动条位置，并在空闲后检查要不要补卡。"""
@@ -540,3 +554,4 @@ class LazyList(tk.Frame):
         for index, card in list(self._built.items()):
             if index < start or index >= end:
                 card.place_forget()
+        self._notify_load()

@@ -23,6 +23,7 @@ from ctk_kit import (
     PageBase,
     PageHeader,
     PrimaryButton,
+    Row,
     Scrollable,
     SecondaryButton,
     TextArea,
@@ -148,11 +149,14 @@ class MenuPageUI(PageBase):
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
 
         self.file_buttons = {}
+        buttons = []
         for index, name in enumerate(FILE_NAMES):
             factory = (PrimaryButton, SecondaryButton, DangerButton)[index % 3]
             button = factory(row, name, width=140)
-            button.pack(side="left", padx=(0 if index == 0 else 8, 0))
+            buttons.append(button)
             self.file_buttons[name] = button
+        for button in buttons:
+            button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -171,10 +175,8 @@ class MenuPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-
-        FieldLabel(row, "目标控件", width=72).pack(side="left")
-        self.target = SecondaryButton(row, "点我右键", width=130)
-        self.target.pack(side="left", padx=(4, 0))
+        self.target = SecondaryButton(row.label("目标控件"), "点我右键", width=130)
+        self.target.pack(anchor="w")
 
         HintLabel(
             box,
@@ -192,13 +194,11 @@ class MenuPageUI(PageBase):
         box = Card(area, title="自己控制弹出时机")
         box.pack(fill="x", pady=(12, 0))
 
-        row = box.row(1, fill="x", padx=16, pady=(14, 8))
-
-        self.zone = Frame(row, fg_color=T.COLOR_SOFT, corner_radius=T.RADIUS_MEDIUM)
-        self.zone.pack(fill="x", expand=True)
+        self.zone = Frame(box, fg_color=T.COLOR_SOFT, corner_radius=T.RADIUS_MEDIUM)
+        self.zone.pack(fill="x", padx=16, pady=(14, 8))
         HintLabel(self.zone, ZONE_TEXT).pack(fill="x", padx=16, pady=14)
 
-        row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        row = box.row(1, fill="x", padx=16, pady=(0, 8))
 
         self.manual_button = PrimaryButton(row, "用 ContextMenu 弹出", width=180)
         self.manual_button.pack(side="left")
@@ -224,9 +224,8 @@ class MenuPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        FieldLabel(row, "单行", width=72).pack(side="left")
-        self.menu_entry = FormEntry(row)
-        self.menu_entry.pack(side="left", fill="x", expand=True)
+        self.menu_entry = FormEntry(row.label("单行"))
+        self.menu_entry.pack(fill="x")
         self.menu_entry.insert(0, INPUT_SAMPLE)
 
         self.menu_note = TextArea(box, height=96)
@@ -235,12 +234,12 @@ class MenuPageUI(PageBase):
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
         self.menu_add_btn = SecondaryButton(row, "+ 插入时间戳", None, width=140)
-        self.menu_add_btn.pack(side="left")
         self.menu_rename_btn = SecondaryButton(row, "改名", None, width=84)
-        self.menu_rename_btn.pack(side="left", padx=(8, 0))
         self.menu_remove_btn = SecondaryButton(row, "删除", None, width=84)
-        self.menu_remove_btn.pack(side="left", padx=(8, 0))
         self.menu_reset_btn = SecondaryButton(row, "恢复默认", None, width=110)
+        self.menu_add_btn.pack(side="left")
+        self.menu_rename_btn.pack(side="left", padx=(8, 0))
+        self.menu_remove_btn.pack(side="left", padx=(8, 0))
         self.menu_reset_btn.pack(side="left", padx=(8, 0))
 
         HintLabel(

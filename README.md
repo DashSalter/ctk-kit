@@ -13,17 +13,32 @@
 
 ![ctk-kit 示例窗口](docs/assets/buttons.png)
 
-## 三句话
+## ctk-kit 是什么
 
-- **好看**：不用 ttk 的系统原生控件，按钮、输入、下拉、表格全部自己画，圆角、悬停、
-  禁用态是设计过的，不是系统默认样子。
-- **能撑住规模**：内置的页面体系专为「几十个页面、几千个控件」设计，切页不白屏、
-  换色只重画看得见的部分、关窗不用等。
-- **改一次就全变**：颜色、圆角、间距都来自一套令牌，改一个值全窗生效，不用重启。
+ctk-kit 是建在 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter) 之上的桌面 UI 库。
+它把 Tkinter 里那些「能用但不好看、写起来啰嗦」的部分重新做了一遍：
 
-## 优势
+- 控件不是 `ttk` 的系统原生外观，而是全部自绘，圆角、悬停、禁用态统一设计；
+- 颜色、圆角、间距、字号收进一套设计令牌，改一个值全窗生效；
+- 页面、表格、懒加载列表、日期选择、取色器这些「做工具一定会用到」的东西直接内置；
+- 事件、取值、只读、主题切换都有统一的写法，不用再记 Tk 的 `bind` / `configure` 细节。
 
-### 视觉是同源的，不是拼出来的
+目标很简单：写桌面工具时，不用在「好看」和「好维护」之间二选一。
+
+## 和原生 Tkinter 的区别
+
+| | 原生 Tkinter / ttk | ctk-kit |
+| --- | --- | --- |
+| 界面组件 | 系统原生控件，方角、凹槽、改不动 | 全部重写为自绘控件，圆角 / 悬停 / 禁用态是一套设计 |
+| 外观一致性 | 每个控件单独 `configure`，容易拼出几种风格 | 所有控件从同一份令牌取色、取圆角、取字号 |
+| 主题 | 深浅两套颜色自己拼 | Mica / Frosted / Dark / Acrylic 四种主题，`app.set_theme()` 一行切换 |
+| 功能范围 | 按钮、输入框、表格都要自己组装 | 表格、懒加载列表、日期、取色、图片查看器、对话框、页面导航等开箱即用 |
+| 语法 | `configure` / `cget` / `bind` / `after` | `set_text` / `get` / `on_click` / `set_value` / `readonly`，语义统一 |
+| 多页面 | 自己管 Frame 显示隐藏，切页容易白屏 | `PageBase` + `SidebarNav` 内置分帧构建、预建、换色补画 |
+
+## 特点与优势
+
+### 视觉同源，不是拼出来的
 
 整体是低饱和深色 + 圆角卡片：卡片 10px 圆角、控件 8px、强调色只用在主按钮和选中的
 那一项上。大部分 Tkinter 项目最后都长这样——按钮方角、输入框系统凹槽、弹出面板另一套
@@ -48,10 +63,10 @@
 ### Windows 11 的材质是真用了系统能力
 
 只有四种主题，名字固定：**Mica**（默认，只糊壁纸）、**Frosted**（毛玻璃，透出桌面）、
-**Dark**（纯深色实底）、**Acrylic**（黑色偏蓝的亚克力）。`app.set_theme("Frosted")`
+**Dark**（纯深色实底）、**Acrylic**（黑色偏蓝的亚克力）。`app.set_theme("frosted")`
 一行切换，外观、合成方式、tint、暗化系数一次改好。标题栏可以交还给 DWM，让玻璃真正
-糊上去；窗口圆角、边框色、标题栏图标与文字的显隐都能单独控制，甚至能把右上角的
-最小化、最大化按键单独藏起来。非 Windows 平台自动退化为纯色底，不会崩。
+糊上去；窗口圆角、边框色、标题栏图标与文字的显隐都能单独控制。非 Windows 平台自动
+退化为纯色底，不会崩。
 
 ### 页面体系是内置的
 
@@ -64,7 +79,9 @@
 - 所有取值型控件都支持 `set_value()` / `get_value()`（`set()` / `get()` 是简写）；
 - 所有输入类都支持 `readonly=`，只读时键盘拒、下拉不开、按钮置灰，但程序写入仍然有效，
   需要临时写一次用 `with widget.unlocked():`；
-- 事件回调统一成 `on_click` / `on_change` / `on_key` 这一套，不用记 Tk 的 `bind` 细节。
+- 事件回调统一成 `on_click` / `on_change` / `on_key` 这一套，不用记 Tk 的 `bind` 细节；
+- 布局有 `Card.row()` / `row.label()`，输入框、开关这类控件也能 `bind_config()` 直接
+  绑定配置项，改动即时写回。
 
 ## 能做什么
 
@@ -80,16 +97,13 @@
 | 选择与输入增强 | 日期选择、时间选择、取色器、搜索框、范围滑块 |
 | 窗口本身 | 毛玻璃材质、圆角、边框、标题栏元素与按键显隐、页面切换 |
 
-## 和同类比
+## 示例
 
-| | 原生 Tkinter / ttk | 直接用 CustomTkinter | ctk-kit |
-| --- | --- | --- | --- |
-| 控件外观 | 系统原生，改不动 | 部分自绘 | 全部自绘，同一套令牌 |
-| 换主题 | 逐控件改 | 逐个控件改 | 改令牌，全窗即时生效 |
-| 深色模式 | 两套颜色 | 两套颜色 | 令牌只有一套 |
-| 页面切换 | 白屏 / 重建 | 自己处理 | 分帧 + 预建 + 不冻结 |
-| 窗口质感 | 方角白底 | 纯色 | Mica / 亚克力 / 毛玻璃 |
-| 只读语义 | 要自己拼 | 不统一 | 全输入类统一 `readonly` |
+- 全部控件的实际效果：`python examples/basics/window.py`（18 个页面）；
+- 独立小例子：`examples/demo/`，包括侧边栏导航、配置绑定、主题切换、组件分行布局等；
+- 在线文档里每个组件都有一节「示例」，可以直接复制运行：
+  **<https://dashsalter.github.io/ctk-kit/>**；
+- 文档站首页也放了主要控件的截图。
 
 ## 安装
 
@@ -103,7 +117,10 @@ pip install ctk-kit
 **核心库不含任何持久化代码**：窗口大小、位置、主题要不要记住、记在哪、用什么格式，
 都由你自己的项目决定；把你写好的存储对象传给 `App(state=...)` 即可（接口见文档站的
 `App` 一节）。仓库里的示例用 `conf_base` 演示这件事，需要额外装：
-`pip install ctk-kit[demo]`。
+
+```bash
+pip install ctk-kit[demo]
+```
 
 毛玻璃相关能力依赖 Windows 11 的 DWM，其他平台自动降级。
 
@@ -125,18 +142,9 @@ ctk.PrimaryButton(box, "新建", lambda: app.notify("已保存")).pack(padx=16, 
 app.mainloop()
 ```
 
-看全部控件的实际效果：
+## 文档与仓库
 
-```bash
-python examples/basics/window.py
-```
-
-## 文档
-
-组件清单、构造参数、方法与可运行示例都在文档站：
-
-**<https://dashsalter.github.io/ctk-kit/>**
-
+- 文档站：**<https://dashsalter.github.io/ctk-kit/>**
 - GitHub：<https://github.com/DashSalter/ctk-kit>
 - Gitee：<https://gitee.com/kuangjianke/ctk-kit>
 - PyPI：<https://pypi.org/project/ctk-kit/>

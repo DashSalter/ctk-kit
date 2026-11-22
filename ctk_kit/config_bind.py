@@ -44,10 +44,13 @@ _KINDS = {
     "Radio": "flag",
     "Segmented": "choice",
     "DropField": "choice",
+    "RadioGroup": "choice",
     "Spinner": "number",
     "Slider": "number",
     "DatePicker": "date",
+    "Calendar": "date",
     "TimePicker": "time",
+    "TimeField": "time",
 }
 
 
@@ -99,22 +102,17 @@ def _name(target: Any) -> str:
 
 
 def _kind_of(widget: _Misc) -> str:
-    """判断控件属于哪一类：input / textarea / flag / choice / number。"""
+    """判断控件属于哪一类：input / textarea / flag / choice / number / date / time。"""
     kind = _KINDS.get(type(widget).__name__)
     if kind is not None:
         return kind
     # 兜底：按能力猜，认不出来时当作输入框
-    if hasattr(widget, "_seg_canvas"):
-        return "choice"
     if hasattr(widget, "textbox"):
         return "textarea"
-    if hasattr(widget, "get_value") and hasattr(widget, "set_value"):
-        try:
-            return "flag" if isinstance(widget.get_value(), (bool, str)) else "number"
-        except Exception:  # noqa: BLE001
-            return "flag"
-    if hasattr(widget, "get") and hasattr(widget, "set"):
-        return "input"
+    if hasattr(widget, "_seg_canvas"):
+        return "choice"
+    if hasattr(widget, "toggle"):
+        return "flag"
     return "input"
 
 
@@ -304,15 +302,10 @@ class _Binding:
 
     # ------------------------------------------------------------------ 读写
     def _read(self) -> Any:
-        if self._kind in ("flag", "date", "time"):
-            return self.widget.get_value()
         return self.widget.get()
 
     def _write(self, value: Any) -> None:
-        if self._kind in ("flag", "date", "time"):
-            self.widget.set_value(value)
-        else:
-            self.widget.set(value)
+        self.widget.set(value)
 
     def _push(self) -> None:
         try:

@@ -33,7 +33,7 @@ ctk-kit 是建在 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter
 | 外观一致性 | 每个控件单独 `configure`，容易拼出几种风格 | 所有控件从同一份令牌取色、取圆角、取字号 |
 | 主题 | 深浅两套颜色自己拼 | Mica / Frosted / Dark / Acrylic 四种主题，`app.set_theme()` 一行切换 |
 | 功能范围 | 按钮、输入框、表格都要自己组装 | 表格、懒加载列表、日期、取色、图片查看器、对话框、页面导航等开箱即用 |
-| 语法 | `configure` / `cget` / `bind` / `after` | `set_text` / `get` / `on_click` / `set_value` / `readonly`，语义统一 |
+| 语法 | `configure` / `cget` / `bind` / `after` | `set_text` / `get` / `set` / `on_click` / `readonly`，语义统一 |
 | 多页面 | 自己管 Frame 显示隐藏，切页容易白屏 | `PageBase` + `SidebarNav` 内置分帧构建、预建、换色补画 |
 
 ## 特点与优势
@@ -76,7 +76,7 @@ ctk-kit 是建在 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter
 
 ### 语义统一
 
-- 所有取值型控件都支持 `set_value()` / `get_value()`（`set()` / `get()` 是简写）；
+- 所有取值型控件统一用 `get()` 读、`set(...)` 写；
 - 所有输入类都支持 `readonly=`，只读时键盘拒、下拉不开、按钮置灰，但程序写入仍然有效，
   需要临时写一次用 `with widget.unlocked():`；
 - 事件回调统一成 `on_click` / `on_change` / `on_key` 这一套，不用记 Tk 的 `bind` 细节；

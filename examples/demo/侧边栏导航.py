@@ -25,7 +25,7 @@ def build_entry(page: tk.Misc) -> tk.Misc:
     """输入框页：放一个输入框。"""
     row = ctk.Row(page)
     row.pack(fill="x", padx=8, pady=8)
-    ctk.FormEntry(row, placeholder="输入点什么").pack(
+    ctk.CTkEntry(row, placeholder="输入点什么").pack(
         side="left", fill="x", expand=True
     )
     return row

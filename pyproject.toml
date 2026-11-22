@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "ctk-kit"
-version = "0.12.4"
+version = "0.13.0"
 description = "面向 CustomTkinter 的轻量界面基件：深浅色令牌、常用控件与懒加载列表"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -38,6 +38,8 @@ dependencies = [
     "customtkinter>=5.2",
     # 抗锯齿绘制：勾选/单选指示符、Spinner 箭头、进度条与圆环、ImageViewer
     "pillow>=9",
+    # Chainable 的 Self 类型（3.9 没有 typing.Self）
+    "typing_extensions>=4",
 ]
 
 [project.optional-dependencies]

@@ -20,6 +20,7 @@ from typing import Any, Callable, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .chain import Chainable
 from .choices import Check, Radio
 from .context_menu import attach_edit_menu
 from .fonts import get_font
@@ -52,10 +53,10 @@ RadioCommand = Optional[Callable[[str], None]]
 InsetHook = Optional[Callable[[int], None]]
 
 
-class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
+class CTkEntry(Chainable, Enablable, Bindable, ctk.CTkEntry):
     """默认套用 ctk-kit 输入框样式的 ``CTkEntry``。
 
-    参数与 customtkinter 的 ``CTkEntry`` 完全一致，只是把底色、描边、圆角、
+    参数与 customtkinter 的 ``CTkEntry`` 基本一致，只是把底色、描边、圆角、
     字体和 placeholder 颜色换成 ``tokens`` 里的值，深浅色自动跟随；显式传
     同名参数可以覆盖任意一项。输入框默认带「复制 / 粘贴 / 剪切 / 清空」
     右键菜单，用 ``menu`` 控制。
@@ -66,10 +67,13 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
 
         CTkEntry(frame, menu=False)              # 不要右键菜单
         CTkEntry(frame, menu=[("插入时间戳", stamp)])   # 只用自己的菜单项
+        CTkEntry(frame, password=True)           # 密码框，圆点打码
     """
 
     def __init__(
             self, master: tk.Misc, *, menu: Any = True, readonly: bool = False,
+            password: bool = False, placeholder: Optional[str] = None,
+            width: int = 200, height: int = 38,
             **kwargs: Any
     ) -> None:
         """建带默认样式的输入框；显式参数可覆盖类说明里的默认值。
@@ -80,8 +84,19 @@ class CTkEntry(Enablable, Bindable, ctk.CTkEntry):
                 或 ``None`` 不挂，传 ``(文字, 函数)`` 的序列则**只**用这些
                 自定义项（默认项不再附带）。
             readonly: 初始只读：能选中、复制，不能改内容。
+            password: 为 ``True`` 时用圆点 ``"•"`` 打码。
+            placeholder: 未输入时的灰色占位文字，等价于 ``placeholder_text``；
+                两个都传时以它为准。
+            width: 宽度（像素），默认 200。
+            height: 高度（像素），默认 38。
             **kwargs: 透传给 customtkinter ``CTkEntry`` 的参数。
         """
+        if password:
+            kwargs["show"] = "•"
+        if placeholder is not None:
+            kwargs["placeholder_text"] = placeholder
+        kwargs["width"] = width
+        kwargs["height"] = height
         kwargs.setdefault("fg_color", T.COLOR_INPUT)
         kwargs.setdefault("border_width", 1)
         kwargs.setdefault("border_color", T.COLOR_BORDER_INPUT)
@@ -242,20 +257,24 @@ def FormEntry(
         *,
         show: str = "",
         placeholder: str = "",
+        placeholder_text: Optional[str] = None,
+        width: int = 200,
         height: int = 38,
         password: bool = False,
         menu: Any = True,
 ) -> CTkEntry:
-    """表单里的单行输入。
+    """表单里的单行输入，等价于 :class:`CTkEntry`（保留的兼容别名）。
 
-    ``password=True`` 时用圆点打码。注意 CTkEntry 带了 ``placeholder_text``
-    时，内部 Entry 的 ``show`` 会被占位符机制置空，``cget("show")`` 读到的是
-    空字符串——要判断是否在打码，得自己记住状态，别去读控件。
+    ``password=True`` 时用圆点打码，例如
+    ``FormEntry(row.label("密码"), width=300, placeholder_text="密码", password=True)``。
 
     参数:
         master: 父容器。
         show: 自定义替代字符（例如 ``"*"``），空字符串表示正常显示。
-        placeholder: 未输入时的灰色占位文字。
+        placeholder: 未输入时的灰色占位文字（兼容旧写法）。
+        placeholder_text: 未输入时的灰色占位文字，与 ``placeholder`` 等价；
+            两个都传时以它为准。
+        width: 宽度（像素），默认 200。
         height: 高度（像素），默认 38。
         password: 为 ``True`` 时用圆点 ``"•"`` 打码，优先级高于 ``show``。
         menu: 右键菜单，含义同 :class:`CTkEntry`；``False`` 关掉。
@@ -263,10 +282,13 @@ def FormEntry(
     返回:
         尚未摆位的 ``CTkEntry``。
     """
+    text = placeholder if placeholder_text is None else placeholder_text
     return CTkEntry(
         master,
-        show=("•" if password else show) or "",
-        placeholder_text=placeholder,
+        show=show,
+        password=password,
+        placeholder=text,
+        width=width,
         height=height,
         menu=menu,
     )
@@ -294,7 +316,7 @@ def _segment_slider(width: int, height: int, radius: int, color: str):
     return image.resize((width, height), Image.LANCZOS)
 
 
-class Segmented(Enablable, ctk.CTkFrame):
+class Segmented(Chainable, Enablable, ctk.CTkFrame):
     """统一样式的分段选择：浅一档的容器底，选中块滑到目标段。
 
     容器底用 ``COLOR_SOFT``（次要按钮那一档）：分段控件是「一组按钮」，
@@ -705,7 +727,7 @@ def _switch_picture(checked: bool, hover: bool, progress: Optional[float] = None
     return image, image.copy()
 
 
-class Switch(Enablable, Textual, ctk.CTkFrame):
+class Switch(Chainable, Enablable, Textual, ctk.CTkFrame):
     """设置页的开关：胶囊轨道 + 圆球，Pillow 画的抗锯齿图片。
 
     和 ``Check`` / ``Radio`` 一样不用 canvas 图元：Tk 的 canvas 不做抗锯齿，
@@ -726,7 +748,7 @@ class Switch(Enablable, Textual, ctk.CTkFrame):
         width: 控件总宽（逻辑像素），默认 44；轨道本身固定 36 宽。
         value: 初始是否打开，默认 ``False``（关）。
 
-    读状态用 ``get_value()``，改状态用 ``set_value(True)``；
+    读状态用 ``get()``，改状态用 ``set(True)``；
     ``get()`` / ``select()`` / ``deselect()`` 是 CTkSwitch 的旧名字，
     保留兼容，效果一样。
     """
@@ -906,24 +928,20 @@ class Switch(Enablable, Textual, ctk.CTkFrame):
 
     def select(self) -> None:
         """拨到右边（不触发 ``command``）。"""
-        self.set_value(True)
+        self.set(True)
 
     def deselect(self) -> None:
         """拨回左边（不触发 ``command``）。"""
-        self.set_value(False)
+        self.set(False)
 
-    def set_value(self, value: bool) -> None:
+    def set(self, value: bool) -> None:
         """设置开关状态（不触发 ``command``）。"""
         self._checked = bool(value)
         self._animate_to(1.0 if self._checked else 0.0)
 
-    def get_value(self) -> bool:
+    def get(self) -> bool:
         """当前是否打开。"""
         return self._checked
-
-    def get(self) -> int:
-        """0 / 1；等价于 ``int(get_value())``，保留给 ``CTkSwitch`` 老代码。"""
-        return 1 if self._checked else 0
 
     def destroy(self) -> None:
         """销毁前取消动画帧；页面重建时不留 ``after`` 残留。"""
@@ -1070,7 +1088,7 @@ def _slider_bg(master: tk.Misc) -> str:
     return color_of(T.COLOR_CARD)
 
 
-class Slider(Enablable, ctk.CTkFrame):
+class Slider(Chainable, Enablable, ctk.CTkFrame):
     """滑块：轨道底色淡，已滑过的部分和圆钮是主色。
 
     自绘（Pillow 4 倍超采样再 LANCZOS 缩放），圆钮和轨道两端没有锯齿。
@@ -1337,7 +1355,7 @@ def ProgressBar(
     return bar
 
 
-class Spinner(Valuable, ctk.CTkFrame):
+class Spinner(Chainable, Valuable, ctk.CTkFrame):
     """带上下箭头的步进输入框：可以走数字范围，也可以走一组备选文字。
 
     右侧是 canvas 画的两个小三角（不用字体符号，缩放后不会有马赛克）；

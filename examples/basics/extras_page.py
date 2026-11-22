@@ -24,7 +24,7 @@ from ctk_kit import (
     ColorDialog,
     ColorPicker,
     CTkLabel,
-    FormEntry,
+    CTkEntry,
     Frame,
     HintLabel,
     MenuBar,
@@ -109,11 +109,11 @@ split.pack(fill="x")
 CTkLabel(split.first, text="左侧").pack(expand=True)
 CTkLabel(split.second, text="右侧").pack(expand=True)'''
 
-POPOVER_COLOR_CODE = '''from ctk_kit import ColorDialog, ColorPicker, FormEntry, Popover
+POPOVER_COLOR_CODE = '''from ctk_kit import ColorDialog, ColorPicker, CTkEntry, Popover
 
 
 def build_form(parent):
-    FormEntry(parent, placeholder="关键词").pack(fill="x")
+    CTkEntry(parent, placeholder="关键词").pack(fill="x")
 
 
 popover = Popover(button, content=build_form)   # 点按钮切换
@@ -143,7 +143,7 @@ bar.add_menu("文件", [("新建", new_file), ("打开", open_file), "-",
 def _wizard_name(parent: tk.Misc, _wizard: Wizard) -> None:
     """向导第一步：一个名称输入框。"""
     CTkLabel(parent, text="第一步：给备份任务起个名字。").pack(anchor="w")
-    FormEntry(parent, placeholder="例如：每周备份").pack(fill="x", pady=(8, 0))
+    CTkEntry(parent, placeholder="例如：每周备份").pack(fill="x", pady=(8, 0))
 
 
 def _wizard_confirm(parent: tk.Misc, _wizard: Wizard) -> None:
@@ -722,7 +722,7 @@ class ExtrasPage(ExtrasPageUI):
     def _build_filter_popover(self, parent: tk.Misc) -> None:
         """Popover 的内容：一个输入框 + 应用按钮。"""
         CTkLabel(parent, text="关键词").pack(anchor="w")
-        self.filter_entry = FormEntry(parent, placeholder="输入后点应用")
+        self.filter_entry = CTkEntry(parent, placeholder="输入后点应用")
         self.filter_entry.pack(fill="x", pady=(6, 10))
         PrimaryButton(parent, "应用", command=self._apply_filter).pack(anchor="e")
 

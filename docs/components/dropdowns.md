@@ -6,7 +6,7 @@
 
 四个「点开再选」的控件：普通下拉、多标签选择、树形选择、左右加减的步进器。
 
-> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+> 取值型控件统一用 `get()` 读、`set(...)` 写。
 
 ## DropField
 
@@ -19,10 +19,10 @@
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
-| `values` | `Sequence[str]` | `None` | 静态候选；与 `values_provider` 二选一 |
-| `values_provider` | `Callable[[], Sequence]` | `None` | 返回候选项；每次展开都会重新调用 |
-| `tags` | `Mapping[str, Sequence[str]]` | `None` | 「候选 → 标签列表」字典，标签画在候选行右侧 |
-| `tags_provider` | `Callable[[str], Sequence[str]]` | `None` | 按候选返回标签；`tags` 里查到的优先 |
+| `values` | `Sequence[str]` | `None` | 静态候选，构造时读一次；与 `values_provider` 二选一 |
+| `values_provider` | `Callable[[], Sequence]` | `None` | 返回候选的函数，**每次展开都会重新调用**，拿最新数据；与 `values` 二选一（都传时 `values` 优先） |
+| `tags` | `Mapping[str, Sequence[str]]` | `None` | 静态「候选 → 标签列表」字典，只影响显示 |
+| `tags_provider` | `Callable[[str], Sequence[str]]` | `None` | 按候选实时返回标签；`tags` 里查不到的才调用它 |
 | `placeholder` | `str` | `""` | 占位文字 |
 | `height` | `int` | `36` | 高度 |
 | `command` | `Callable[[Any], None]` | `None` | 选中回调 |
@@ -33,7 +33,7 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `set_value(value)` / `get_value()` | 写 / 读当前值（等价于 `set()` / `get()`） |
+| `set(value)` / `get()` | 写 / 读当前值 |
 | `get_tags(value)` / `get_current_tags()` | 读某个候选 / 当前值的标签列表 |
 | `set_tag(value, tags)` | 单独设置某一行的标签 |
 | `set_tags(mapping)` / `clear_tags()` | 整体替换 / 清空标签 |
@@ -45,15 +45,16 @@
 ### 示例
 
 ```python
+# values_provider 每次展开都会重新调用，这里返回什么，列表就显示什么
 field = DropField(card.body, values_provider=lambda: ["每天", "每周", "每月"])
-field.set_value("每周")
+field.set("每周")
 field.pack(fill="x", padx=16, pady=(0, 12))
 
 field.disable("每月")            # 这一项变灰不可选
-field.set_value("每天")
+field.set("每天")
 ```
 
-候选行右侧也可以带标签：`tags` 是「候选 → 标签列表」的字典，`get()` 仍然只返回值本身。
+候选行右侧也可以带标签：`tags` 是「候选 → 标签列表」的字典，只影响显示，`get()` 仍然只返回值本身。
 
 ```python
 files = DropField(
@@ -90,7 +91,7 @@ files.set_tag("照片.png", ["860 KB", "PNG"])   # 单独补一行的标签
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(list)` | 读 / 写选中的标签（等价于 `get()` / `set()`） |
+| `get()` / `set(list)` | 读 / 写选中的标签（等价于 `get()` / `set()`） |
 | `disable(tag)` / `enable(tag)` | 置灰 / 恢复某一项 |
 | `get_disabled()` / `clear_disabled()` | 读 / 清空被禁用的项 |
 
@@ -103,7 +104,7 @@ tags = TagSelectField(
     values=["前端"],
 )
 tags.pack(fill="x", padx=16, pady=(0, 12))
-print(tags.get_value())        # ['前端']
+print(tags.get())        # ['前端']
 ```
 
 ## TreeSelectField
@@ -126,7 +127,7 @@ print(tags.get_value())        # ['前端']
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(title)` | 读 / 写选中值（等价于 `get()` / `set()`） |
+| `get()` / `set(title)` | 读 / 写选中值（等价于 `get()` / `set()`） |
 | `disable(title)` / `enable(title)` | 置灰 / 恢复某个叶节点 |
 
 ### 示例
@@ -161,7 +162,7 @@ tree.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(value)` | 读 / 写当前值（等价于 `get()` / `set()`） |
+| `get()` / `set(value)` | 读 / 写当前值（等价于 `get()` / `set()`） |
 | `set_range(from_, to)` | 改范围 |
 
 ### 示例

@@ -6,13 +6,13 @@
 
 六个「做选择」的控件：勾选、单选、开关、分段、单值滑块、双值滑块。
 
-> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+> 取值型控件统一用 `get()` 读、`set(...)` 写。
 
 ## Check
 
 ### 作用
 
-勾选框：左边一个方块，勾上出现对勾。`get_value()` 返回 `True` / `False`。
+勾选框：左边一个方块，勾上出现对勾。`get()` 返回 `True` / `False`。
 
 ### 参数
 
@@ -29,8 +29,8 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` | 是否勾上 |
-| `set_value(True/False)` | 勾上 / 取消（不触发回调） |
+| `get()` | 是否勾上 |
+| `set(True/False)` | 勾上 / 取消（不触发回调） |
 | `select()` / `deselect()` | 同上，旧名字 |
 | `set_text(text)` | 改文字 |
 
@@ -39,7 +39,7 @@
 ```python
 agree = Check(card.body, "记住密码", command=lambda: print("切换"))
 agree.pack(anchor="w", padx=16, pady=(0, 12))
-print(agree.get_value())
+print(agree.get())
 ```
 
 ## Radio
@@ -63,8 +63,8 @@ print(agree.get_value())
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` | 组里当前选中的值 |
-| `set_value(value)` | 选中值为 `value` 的那一项 |
+| `get()` | 组里当前选中的值 |
+| `set(value)` | 选中值为 `value` 的那一项 |
 | `select()` | 选中自己 |
 | `set_text(text)` | 改文字 |
 
@@ -75,7 +75,7 @@ for text, value in [("小", "s"), ("中", "m"), ("大", "l")]:
     Radio(row, text, value=value, group="size").pack(side="left", padx=(0, 12))
 
 # 任意一个都能读整组的值
-print(row.winfo_children()[0].get_value())    # 's' / 'm' / 'l'
+print(row.winfo_children()[0].get())    # 's' / 'm' / 'l'
 ```
 
 ## RadioGroup
@@ -99,8 +99,8 @@ print(row.winfo_children()[0].get_value())    # 's' / 'm' / 'l'
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` | 当前选中的值 |
-| `set_value(value)` | 程序设置选中项（不触发 `on_change`） |
+| `get()` | 当前选中的值 |
+| `set(value)` | 程序设置选中项（不触发 `on_change`） |
 | `on_change` | 用户切换时的回调属性，构造后也可以再赋值 |
 | `bind_config(target)` | 绑定 conf_base 配置项，双向同步 |
 
@@ -123,7 +123,7 @@ RadioGroup(
 
 ### 作用
 
-开关：拨到右边表示开，`get_value()` 返回 `True` / `False`。
+开关：拨到右边表示开，`get()` 返回 `True` / `False`。
 
 ### 参数
 
@@ -138,7 +138,7 @@ RadioGroup(
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(bool)` | 读 / 写状态（等价于 `get()` / `set()`） |
+| `get()` / `set(bool)` | 读 / 写状态（等价于 `get()` / `set()`） |
 
 ### 示例
 
@@ -166,14 +166,14 @@ dark.pack(anchor="w", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(value)` | 读 / 写选中项（等价于 `get()` / `set()`）；初始值用 `set_value()` 指定 |
+| `get()` / `set(value)` | 读 / 写选中项（等价于 `get()` / `set()`）；初始值用 `set()` 指定 |
 | `set_values(values)` | 换各段文字 |
 
 ### 示例
 
 ```python
 seg = Segmented(card.body, values=["列表", "网格"])
-seg.set_value("列表")
+seg.set("列表")
 seg.pack(anchor="w", padx=16, pady=(0, 12))
 ```
 
@@ -196,14 +196,14 @@ seg.pack(anchor="w", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(value)` | 读 / 写当前值（等价于 `get()` / `set()`）；初始值用 `set_value()` 指定 |
+| `get()` / `set(value)` | 读 / 写当前值（等价于 `get()` / `set()`）；初始值用 `set()` 指定 |
 
 ### 示例
 
 ```python
 volume = Slider(card.body, from_=0, to=100,
                 command=lambda v: print(int(v)))
-volume.set_value(60)
+volume.set(60)
 volume.pack(fill="x", padx=16, pady=(0, 12))
 ```
 
@@ -211,7 +211,7 @@ volume.pack(fill="x", padx=16, pady=(0, 12))
 
 ### 作用
 
-双值滑块：两个手柄框出一个区间，`get_value()` 返回 `(下限, 上限)`。
+双值滑块：两个手柄框出一个区间，`get()` 返回 `(下限, 上限)`。
 
 ### 参数
 
@@ -227,7 +227,7 @@ volume.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value((low, high))` | 读 / 写区间（等价于 `get()` / `set()`） |
+| `get()` / `set((low, high))` | 读 / 写区间（等价于 `get()` / `set()`） |
 
 ### 示例
 

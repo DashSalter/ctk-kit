@@ -18,7 +18,7 @@ from ctk_kit import (
     ChildWindow,
     CodePanel,
     FieldLabel,
-    FormEntry,
+    CTkEntry,
     HintLabel,
     PageBase,
     PageHeader,
@@ -67,7 +67,7 @@ choice = Dialog(
 
 CHILD_WINDOW_CODE = '''from ctk_kit import (
     ChildWindow,
-    FormEntry,
+    CTkEntry,
     PrimaryButton,
     Row,
     SecondaryButton,
@@ -77,7 +77,7 @@ win = ChildWindow(app, title="编辑资料", width=420, height=320)
 
 row = Row(win)
 row.pack(fill="x", padx=16, pady=(16, 14))
-FormEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
+CTkEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
 
 row = Row(win)
 row.pack(fill="x", padx=16, pady=(0, 16))
@@ -365,7 +365,7 @@ class DialogPage(DialogPageUI):
 
         row = Row(win)
         row.pack(fill="x", padx=16, pady=(16, 14))
-        entry = FormEntry(row.label("昵称"), placeholder="输入昵称")
+        entry = CTkEntry(row.label("昵称"), placeholder="输入昵称")
         entry.pack(fill="x")
 
         row = Row(win)
@@ -380,7 +380,7 @@ class DialogPage(DialogPageUI):
 
         win.show()
 
-    def _save_child(self, win: ChildWindow, entry: FormEntry) -> None:
+    def _save_child(self, win: ChildWindow, entry: CTkEntry) -> None:
         """子窗口保存：回显输入内容并关窗。"""
         self._show(f"子窗口：{entry.get() or '（空）'}")
         win.close()

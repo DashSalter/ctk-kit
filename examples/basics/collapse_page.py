@@ -17,7 +17,7 @@ from ctk_kit import (
     Checkbox,
     Collapsible,
     DangerButton,
-    FormEntry,
+    CTkEntry,
     HintLabel,
     Label,
     PageBase,
@@ -43,14 +43,14 @@ panel.pack(fill="x")
 # body 是普通容器，按钮 / 标签 / 输入框都能放
 PrimaryButton(panel.body, "保存", on_save).pack(padx=10, pady=10)'''
 
-MIXED_CODE = '''from ctk_kit import Checkbox, Collapsible, FormEntry, Row, Switch
+MIXED_CODE = '''from ctk_kit import Checkbox, Collapsible, CTkEntry, Row, Switch
 
 panel = Collapsible(card, collapsed_text="显示完整表单", expanded_text="收起表单")
 panel.pack(fill="x")
 
 row = Row(panel.body)
 row.pack(fill="x", padx=10, pady=(10, 4))
-FormEntry(row.label("项目名称"), placeholder="输入一个名字").pack(fill="x")
+CTkEntry(row.label("项目名称"), placeholder="输入一个名字").pack(fill="x")
 
 row = Row(panel.body)
 row.pack(fill="x", padx=10, pady=4)
@@ -200,7 +200,7 @@ class CollapsePageUI(PageBase):
 
         row = Row(self.mixed.body)
         row.pack(fill="x", padx=10, pady=(10, 4))
-        self.name = FormEntry(row.label("项目名称"), placeholder="输入一个名字")
+        self.name = CTkEntry(row.label("项目名称"), placeholder="输入一个名字")
         self.name.pack(fill="x")
 
         row = Row(self.mixed.body)

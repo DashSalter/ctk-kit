@@ -13,7 +13,7 @@ from ctk_kit import (
     Check,
     ColorPicker,
     FieldLabel,
-    FormEntry,
+    CTkEntry,
     HintLabel,
     PageBase,
     PageHeader,
@@ -88,7 +88,7 @@ class ThemePageUI(PageBase):
         first = box.row(1, fill="x", padx=16, pady=(14, 8))
         self.preview_button = PrimaryButton(first, "主按钮", width=100)
         self.preview_secondary = SecondaryButton(first, "次按钮", width=100)
-        self.preview_entry = FormEntry(first, placeholder="输入框")
+        self.preview_entry = CTkEntry(first, placeholder="输入框")
         self.preview_entry.configure(width=140)
         self.preview_button.pack(side="left")
         self.preview_secondary.pack(side="left", padx=(10, 0))

@@ -26,6 +26,7 @@ from typing import Any, Callable, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .chain import Chainable
 from .context_menu import attach_edit_menu
 from .fonts import get_font
 from .layout import style_scrollbar
@@ -36,7 +37,7 @@ from .sugar import Enablable
 ChangeHandler = Optional[Callable[[str], None]]
 
 
-class TextArea(Enablable, ctk.CTkFrame):
+class TextArea(Chainable, Enablable, ctk.CTkFrame):
     """多行文本输入区，附带占位符、字数统计与只读模式。"""
 
     def __init__(

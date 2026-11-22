@@ -21,7 +21,7 @@ from ctk_kit import (
     DropField,
     DropZone,
     FieldLabel,
-    FormEntry,
+    CTkEntry,
     Frame,
     HintLabel,
     PageBase,
@@ -40,7 +40,7 @@ from ctk_kit import (
 #: 代码块字体：等宽，比正文大一点，展开后不用凑近看。
 CODE_FONT = ("Consolas", 15)
 
-#: 表单输入的示例行：(标签, FormEntry 参数)
+#: 表单输入的示例行：(标签, CTkEntry 参数)
 ENTRY_ROWS = [
     ("普通文本", {"placeholder": "不带 placeholder 时也能直接输入"}),
     ("密码", {"placeholder": "输入后按圆点显示", "password": True}),
@@ -53,33 +53,33 @@ ENTRY_ROWS = [
 SAMPLE_LOG = "22:00  已连接\n22:01  同步 12 条记录\n22:02  完成，用时 1.4s"
 
 
-FORM_CODE = '''from ctk_kit import FormEntry
+FORM_CODE = '''from ctk_kit import CTkEntry
 
 # 每行一个 box.row()，编号从 1 递增；row.label() 返回标签右侧的容器
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-name = FormEntry(row.label("普通文本"), placeholder="请输入名称")
+name = CTkEntry(row.label("普通文本"), placeholder="请输入名称")
 name.pack(fill="x")
 
 row = card.row(2, fill="x", padx=16, pady=(0, 8))
-pwd = FormEntry(row.label("密码"), password=True)   # 内部 Entry 用 • 打码
+pwd = CTkEntry(row.label("密码"), password=True)   # 内部 Entry 用 • 打码
 pwd.pack(fill="x")
 
 row = card.row(3, fill="x", padx=16, pady=(0, 8))
-compact = FormEntry(row.label("高 28"), height=28)  # 紧凑行
+compact = CTkEntry(row.label("高 28"), height=28)  # 紧凑行
 compact.pack(fill="x")
 
 row = card.row(4, fill="x", padx=16, pady=(0, 14))
-loose = FormEntry(row.label("高 48"), height=48)    # 宽松行
+loose = CTkEntry(row.label("高 48"), height=48)    # 宽松行
 loose.pack(fill="x")
 
 # 控件必须建在 row.label() 返回的容器里，再 pack 进去
 # 同一张卡里 row.label() 默认 width 一致，标签列自动对齐
 # pack() 返回的仍是输入框本身，get() / set() / bind 都照常'''
 
-COMBO_CODE = '''from ctk_kit import DropField, FormEntry
+COMBO_CODE = '''from ctk_kit import DropField, CTkEntry
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-keyword = FormEntry(row.label("关键词"), placeholder="输入关键词")
+keyword = CTkEntry(row.label("关键词"), placeholder="输入关键词")
 keyword.pack(fill="x")
 
 row = card.row(2, fill="x", padx=16, pady=(0, 14))
@@ -88,7 +88,7 @@ kind.pack(fill="x")
 
 # 想并排成一行：放进同一个 Row，逐个 pack(side="left")
 row = card.row(3, fill="x", padx=16, pady=(0, 14))
-entry = FormEntry(row.label("关键词", width=56), placeholder="输入关键词")
+entry = CTkEntry(row.label("关键词", width=56), placeholder="输入关键词")
 entry.pack(side="left", fill="x", expand=True)
 drop = DropField(
     row.label("类型", width=44), values=["全部", "账号", "密码"]
@@ -153,16 +153,16 @@ note.clear()
 # 只读日志：readonly=True 禁止编辑、仍可选中复制
 TextArea(frame, readonly=True, show_counter=False, bg_color="transparent")'''
 
-MENU_CODE = '''from ctk_kit import CTkEntry, FormEntry, attach_edit_menu
+MENU_CODE = '''from ctk_kit import CTkEntry, attach_edit_menu
 
 # 默认就带：复制 / 粘贴 / 剪切 / 清空
-entry = FormEntry(row, placeholder="右键试试")
+entry = CTkEntry(row, placeholder="右键试试")
 
 # 没选中时剪切、复制自动置灰；剪贴板空时粘贴置灰；框空时清空置灰
 
-FormEntry(row, menu=False)                # 关掉右键菜单
+CTkEntry(row, menu=False)                # 关掉右键菜单
 
-FormEntry(row, menu=[("插入时间戳", stamp)])   # 只用自己的项
+CTkEntry(row, menu=[("插入时间戳", stamp)])   # 只用自己的项
 
 # 保留默认四项，再追加自己的
 menu = attach_edit_menu(entry)
@@ -245,7 +245,7 @@ class InputsPageUI(PageBase):
             row = box.row(
                 index, fill="x", padx=16, pady=(14 if index == 1 else 0, 0)
             )
-            entry = FormEntry(row.label(text), **kwargs)
+            entry = CTkEntry(row.label(text), **kwargs)
             entry.pack(fill="x")
             self.entries.append((text, entry))
 
@@ -267,7 +267,7 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.combo_keyword = FormEntry(row.label("关键词"), placeholder="输入关键词")
+        self.combo_keyword = CTkEntry(row.label("关键词"), placeholder="输入关键词")
         self.combo_keyword.pack(fill="x")
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
@@ -366,12 +366,12 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.menu_entry = FormEntry(row.label("默认"))
+        self.menu_entry = CTkEntry(row.label("默认"))
         self.menu_entry.pack(fill="x")
         self.menu_entry.insert(0, MENU_SAMPLE)
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        self.custom_entry = FormEntry(row.label("自定义"))
+        self.custom_entry = CTkEntry(row.label("自定义"))
         self.custom_entry.pack(fill="x")
         self.custom_entry.insert(0, "右键：默认四项 + 插入时间戳")
         # UI 类先挂上默认四项，再补一项自己的；菜单对象可以反复拿
@@ -380,7 +380,7 @@ class InputsPageUI(PageBase):
         menu.add_command("插入时间戳", self._insert_stamp)
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        self.plain_entry = FormEntry(row.label("关闭"), menu=False)
+        self.plain_entry = CTkEntry(row.label("关闭"), menu=False)
         self.plain_entry.pack(fill="x")
         self.plain_entry.insert(0, "menu=False，右键没有菜单")
 
@@ -435,7 +435,7 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.dropped = FormEntry(
+        self.dropped = CTkEntry(
             row.label("结果"), placeholder="拖进来的文件或文件夹路径会出现在这里"
         )
         self.dropped.pack(fill="x")

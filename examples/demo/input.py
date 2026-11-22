@@ -8,10 +8,10 @@ card.pack(fill="x", padx=24, pady=(24, 12))
 row = card.row(1, fill="x", padx=16, pady=(12, 16))
 
 # 普通输入框：placeholder 是没输入时显示的灰色提示
-name = ctk.FormEntry(row, placeholder="请输入名称")
+name = ctk.CTkEntry(row, placeholder="请输入名称")
 
 # 密码框：内容显示成圆点
-pwd = ctk.FormEntry(row, password=True)
+pwd = ctk.CTkEntry(row, password=True)
 
 name.pack(side="left")
 pwd.pack(side="left", padx=(10, 0))

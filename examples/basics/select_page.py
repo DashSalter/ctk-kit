@@ -372,7 +372,7 @@ class SelectPage(SelectPageUI):
     def _on_add_tag(self) -> None:
         """给「照片.png」补一行标签，演示 set_tag。"""
         self.tagged.set_tag("照片.png", ["860 KB", "PNG"])
-        self.tagged_button.configure(state="disabled")
+        self.tagged_button.disable()
         self._show("已给 照片.png 补上标签，重新展开就能看到")
 
     def _on_tags(self, values: list) -> None:

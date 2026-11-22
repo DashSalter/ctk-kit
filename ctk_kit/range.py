@@ -135,11 +135,6 @@ class RangeSlider(Enablable, ctk.CTkFrame):
         if notify and self._command is not None:
             self._command(self._low, self._high)
 
-    def set_value(self, value: Tuple[float, float]) -> None:
-        """设置区间，等价于 ``set(low, high)``——传 ``(下限, 上限)``。"""
-        low, high = value
-        self.set(low, high)
-
     def configure(self, **kwargs: Any) -> None:
         """``command=`` 换回调，其余交给 ``CTkFrame``。"""
         if "command" in kwargs:

@@ -54,7 +54,7 @@
 
 ### 语义统一，不用记特例
 
-- 所有取值型控件都支持 `set_value()` / `get_value()`（`set()` / `get()` 是简写）；
+- 所有取值型控件统一用 `get()` 读、`set(...)` 写；
 - 所有输入类都支持 `readonly=`，只读时键盘拒、下拉不开、按钮置灰，但程序写入仍然有效，
   需要临时写一次用 `with widget.unlocked():`；
 - 事件回调统一成 `on_click` / `on_change` / `on_key` 这一套，不用记 Tk 的 `bind` 细节。

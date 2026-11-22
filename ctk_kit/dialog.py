@@ -43,7 +43,7 @@ from . import tokens as T
 from .branding import dim_image, set_window_icon
 from .fonts import get_font
 from .core.glass import backdrop_image, excluding_from_capture, gradient_image
-from .inputs import FormEntry
+from .inputs import CTkEntry
 from .paint import cached
 from .popup import round_window_corners, scaled_geometry
 from .core.win32 import (
@@ -314,7 +314,7 @@ class Dialog(ctk.CTkToplevel):
         self._result: Any = None
         self._buttons: list = list(buttons) if buttons else [("确定", True)]
         self._prompt = prompt
-        self._entry: Optional[FormEntry] = None
+        self._entry: Optional[CTkEntry] = None
         self._entry_item: Optional[int] = None
         self._canvas_buttons: list[_CanvasButton] = []
         self._images: list[ImageTk.PhotoImage] = []
@@ -450,7 +450,7 @@ class Dialog(ctk.CTkToplevel):
 
         if self._prompt is not None:
             entry_h = int(round(36 * s))
-            self._entry = FormEntry(canvas, placeholder="", height=36)
+            self._entry = CTkEntry(canvas, placeholder="", height=36)
             self._entry.configure(width=max(40, int(round(wrap / s))))
             self._entry_item = canvas.create_window(
                 pad, cursor, anchor="nw", window=self._entry, width=wrap, height=entry_h
@@ -566,7 +566,7 @@ class Dialog(ctk.CTkToplevel):
                 text_color=T.COLOR_MUTED,
             ).pack(fill="x", pady=(6, 0))
         if self._prompt is not None:
-            self._entry = FormEntry(inner, placeholder=self._prompt)
+            self._entry = CTkEntry(inner, placeholder=self._prompt)
             self._entry.pack(fill="x", pady=(12, 0))
             self._entry._entry.bind("<Return>", lambda _e: self._submit_prompt())
 
@@ -1085,12 +1085,12 @@ class ChildWindow(ctk.CTkToplevel):
     和 :class:`Dialog` 的区别：Dialog 的标题 / 正文 / 按钮是排好的，这里只给
     一个空窗口，按钮、文本、输入框都直接 ``pack`` 到窗口上::
 
-        from ctk_kit import ChildWindow, FormEntry, PrimaryButton, Row
+        from ctk_kit import ChildWindow, CTkEntry, PrimaryButton, Row
 
         win = ChildWindow(app, title="编辑资料", width=420, height=320)
         row = Row(win)
         row.pack(fill="x", padx=16, pady=(16, 0))
-        FormEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
+        CTkEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
         PrimaryButton(win, "保存", command=win.close).pack(anchor="e", padx=16, pady=(0, 16))
         win.show()
 

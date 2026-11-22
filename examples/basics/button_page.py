@@ -63,10 +63,10 @@ DangerButton(frame, "危险 38 高", on_click, height=38)
 # 只给 height：宽度沿用默认值（主 120、次 76）
 # SecondaryButton 的高度超过 30 时，圆角自动从 8 加到 9'''
 
-DISABLED_CODE = '''button = PrimaryButton(frame, "已禁用", None)
-button.configure(state="disabled")
+DISABLED_CODE = '''PrimaryButton(frame, "已禁用").disable()
 # 也可以是 SecondaryButton / DangerButton / FlatButton
-# state="disabled" 保留原来的配色，只降低不透明度，不会变成灰块'''
+# disable() 保留原来的配色，只降低不透明度，不会变成灰块
+# 恢复用 .enable()'''
 
 OUTLINE_CODE = '''from ctk_kit import OutlineButton
 
@@ -240,7 +240,7 @@ class ButtonPageUI(PageBase):
         )
 
     def _build_disabled(self, area: tk.Misc) -> None:
-        """禁用态：只改 state，保留原配色。"""
+        """禁用态：调 disable()，保留原配色。"""
         box = Card(area, title="禁用态")
         box.pack(fill="x", pady=(12, 0))
 
@@ -253,20 +253,20 @@ class ButtonPageUI(PageBase):
             (DangerButton, "危险按钮"),
         ):
             button = factory(row, text)
-            button.configure(state="disabled")
+            button.disable()
             disabled.append(button)
         for button in disabled:
             button.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
-            "state='disabled' 后仍保持原来的配色，只降低不透明度。",
+            "disable() 后仍保持原来的配色，只降低不透明度。",
         ).pack(fill="x", padx=16, pady=(0, 14))
 
         CodePanel(
             box,
             DISABLED_CODE,
-            "禁用只改 state，不用换一套配色；恢复用 state=\"normal\"。",
+            "禁用只调 disable()，恢复用 enable()，不用碰 state。",
         )
 
 

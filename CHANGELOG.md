@@ -3,6 +3,33 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.13.0 — 2026-11-22
+
+- 链式布局集中到 `ctk_kit/chain.py` 的 `Chainable`：所有带交互的组件统一继承，
+  `pack()` / `grid()` / `place()` 都返回控件自身
+- 新增依赖 `typing_extensions>=4`（`Chainable` 返回的 `Self` 类型，兼容 3.9）
+
+- 新增 `BarChart` 柱状图：单系列、逐柱配色、自动整齐刻度与网格、柱顶数值，
+  鼠标悬停高亮柱子并弹出类别 + 数值气泡；颜色和字体跟随主题令牌；`set()`
+  换数据只重画不重建控件。示例见 `examples/demo/柱状图.py`
+- 新增 `LineChart` 折线图：多系列、平滑曲线、半透明面积、数据点圆点、图例，
+  悬停显示对齐竖线和各系列数值气泡；纵轴按数据自动取范围，颜色和字体跟随
+  主题令牌。示例见 `examples/demo/折线图.py`
+- 新增 `ScatterChart` 散点图：横纵轴都是数值、多组散点、悬停显示坐标。
+  示例见 `examples/demo/散点图.py`
+- 新增 `PieChart` 饼图 / 环形图：扇区悬停高亮、右侧图例带百分比、`donut`
+  控制内孔。示例见 `examples/demo/饼图.py`
+- 新增 `RadarChart` 雷达图：多维度多系列、悬停查看某一维度上各系列数值。
+  示例见 `examples/demo/雷达图.py`
+- 图表图例圆点改用 Pillow 超采样绘制，边缘更干净；雷达图各系列填充改为
+  逐层合成，重叠区域能透出下层颜色
+- 删除 `get_value()` / `set_value()`：所有取值型控件统一用 `get()` 读、`set(...)` 写
+  - `Check` / `Switch` 的 `get()` 直接返回 `bool`（不再返回 0/1）
+  - `Radio` / `RadioGroup` 用 `get()` / `set(value)`
+  - `RangeSlider` 用 `set(low, high)`（不再有 `set_value((low, high))`）
+  - `Steps` / `Wizard` 用 `set(step)`
+  - `bind_config()` 的读写与控件识别同步改用 `get()` / `set()`
+
 ## 0.12.4 — 2026-11-14
 
 - `pack()` / `grid()` / `place()` 现在返回控件本身：`kind = DropField(...).pack(fill="x")`

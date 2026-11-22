@@ -13,7 +13,7 @@ import tkinter as tk
 from ctk_kit import (
     Card,
     DangerButton,
-    FormEntry,
+    CTkEntry,
     HintLabel,
     PageBase,
     PageHeader,
@@ -214,7 +214,7 @@ class NotifyPageUI(PageBase):
         self.save_button.pack(side="left", padx=(8, 0))
         self.delay_button.pack(side="left", padx=(8, 0))
 
-        self.tip_entry = FormEntry(row, placeholder="输入几个字，再悬停")
+        self.tip_entry = CTkEntry(row, placeholder="输入几个字，再悬停")
         self.tip_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         self.edge_button = SoftButton(row, "靠右边缘")

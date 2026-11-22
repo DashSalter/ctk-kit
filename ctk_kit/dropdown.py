@@ -18,6 +18,7 @@ from typing import Callable, Mapping, Optional, Sequence
 import customtkinter as ctk
 
 from . import tokens as T
+from .chain import Chainable
 from .core.glass import backdrop_image
 from .popup import round_window_corners, set_glass_geometry
 from .fonts import get_font
@@ -113,12 +114,19 @@ class _PopupList(tk.Frame):
         return "break"
 
 
-class DropField(Enablable, Textual, ctk.CTkFrame):
+class DropField(Chainable, Enablable, Textual, ctk.CTkFrame):
     """输入框 + 下拉箭头，整体是一块填充式圆角框，外圈 1px 描边。
 
     用法与输入框接近：``get()`` / ``set(value)``；选中候选后会回调
-    ``command(value)``。候选由 ``values_provider()`` 提供，每次展开都会重新
-    调用，所以数据源可以在外部随意变化。
+    ``command(value)``。
+
+    候选来源二选一：
+
+    - ``values``：静态列表，构造时读一次；
+    - ``values_provider``：函数，**每次展开下拉都会重新调用**，拿到的永远是
+      调用那一刻的最新数据（文件列表、搜索结果、数据库查询都可以放这里）。
+
+    右侧标签同理：``tags`` 是静态字典，``tags_provider`` 按候选项实时取。
     """
 
     def __init__(
@@ -131,6 +139,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
         tags_provider: Optional[Callable[[str], Sequence[str]]] = None,
         command: Optional[Callable[[str], None]] = None,
         placeholder: str = "",
+        width: int = 200,
         height: int = 36,
         disabled: Optional[Sequence[str]] = None,
         glass: bool = True,
@@ -140,14 +149,17 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
 
         参数:
             master: 父容器。
-            values: 静态候选列表；与 ``values_provider`` 二选一。
-            values_provider: 返回候选列表的函数，每次展开下拉都会调用一次；
-                数据源会变时用这个。
-            tags: 「候选 → 标签列表」的字典，标签画在候选行右侧。
-            tags_provider: 返回某个候选项标签列表的函数，按候选取；与 ``tags``
-                二选一，两个都给时 ``tags`` 里查到的优先。
+            values: 静态候选列表，构造时读一次；与 ``values_provider`` 二选一。
+            values_provider: 返回候选列表的函数，**每次展开下拉都会重新调用
+                一次**，用来拿最新数据（文件列表、搜索结果、数据库查询）；
+                与 ``values`` 二选一，两个都给时 ``values`` 优先。
+            tags: 静态「候选 → 标签列表」字典，标签画在候选行右侧，只影响显示；
+                与 ``tags_provider`` 二选一。
+            tags_provider: 按候选项实时返回标签列表的函数；``tags`` 里查不到的
+                候选才会调用它。
             command: 选中候选后的回调，参数是被选中的字符串。
             placeholder: 输入框为空时的灰色占位文字。
+            width: 整体宽度（像素），默认 200；``pack(fill="x")`` 时会被拉伸。
             height: 整体高度（像素），默认 36。
             disabled: 一开始就置灰的候选项；之后可以用 ``disable()`` 等方法改。
             glass: 面板边缘铺一层背后的模糊图，默认开；截图失败退回纯色。
@@ -165,6 +177,7 @@ class DropField(Enablable, Textual, ctk.CTkFrame):
             # 圆角调小一档：CTk 的圆角是多边形画的，125% 缩放下大半径的右侧
             # 会露出明显的像素阶梯，小半径时肉眼基本看不出来。
             corner_radius=6,
+            width=width,
             height=height,
         )
         self.pack_propagate(False)

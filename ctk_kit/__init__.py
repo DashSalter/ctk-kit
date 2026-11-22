@@ -5,7 +5,7 @@
 - ``tokens``  设计令牌：颜色（深浅两套）、字体、圆角、间距
 - ``theme``   取色与外观切换工具，以及原生 tk 控件的重绘
 - ``pages``   多页面窗口的页面管理：按需重建，切外观不卡
-- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``dialog`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page`` / ``tabs`` / ``calendar`` / ``range`` / ``search`` / ``steps`` / ``avatar`` / ``breadcrumb`` / ``placeholder`` / ``splitter`` / ``popover`` / ``color`` / ``statusbar`` / ``timeline`` / ``carousel`` / ``accordion`` / ``treeview`` / ``menubar``
+- 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``dialog`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page`` / ``tabs`` / ``calendar`` / ``range`` / ``search`` / ``steps`` / ``avatar`` / ``breadcrumb`` / ``placeholder`` / ``splitter`` / ``popover`` / ``color`` / ``statusbar`` / ``timeline`` / ``carousel`` / ``accordion`` / ``treeview`` / ``menubar`` / ``charts``
 - 原生接口    CustomTkinter 的 ``CTk`` / ``CTkImage`` 等原样转出，
               ``App`` 是 ``CTk`` 的便捷子类（标题、尺寸、外观都能直接传参）；
               ``CTkEntry`` / ``CTkButton`` 默认套用库的样式，``Frame`` 默认透明底
@@ -39,7 +39,7 @@ from typing import Any
 
 #: 改这里时记得同步 ``pyproject.toml`` 的 ``version``（打包以那份为准，
 #: 这行只给 ``ctk_kit.__version__`` 用）。
-__version__ = "0.12.4"
+__version__ = "0.13.0"
 
 # 核心模块（win32 / glass / frost_layer）发布时是编译好的 .pyd，源码不在仓库里。
 # 装错平台或 Python 版本时，import 那一层会报得很晚、很难懂，这里提前说清楚。
@@ -107,6 +107,7 @@ from .badge import Badge, Tag
 from .breadcrumb import Breadcrumb
 from .calendar import Calendar, DatePicker
 from .timepicker import TimeField, TimePicker
+from .charts import BarChart, LineChart, PieChart, RadarChart, ScatterChart
 from .carousel import Carousel
 from .branding import ICON_PATH, LOGO_PATH, load_logo, set_window_icon
 from .buttons import (
@@ -201,6 +202,7 @@ __all__ = [
     "App",
     "Avatar",
     "Badge",
+    "BarChart",
     "Breadcrumb",
     "CTk",
     "CTkBaseClass",
@@ -257,6 +259,7 @@ __all__ = [
     "LOGO_PATH",
     "Label",
     "LazyList",
+    "LineChart",
     "LoadingOverlay",
     "MenuBar",
     "Notifier",
@@ -266,13 +269,16 @@ __all__ = [
     "PageRebuilder",
     "Pagination",
     "PathField",
+    "PieChart",
     "Popover",
     "PrimaryButton",
     "ProgressBar",
     "Progress",
+    "RadarChart",
     "RangeSlider",
     "RingProgress",
     "Row",
+    "ScatterChart",
     "Scrollable",
     "SearchBox",
     "SecondaryButton",

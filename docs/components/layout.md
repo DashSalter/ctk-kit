@@ -64,13 +64,13 @@ panel.pack(fill="x", padx=24, pady=(0, 12))
 
 | 名称 | 说明 |
 | --- | --- |
-| `label(text, *, width=72, gap=8)` | 在行首放一个标签，返回标签右侧的容器；控件建在这个容器里并 `pack` |
+| `label(text, *, width=72, gap=8, height=None, pady=None)` | 在行首放一个标签，返回标签右侧的容器；控件建在这个容器里并 `pack`。`height` 固定容器高度（不是控件高度），`pady` 给标签和内容一起加上下留白 |
 
 ### 示例
 
 ```python
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-entry = FormEntry(row.label("昵称"), placeholder="输入昵称")
+entry = CTkEntry(row.label("昵称"), placeholder="输入昵称")
 entry.pack(fill="x")
 
 row = card.row(2)

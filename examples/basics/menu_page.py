@@ -17,7 +17,7 @@ from ctk_kit import (
     ContextMenu,
     DangerButton,
     FieldLabel,
-    FormEntry,
+    CTkEntry,
     Frame,
     HintLabel,
     PageBase,
@@ -85,10 +85,10 @@ menu.show(event.x_root, event.y_root, source=event.widget)
 # 容器加上 deep=True：右键落在里面的子控件上也能弹
 attach_menu(zone, [("复制提示文字", on_copy)], deep=True)'''
 
-INPUT_CODE = '''from ctk_kit import FormEntry, TextArea, attach_edit_menu
+INPUT_CODE = '''from ctk_kit import CTkEntry, TextArea, attach_edit_menu
 
 # 不用做任何事：复制 / 粘贴 / 剪切 / 清空 已经在
-entry = FormEntry(row, placeholder="右键试试")
+entry = CTkEntry(row, placeholder="右键试试")
 
 # 增：拿到菜单对象接着加
 menu = attach_edit_menu(entry)
@@ -224,7 +224,7 @@ class MenuPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.menu_entry = FormEntry(row.label("单行"))
+        self.menu_entry = CTkEntry(row.label("单行"))
         self.menu_entry.pack(fill="x")
         self.menu_entry.insert(0, INPUT_SAMPLE)
 

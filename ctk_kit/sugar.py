@@ -98,26 +98,11 @@ def _is_option(name: str) -> bool:
 
 
 class Valuable:
-    """把 ``get()`` / ``set()`` 统一成 ``get_value()`` / ``set_value()``。
+    """值的统一接口标记：子类用 ``get()`` 读、``set(value)`` 写。
 
     值可以是任何东西：开关是 ``True`` / ``False``、单选是选项文字、
     范围滑块是 ``(下限, 上限)``、日期控件是 ``date`` / ``time`` 对象。
-    没有 ``get()`` 或 ``set()`` 的控件会直接报 ``AttributeError``。
     """
-
-    def get_value(self) -> Any:
-        """读当前值，等价于 ``get()``。"""
-        getter = getattr(self, "get", None)
-        if not callable(getter):
-            raise AttributeError(f"{type(self).__name__!r} 没有 get()")
-        return getter()
-
-    def set_value(self, value: Any) -> None:
-        """设当前值，等价于 ``set(value)``。"""
-        setter = getattr(self, "set", None)
-        if not callable(setter):
-            raise AttributeError(f"{type(self).__name__!r} 没有 set()")
-        return setter(value)
 
 
 class Options(Valuable):
@@ -127,8 +112,7 @@ class Options(Valuable):
     ``AttributeError``——例如 ``getattr(widget, "apply_theme", None)``
     仍然是 ``None``，不会把探测逻辑带偏。
 
-    ``get_value()`` / ``set_value()`` 是真正的办法（不走选项名），
-    见 :class:`Valuable`。
+    读值用 ``get()``、写值用 ``set(value)``（不走 ``set_xxx`` 选项名）。
     """
 
     def __getattr__(self, name: str) -> Any:

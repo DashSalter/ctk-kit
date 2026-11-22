@@ -18,7 +18,7 @@ from . import tokens as T
 from .buttons import SecondaryButton
 from .fonts import get_font
 from .sugar import Valuable
-from .inputs import FormEntry
+from .inputs import CTkEntry
 
 try:  # pragma: no cover - 取决于有没有装可选依赖
     from tkinterdnd2 import DND_FILES, TkinterDnD
@@ -148,7 +148,7 @@ class PathField(Valuable, ctk.CTkFrame):
         self._on_change = on_change
         self._readonly = bool(readonly)
 
-        self.entry = FormEntry(self, placeholder=placeholder, height=height)
+        self.entry = CTkEntry(self, placeholder=placeholder, height=height)
         self.entry.pack(side="left", fill="x", expand=True)
         self.button = SecondaryButton(self, button_text, self.browse, width=64, height=height)
         self.button.pack(side="left", padx=(8, 0))

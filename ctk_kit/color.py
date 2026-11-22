@@ -34,7 +34,7 @@ from .buttons import PrimaryButton, SecondaryButton
 from .context_menu import attach_menu
 from .core.win32 import enable_acrylic
 from .fonts import get_font
-from .inputs import FormEntry, Segmented
+from .inputs import CTkEntry, Segmented
 from .sugar import Enablable
 from .theme import is_win11, set_titlebar_dark
 
@@ -453,7 +453,7 @@ class ColorDialog(ctk.CTkToplevel):
         )
         self._preview.pack(side="left")
         self._preview.pack_propagate(False)
-        self._hex = FormEntry(preview_row, height=32)
+        self._hex = CTkEntry(preview_row, height=32)
         self._hex.configure(width=118, font=get_font(T.FONT_TINY))
         self._hex.pack(side="left", padx=(8, 0), fill="x", expand=True)
 
@@ -491,7 +491,7 @@ class ColorDialog(ctk.CTkToplevel):
                 text_color=T.COLOR_MUTED,
             )
             label.pack(side="left", padx=(0, 8))
-            entry = FormEntry(row, height=30)
+            entry = CTkEntry(row, height=30)
             entry.configure(width=100, font=get_font(T.FONT_TINY))
             entry.pack(side="left", fill="x", expand=True)
             self._num_entries.append(entry)

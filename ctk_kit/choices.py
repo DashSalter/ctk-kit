@@ -15,6 +15,7 @@ from typing import Any, Callable, Dict, List, Optional, Sequence, Tuple
 import customtkinter as ctk
 
 from . import tokens as T
+from .chain import Chainable
 from .fonts import get_font
 from .paint import blend_hex, cached
 from .sugar import Enablable, Textual
@@ -171,7 +172,7 @@ def _round_image_at(
     return Image.alpha_composite(image, layer).resize((size, size), Image.LANCZOS)
 
 
-class _Mark(Enablable, Textual, ctk.CTkFrame):
+class _Mark(Chainable, Enablable, Textual, ctk.CTkFrame):
     """勾选/单选共用的底座：左边一个指示符，右边一行字。"""
 
     _shape = "round"
@@ -452,11 +453,7 @@ class Check(_Mark):
         value: bool = False,
         font: Any = None,
     ) -> None:
-        """建勾选框；``value=True`` 时初始就是勾上的。
-
-        ``get()`` 返回 0/1，和 ``CTkCheckBox`` 一致；新代码用 ``get_value()``
-        读 bool。
-        """
+        """建勾选框；``value=True`` 时初始就是勾上的；``get()`` 返回 bool。"""
         self._variable = variable or tk.IntVar(value=1 if value else 0)
         super().__init__(
             master,
@@ -479,26 +476,22 @@ class Check(_Mark):
         finally:
             self._silent = False
 
-    def get(self) -> int:
-        """0 / 1；等价于 ``int(get_value())``，保留给 ``CTkCheckBox`` 老代码。"""
-        return 1 if self._is_checked() else 0
-
-    def get_value(self) -> bool:
+    def get(self) -> bool:
         """当前是否勾上。"""
         return self._is_checked()
 
-    def set_value(self, value: bool) -> None:
+    def set(self, value: bool) -> None:
         """勾上 / 取消勾选（不触发 ``command``）。"""
         self._set_checked(bool(value))
         self._animate_to(1.0 if value else 0.0)
 
     def select(self) -> None:
-        """勾上（``set_value(True)`` 的旧名字）。"""
-        self.set_value(True)
+        """勾上（``set(True)`` 的旧名字）。"""
+        self.set(True)
 
     def deselect(self) -> None:
-        """取消勾选（``set_value(False)`` 的旧名字）。"""
-        self.set_value(False)
+        """取消勾选（``set(False)`` 的旧名字）。"""
+        self.set(False)
 
     def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
         """绑定 conf_base 配置项：每次勾选即写，配置变化即回填。
@@ -529,7 +522,7 @@ class Radio(_Mark):
     Radio(box, "大", value="l", group="size")
     ```
 
-    三个都传 ``group="size"`` 就自动互斥，选中值用任意一个的 ``get_value()``
+    三个都传 ``group="size"`` 就自动互斥，选中值用任意一个的 ``get()``
     读即可。想自己管变量时仍然可以传 ``variable=``。
     """
 
@@ -634,11 +627,11 @@ class Radio(_Mark):
 
         unbind_config(self)
 
-    def get_value(self) -> str:
+    def get(self) -> str:
         """当前选中的值（同组共用的那个变量）。"""
         return self._variable.get()
 
-    def set_value(self, value: str) -> None:
+    def set(self, value: str) -> None:
         """选中值为 ``value`` 的那一项；同组里值匹配的会自动亮起。"""
         self._variable.set(str(value))
 
@@ -657,7 +650,7 @@ class RadioGroup(ctk.CTkFrame):
     ```
 
     比逐个 ``Radio(group=...)`` 省事：不用遍历成员绑 ``command``，读值只读
-    一次，改值也只调一次 ``set_value()``。
+    一次，改值也只调一次 ``set()``。
     """
 
     def __init__(
@@ -693,18 +686,18 @@ class RadioGroup(ctk.CTkFrame):
             )
             radio.pack(side="left", padx=(0, gap))
             self._radios.append(radio)
-        self._radios[0].set_value(self._value)
+        self._radios[0].set(self._value)
 
     def _on_pick(self) -> None:
         """点击某一项后把新值记下来，值变了才回调。"""
-        value = self._radios[0].get_value()
+        value = self._radios[0].get()
         if value == self._value:
             return
         self._value = value
         if self._on_change is not None:
             self._on_change(value)
 
-    def get_value(self) -> str:
+    def get(self) -> str:
         """当前选中的值。"""
         return self._value
 
@@ -717,12 +710,12 @@ class RadioGroup(ctk.CTkFrame):
     def on_change(self, callback: Optional[Callable[[str], None]]) -> None:
         self._on_change = callback
 
-    def set_value(self, value: str) -> None:
+    def set(self, value: str) -> None:
         """按值选中对应项（不触发 ``on_change``）。"""
         if value not in self._choices:
             raise ValueError(f"value 必须是选项之一，收到 {value!r}")
         self._value = value
-        self._radios[0].set_value(value)
+        self._radios[0].set(value)
 
     def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
         """绑定 conf_base 配置项：选中变化即写，配置变化即回填。"""

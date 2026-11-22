@@ -16,6 +16,7 @@ from typing import Any, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .chain import Chainable
 from .fonts import get_font
 from .styles import style_of
 from .sugar import Bindable, Textual
@@ -91,7 +92,7 @@ _UNCHANGED = _Unchanged()
 _AUTO_HIDE_MS = 120
 
 
-class Row(ctk.CTkFrame):
+class Row(Chainable, ctk.CTkFrame):
     """卡片里的一行；``label()`` 加一段字段名并返回右侧内容容器。
 
     ```python
@@ -105,17 +106,37 @@ class Row(ctk.CTkFrame):
         kwargs.setdefault("corner_radius", 0)
         super().__init__(master, **kwargs)
 
-    def label(self, text: str, *, width: int = 72, gap: int = 8) -> ctk.CTkFrame:
+    def label(
+        self,
+        text: str,
+        *,
+        width: int = 72,
+        gap: int = 8,
+        height: Optional[int] = None,
+        pady: Any = None,
+    ) -> ctk.CTkFrame:
         """在行首加字段名，返回右侧内容容器，控件建在它上面。
 
         参数:
             text: 标签文字。
             width: 标签宽度（逻辑像素），同一张卡里传一样的值就能对齐。
             gap: 标签和内容之间的间距。
+            height: 内容区高度（逻辑像素）。不传就由放进来的控件决定；
+                传了以后内容区固定这个高度，控件在内部垂直居中。它是容器高度，
+                不是里面控件的高度。
+            pady: 这一行内容上下的留白，可以是数字或 ``(上, 下)``；标签和
+                内容一起偏移，用来控制行与行之间的疏密。
         """
-        FieldLabel(self, text, width=width).pack(side="left", anchor="nw")
+        field = FieldLabel(self, text, width=width)
+        if height is not None:
+            field.configure(height=height)
+        field_pady = {} if pady is None else {"pady": pady}
+        field.pack(side="left", anchor="nw", **field_pady)
         holder = ctk.CTkFrame(self, fg_color="transparent")
-        holder.pack(side="left", fill="x", expand=True, padx=(gap, 0))
+        if height is not None:
+            holder.configure(height=height)
+            holder.pack_propagate(False)
+        holder.pack(side="left", fill="x", expand=True, padx=(gap, 0), **field_pady)
         return holder
 
 
@@ -128,7 +149,7 @@ class Card(ctk.CTkFrame):
     卡片内部::
 
         box = Card(page, title="复杂页面")
-        FormEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+        CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
 
         panel = Card(page, inside_title="账号信息")
 
@@ -244,14 +265,14 @@ class Card(ctk.CTkFrame):
         ipadx: Any = _UNCHANGED,
         ipady: Any = _UNCHANGED,
         **options: Any,
-    ) -> Any:
+    ) -> Row:
         """取「第 ``index`` 行」的横向容器，没有就建一个。
 
         同一个编号反复调用拿到的是同一个 Row；标签用 ``row.label("文字")``
         拿到标签右侧的容器，控件建在里面再 ``pack``::
 
             row = card.row(1)
-            FormEntry(row.label("用户名"), placeholder="用户名").pack(fill="x")
+            CTkEntry(row.label("用户名"), placeholder="用户名").pack(fill="x")
             PrimaryButton(row, "保存").pack(side="right")
 
         参数:

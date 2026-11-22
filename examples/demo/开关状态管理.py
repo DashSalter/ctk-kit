@@ -8,9 +8,9 @@ card.pack(fill="x", padx=24, pady=(24, 12))
 row = card.row(1, fill="x", padx=16, pady=(12, 16))
 
 
-# command 不带参数，当前状态用 get_value() 读
+# command 不带参数，当前状态用 get() 读
 def on_toggle():
-    print("启用调试：", debug.get_value())
+    print("启用调试：", debug.get())
 
 
 # 带文字的开关：value=True 表示创建时就是打开的
@@ -23,8 +23,8 @@ debug.pack(side="left")
 compact.pack(side="left", padx=(12, 0))
 
 # 代码里设置、读取
-compact.set_value(True)
-print("紧凑开关：", "开" if compact.get_value() else "关")
+compact.set(True)
+print("紧凑开关：", "开" if compact.get() else "关")
 
 # 改文字；禁用后点不动
 debug.set_text("调试模式")

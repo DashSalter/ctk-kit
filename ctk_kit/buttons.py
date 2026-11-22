@@ -18,6 +18,7 @@ from typing import Any, Callable, Dict, Optional
 import customtkinter as ctk
 
 from . import tokens as T
+from .chain import Chainable
 from .fonts import get_font
 from .sugar import Bindable, Enablable, Textual
 from .theme import ColorToken
@@ -71,7 +72,7 @@ class _ButtonBase(Enablable, Textual, Bindable):
         return self
 
 
-class CTkButton(_ButtonBase, ctk.CTkButton):
+class CTkButton(Chainable, _ButtonBase, ctk.CTkButton):
     """带库默认样式的按钮。
 
     直接 ``from ctk_kit import CTkButton`` 建出来的按钮就已经是库的风格：
@@ -110,7 +111,7 @@ def PrimaryButton(
     height: int = 38,
     radius: int = T.RADIUS_SMALL + 1,
     font: T.FontSpec = T.FONT_BODY,
-) -> ctk.CTkButton:
+) -> "CTkButton":
     """强调色主按钮（保存 / 搜索 / 立即备份）。
 
     参数:
@@ -148,7 +149,7 @@ def SecondaryButton(
     height: int = 30,
     font: T.FontSpec = T.FONT_SMALL,
     border: bool = False,
-) -> ctk.CTkButton:
+) -> "CTkButton":
     """浅底次要按钮。
 
     ``border=True`` 时加一圈细边，适合「取消 / 清除」这类不该抢视线的动作。
@@ -189,7 +190,7 @@ def DangerButton(
     width: int = 76,
     height: int = 30,
     font: T.FontSpec = T.FONT_SMALL,
-) -> ctk.CTkButton:
+) -> "CTkButton":
     """危险动作（删除 / 清空全部）：淡红底 + 红字，比纯红按钮安静。
 
     参数:
@@ -237,7 +238,7 @@ def OutlineButton(
     height: int = 30,
     font: T.FontSpec = T.FONT_SMALL,
     radius: int = T.RADIUS_SMALL,
-) -> ctk.CTkButton:
+) -> "CTkButton":
     """描边按钮：空心底 + 1px 描边，文字默认用正文色。
 
     适合放在次要位置，又需要比纯文字按钮更明确的边界时；``tone`` 换
@@ -316,7 +317,7 @@ def OutlineButton(
     return button
 
 
-class FlatButton(_ButtonBase, ctk.CTkButton):
+class FlatButton(Chainable, _ButtonBase, ctk.CTkButton):
     """卡片里的小号圆角按钮（复制 / 显示 / 详情）。
 
     宽度按文字实测宽度算出来，既不浪费横向空间，也不会把文字挤掉。

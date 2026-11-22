@@ -6,7 +6,7 @@
 
 选路径和收拖放：一个「输入框 + 浏览按钮」，一个「把文件拖进来」。
 
-> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+> 取值型控件统一用 `get()` 读、`set(...)` 写。
 
 ## PathField
 
@@ -30,7 +30,7 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(path)` | 读 / 写路径（`set_value` 会触发 `on_change`；等价于 `get()` / `set()`） |
+| `get()` / `set(path)` | 读 / 写路径（`set()` 会触发 `on_change`） |
 | `clear()` | 清空 |
 | `browse()` | 弹选择框，返回选中的路径，取消返回 `""` |
 | `set_readonly(flag)` | 只读开关 |
@@ -42,7 +42,7 @@ path = PathField(card.body, mode="folder", placeholder="选择一个目录",
                  on_change=lambda p: print("现在指向", p))
 path.pack(fill="x", padx=16, pady=(0, 12))
 
-print(path.get_value())
+print(path.get())
 ```
 
 ## DropZone

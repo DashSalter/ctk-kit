@@ -201,7 +201,7 @@ class Steps(Valuable, ctk.CTkFrame):
         if notify and self._command is not None:
             self._command(step)
 
-    def set_value(self, step: int) -> None:
+    def set(self, step: int) -> None:
         """跳到第 ``step`` 步，等价于 ``set_current(step)``。"""
         self.set_current(step)
 
@@ -328,7 +328,7 @@ class Wizard(Valuable, ctk.CTkFrame):
         self._bar.set_current(step)
         self._render()
 
-    def set_value(self, step: int) -> None:
+    def set(self, step: int) -> None:
         """跳到第 ``step`` 步，等价于 ``go_to(step)``。"""
         self.go_to(step)
 

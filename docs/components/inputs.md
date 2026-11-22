@@ -6,7 +6,7 @@
 
 四个收文字的地方：单行输入、数字步进、带搜索回调的输入框、多行文本。
 
-> 取值型控件同时支持 `set_value(...)` / `get_value()` 与简写 `set(...)` / `get()`，两者完全等价；下文统一用 `set_value` / `get_value`。
+> 取值型控件统一用 `get()` 读、`set(...)` 写。
 
 ## CTkEntry
 
@@ -21,6 +21,8 @@
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
 | `placeholder_text` | `str` | `""` | 占位文字 |
+| `placeholder` | `str` | `None` | 占位文字别名，等价于 `placeholder_text` |
+| `password` | `bool` | `False` | 密码框，用圆点打码 |
 | `width` / `height` | `int` | `200` / `38` | 尺寸 |
 | `menu` | `bool` | `True` | 是否挂右键菜单 |
 | `readonly` | `bool` | `False` | 只读 |
@@ -31,7 +33,7 @@
 
 | 方法 | 说明 |
 | --- | --- |
-| `set_value(text)` / `get_value()` | 写 / 读内容（等价于 `set()` / `get()`） |
+| `set(text)` / `get()` | 写 / 读内容（等价于 `set()` / `get()`） |
 | `append(text)` | 追加到末尾 |
 | `clear()` | 清空 |
 | `set_readonly(flag)` | 只读开关 |
@@ -43,10 +45,13 @@
 ```python
 entry = CTkEntry(card.body, placeholder_text="输入名称")
 entry.pack(fill="x", padx=16, pady=(0, 12))
-entry.bind("<Return>", lambda _e: print(entry.get_value()))
+entry.bind("<Return>", lambda _e: print(entry.get()))
 
-entry.set_value("初始值")
+entry.set("初始值")
 entry.set_readonly(True)          # 用户改不了，但程序还能写
+
+pwd = CTkEntry(card.body, password=True, placeholder="密码")
+pwd.pack(fill="x", padx=16, pady=(0, 12))
 
 with entry.unlocked():            # 需要程序写入时临时解锁，退出自动锁回
     entry.insert("end", "追加")
@@ -83,7 +88,7 @@ with entry.unlocked():            # 需要程序写入时临时解锁，退出�
 | --- | --- |
 | `get()` | 中间的输入内容，不含固定部分 |
 | `set(text)` | 写入输入内容 |
-| `get_value()` | 同 `get()` |
+| `get()` | 同 `get()` |
 | `get_text()` | 同 `get()` |
 | `get_full_value()` | 前缀 + 输入 + 后缀 的完整字符串 |
 | `set_full_value(value)` | 按完整值写入，自动去掉匹配的前后缀 |
@@ -127,7 +132,7 @@ mail.set_full_value("123456@qq.com")   # 自动剥掉后缀，输入框里是 12
 
 | 方法 | 说明 |
 | --- | --- |
-| `get_value()` / `set_value(value)` | 读 / 写当前值（等价于 `get()` / `set()`） |
+| `get()` / `set(value)` | 读 / 写当前值（等价于 `get()` / `set()`） |
 | `set_range(from_, to)` | 改范围 |
 | `set_readonly(flag)` | 只读开关 |
 
@@ -160,7 +165,7 @@ count.pack(padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `set_value(text)` / `get_value()` | 写 / 读文字（等价于 `set()` / `get()`） |
+| `set(text)` / `get()` | 写 / 读文字（等价于 `set()` / `get()`） |
 | `clear()` | 清空并触发一次回调 |
 | `search()` | 立刻触发回调，不等防抖 |
 | `focus()` | 让输入框获得焦点 |
@@ -194,7 +199,7 @@ box.pack(fill="x", padx=16, pady=(0, 12))
 
 | 方法 | 说明 |
 | --- | --- |
-| `set_value(text)` / `get_value()` | 写 / 读内容（等价于 `set()` / `get()`） |
+| `set(text)` / `get()` | 写 / 读内容（等价于 `set()` / `get()`） |
 | `clear()` | 清空 |
 | `set_readonly(flag)` | 只读开关 |
 
@@ -203,5 +208,5 @@ box.pack(fill="x", padx=16, pady=(0, 12))
 ```python
 area = TextArea(card.body, placeholder="写点什么…", height=120, show_counter=True)
 area.pack(fill="x", padx=16, pady=(0, 12))
-area.set_value("第一行\n第二行")
+area.set("第一行\n第二行")
 ```

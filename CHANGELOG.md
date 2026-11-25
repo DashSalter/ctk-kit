@@ -3,6 +3,18 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.15.0 — 2026-11-25
+
+- `Table` 支持行选中：新增 `command` 点击回调、`get_selected()` / `select()` /
+  `clear_selection()` / `row_at()`，选中行用主色网点高亮；分页时下标始终是
+  **全量数据**下标
+- `Table` 拖动列边界改宽时，优先挤压右侧列：最右列先到最小宽度（60），
+  再依次向左挤压；向左拖动时多余空间回到最右列
+- 新增 `CrudTable`：在 `Table` 上内置右键增删改、自动表单和删除确认，
+  数据就是一个 list，增删改直接作用在它上面
+- 新增 `examples/demo/表格.py`：右键任意一行向上/向下添加、编辑、删除，
+  取消不写入，保存后才插入
+
 ## 0.14.0 — 2026-11-25
 
 - 新增示例：`examples/music_player` 本地音乐播放器（miniaudio + mutagen +

@@ -28,7 +28,7 @@ import math
 import tkinter as tk
 from collections.abc import Mapping
 from tkinter import font as tkfont
-from typing import Any, Optional, Sequence, Tuple
+from typing import Any, Callable, Optional, Sequence, Tuple
 
 import customtkinter as ctk
 
@@ -43,6 +43,7 @@ from .theme import color_of
 Column = Tuple[str, Optional[int], str]
 
 _CELL_PAD = 12  # 单元格左右内边距（逻辑像素）
+_MIN_COL_WIDTH = 60  # 被挤压时每列保留的最小宽度（逻辑像素）
 _SCROLLBAR_GAP = 4  # 滚动条与内容区之间的间距（逻辑像素）
 
 
@@ -113,6 +114,8 @@ class Table(ctk.CTkFrame):
         empty_text: 没有数据时内容区居中显示的提示。
         page_size: 每页行数；大于 0 时底部出现分页条，表格只画当前页，
             默认 0（不分页，滚轮滚动全部数据）。
+        command: 点击某一行时回调，参数是该行在**全量数据**里的下标（从 0
+            开始）；配合 :meth:`get_selected` / :meth:`select` 做增删改。
 
     返回:
         尚未摆位的 ``Table``；用 :meth:`set_rows` 填数据。
@@ -129,6 +132,7 @@ class Table(ctk.CTkFrame):
         striped: bool = True,
         empty_text: str = "暂无数据",
         page_size: int = 0,
+        command: Optional[Callable[[int], None]] = None,
     ) -> None:
         """建表头与内容区；列宽、行高、最多可见行数在这里定下来。"""
         super().__init__(
@@ -152,6 +156,8 @@ class Table(ctk.CTkFrame):
         self._page_size = max(0, int(page_size))
         self._page = 1
         self._pager: Optional[Pagination] = None
+        self._command = command
+        self._selected: Optional[int] = None
 
         self.grid_rowconfigure(1, weight=1)
         self.grid_columnconfigure(0, weight=1)
@@ -191,8 +197,8 @@ class Table(ctk.CTkFrame):
 
         self._drag_index: Optional[int] = None
         self._drag_start = 0
-        self._drag_width = 0.0
-        self._drag_rest = 0.0
+        self._drag_base: list[float] = []
+        self._drag_cols: list[tuple] = []
         self._hover_index: Optional[int] = None
         self._hover_edge: Optional[int] = None
         self._redraw_job: Optional[str] = None
@@ -206,6 +212,7 @@ class Table(ctk.CTkFrame):
         self._header_canvas.bind("<Leave>", self._on_header_leave)
 
         self._canvas.bind("<Configure>", self._schedule_redraw)
+        self._canvas.bind("<Button-1>", self._on_click, add="+")
         self._header_canvas.bind("<Configure>", self._schedule_redraw)
         for canvas in (self._canvas, self._header_canvas):
             canvas.bind("<MouseWheel>", self._on_wheel)
@@ -243,6 +250,8 @@ class Table(ctk.CTkFrame):
                 ``str()`` 转成文本。
         """
         self._all_rows = [self._row_cells(row) for row in rows]
+        if self._selected is not None and self._selected >= len(self._all_rows):
+            self._selected = None
         self._page = 1
         self._sync_page()
         self._sync_pager()
@@ -258,6 +267,55 @@ class Table(ctk.CTkFrame):
     def rows(self) -> list[list[str]]:
         """全部数据的浅拷贝（分页时也是全量，不是当前页）。"""
         return [list(row) for row in self._all_rows]
+
+    def get_selected(self) -> Optional[int]:
+        """当前选中行的下标（全量数据，从 0 开始）；没选中返回 ``None``。"""
+        return self._selected
+
+    def select(self, index: Optional[int]) -> None:
+        """选中一行；传 ``None`` 取消选中。
+
+        分页时选中项不在当前页会自动翻到对应页。
+        """
+        if index is None or not (0 <= index < len(self._all_rows)):
+            index = None
+        if index != self._selected:
+            self._selected = index
+            if index is not None and self._page_size > 0:
+                page = index // self._page_size + 1
+                if page != self._page:
+                    self._page = page
+                    self._sync_page()
+                    if self._pager is not None:
+                        self._pager.set_page(page)
+        self._redraw()
+
+    def clear_selection(self) -> None:
+        """取消选中当前行。"""
+        self.select(None)
+
+    def row_at(self, y: int) -> Optional[int]:
+        """把内容区画布上的 y 坐标换成行下标；落在空白处返回 ``None``。
+
+        分页时返回的仍是**全量数据**下标，挂右键菜单时用它定位行。
+        """
+        if not self._rows:
+            return None
+        local = int(self._canvas.canvasy(y) // self._px(self._row_height))
+        if not 0 <= local < len(self._rows):
+            return None
+        offset = (self._page - 1) * self._page_size if self._page_size > 0 else 0
+        return offset + local
+
+    def _on_click(self, event: Any) -> None:
+        """点击内容区：把画布坐标换成行下标，选中并通知 ``command``。"""
+        index = self.row_at(event.y)
+        if index is None:
+            return
+        self._selected = index
+        self._redraw()
+        if self._command is not None:
+            self._command(index)
 
     def set_page(self, page: int) -> None:
         """跳到指定页；不分页时什么也不做。
@@ -311,6 +369,11 @@ class Table(ctk.CTkFrame):
             IndexError: 下标越界。
         """
         self._all_rows.pop(index)
+        if self._selected is not None:
+            if index == self._selected:
+                self._selected = None
+            elif index < self._selected:
+                self._selected -= 1
         self._page = min(self._page, self.pages)
         self._sync_page()
         self._sync_pager()
@@ -466,14 +529,10 @@ class Table(ctk.CTkFrame):
             return None
         self._drag_index = index
         self._drag_start = event.x
-        self._drag_width = self._widths[index]
-        # 最后一列默认吸收表头剩余宽度；拖它时要把这部分刨掉，
-        # 否则写回的宽度会连同剩余一起算，下一帧再吸收一次就膨胀了。
-        self._drag_rest = 0.0
-        if index == len(self._columns) - 1:
-            logical = self._columns[index][1]
-            if logical is not None:
-                self._drag_rest = max(0.0, self._drag_width - self._px(logical))
+        # 拖动的每一帧都从按下时的宽度重算，避免误差累积；右侧各列从同一份
+        # 快照里扣减，往回拖才能原样还回去。
+        self._drag_base = list(self._widths)
+        self._drag_cols = list(self._columns)
         self._hover_edge = index
         self._hover_index = self._column_at(event.x)
         self._draw_header()
@@ -481,28 +540,73 @@ class Table(ctk.CTkFrame):
         return "break"
 
     def _on_header_drag(self, event: tk.Event) -> Optional[str]:
-        """拖动时只改当前列的宽度，其他列不跟着动。"""
-        if self._drag_index is None:
+        """拖动列边界：变宽时从最右列开始挤压，挤到最小宽度再挤左边一列。"""
+        if self._drag_index is None or not self._drag_base:
             return None
+        index = self._drag_index
+        base = self._drag_base
         delta = event.x - self._drag_start
-        width = max(self._px(40), self._drag_width + delta)
-        # 拖到表头右边缘就停：给其他列留够空间，别把当前列的数据挤出去
-        full = self._header_canvas.winfo_width()
-        pad = self._px(_CELL_PAD)
-        others = sum(self._widths) - self._widths[self._drag_index]
-        max_width = full - pad * 2 * len(self._widths) - others
-        if max_width > 0:
-            width = min(width, max_width)
-        title, _width, anchor = self._columns[self._drag_index]
         scale = self._apply_widget_scaling(1.0)
-        logical = max(1.0, (width - self._drag_rest) / scale)
-        self._columns[self._drag_index] = (title, logical, anchor)
+        pad = self._px(_CELL_PAD)
+        column_count = len(base)
+        min_col = self._px(_MIN_COL_WIDTH)
+
+        # 先把右侧各列恢复成按下时的样子；没有可挤压空间的列不参与。
+        for column in range(index + 1, column_count):
+            self._columns[column] = self._drag_cols[column]
+
+        full = self._header_canvas.winfo_width()
+        available = max(1.0, full - pad * 2 * column_count)
+        free = max(0.0, available - sum(base))
+        capacity = free + sum(
+            max(0.0, base[column] - min_col)
+            for column in range(index + 1, column_count)
+        )
+
+        width = max(self._px(40), base[index] + delta)
+        if index < column_count - 1:
+            width = min(width, base[index] + capacity)
+        diff = width - base[index]
+
+        if diff > 0:
+            # 先吃掉表头原有的留白，再从最右列往左挤，每列不小于最小宽度。
+            need = max(0.0, diff - free)
+            for column in range(column_count - 1, index, -1):
+                if need <= 0:
+                    break
+                if self._drag_cols[column][1] is None:
+                    # 自动列不写死宽度：少掉的空间由 _resolve_widths 吸收。
+                    need -= min(need, max(0.0, base[column] - min_col))
+                    continue
+                take = min(need, max(0.0, base[column] - min_col))
+                title, _old, anchor = self._drag_cols[column]
+                self._columns[column] = (
+                    title,
+                    max(1.0, (base[column] - take) / scale),
+                    anchor,
+                )
+                need -= take
+        elif diff < 0 and free <= 0 and index < column_count - 1:
+            # 变窄：多出来的空间给最右列，往回拖时能被重新挤回去。
+            column = column_count - 1
+            if self._drag_cols[column][1] is not None:
+                title, _old, anchor = self._drag_cols[column]
+                self._columns[column] = (
+                    title,
+                    (base[column] - diff) / scale,
+                    anchor,
+                )
+
+        title, _old, anchor = self._drag_cols[index]
+        self._columns[index] = (title, max(1.0, width / scale), anchor)
         self._redraw()
         return "break"
 
     def _on_header_release(self, _event: tk.Event) -> None:
         """松手结束拖动。"""
         self._drag_index = None
+        self._drag_base = []
+        self._drag_cols = []
         self._header_canvas.configure(cursor="")
         self._redraw()
 
@@ -682,11 +786,19 @@ class Table(ctk.CTkFrame):
 
         stripe = color_of(T.COLOR_HOVER_FAINT)
         body_color = color_of(T.COLOR_CARD)
+        offset = (self._page - 1) * self._page_size if self._page_size > 0 else 0
+        selected_local = self._selected - offset if self._selected is not None else None
         for row_index, row in enumerate(self._rows):
             top = row_index * row_h
             if self._striped and row_index % 2 == 1:
                 canvas.create_rectangle(
                     0, top, full, top + row_h, fill=stripe, outline=""
+                )
+            if row_index == selected_local:
+                # 选中行用主色的半透明网点，压在斑马纹上也能看清，又不遮文字
+                canvas.create_rectangle(
+                    0, top, full, top + row_h,
+                    fill=color_of(T.COLOR_ACCENT), outline="", stipple="gray25",
                 )
             x = 0.0
             for column_index, column in enumerate(self._columns):

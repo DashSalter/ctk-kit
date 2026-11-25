@@ -1,4 +1,4 @@
 miniaudio>=1.61
 mutagen>=1.47
 conf_base>=0.5
-ctk-kit>=0.14.0
+ctk-kit>=0.15.0

@@ -4,13 +4,14 @@
 
 ## 作用
 
-展示「多条数据」的四个控件：表格、树、懒加载列表、页码条。
+展示「多条数据」的控件：表格、可增删改表格、树、懒加载列表、页码条。
 
 ## Table
 
 ### 作用
 
 带表头的表格，隔行淡底；超过 `max_visible_rows` 后滚动，也可以分页。
+拖列边界可以改宽：变宽时从最右列开始挤压，挤到最小宽度（60）后继续挤左一列。
 
 ### 参数
 
@@ -22,6 +23,7 @@
 | `max_visible_rows` | `int` | `8` | 最多显示几行 |
 | `page_size` | `int` | `0` | 每页行数，大于 0 时出现分页条 |
 | `empty_text` | `str` | `"暂无数据"` | 空数据提示 |
+| `command` | `Callable[[int], None]` | `None` | 点击行回调，参数是该行在全量数据里的下标 |
 
 ### 方法
 
@@ -29,6 +31,11 @@
 | --- | --- |
 | `set_rows(rows)` | 整批替换数据；行可以是序列，也可以是按列标题取值的字典 |
 | `add_row(row)` | 追加一行（序列或字典） |
+| `remove_row(index)` | 删除指定下标的行 |
+| `get_selected()` | 当前选中行下标；没有选中返回 `None` |
+| `select(index)` | 选中一行（分页时会自动翻到对应页），传 `None` 取消 |
+| `clear_selection()` | 取消选中 |
+| `row_at(y)` | 内容区画布坐标 `y` 对应的行下标（全量下标）；空白处返回 `None` |
 | `set_page(n)` | 跳页 |
 | `pages()` / `page()` | 总页数 / 当前页 |
 
@@ -45,6 +52,50 @@ table.set_rows([
     {"名称": "backup-02.zip", "大小": "8 MB", "时间": "2026-11-06 22:41"},
 ])
 table.pack(fill="x", padx=16, pady=(0, 12))
+```
+
+## CrudTable
+
+### 作用
+
+在 `Table` 上内置增删改：左键选中，右键「向上添加 / 向下添加 / 编辑 / 删除」，
+添加和编辑共用自动生成的表单窗，删除带确认。添加只有点「保存」才写入，
+第一列不能为空。
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `master` | `tk.Misc` | 必填 | 父容器 |
+| `columns` | `Sequence[tuple]` | 必填 | 与 `Table` 相同的列定义；标题同时用作表单字段名 |
+| `rows` | `list` | `[]` | 数据列表（二维）；控件直接读写这个 list，不复制 |
+| `new_row` | `Sequence[str]` | 全空 | 添加时的初始值，长度要和列数一致 |
+| `hint` | `bool` | `True` | 是否显示「共 N 条 / 已选中」提示 |
+| `max_visible_rows` / `empty_text` | — | 同 `Table` | 透传给内部表格 |
+| `on_change` | `Callable[[list], None]` | `None` | 增删改成功后回调，参数是 `rows` 本身 |
+
+### 方法
+
+| 方法 | 说明 |
+| --- | --- |
+| `set_rows(rows)` | 换一份数据；之后的操作作用在新列表上 |
+| `refresh(select_index=None)` | 按当前 `rows` 重画，可顺便选中一行 |
+| `table` | 内部 `Table`，需要分页、只读选中时直接用它 |
+
+### 示例
+
+```python
+members = [
+    ["陈一", "产品", "产品经理", "chenyi@example.com"],
+    ["林二", "设计", "交互设计师", "liner@example.com"],
+]
+table = CrudTable(
+    page,
+    columns=[("姓名", 130), ("部门", 140), ("角色", 160), ("邮箱", None)],
+    rows=members,
+    new_row=["新成员", "", "", ""],
+)
+table.pack(fill="both", expand=True)
 ```
 
 ## TreeView

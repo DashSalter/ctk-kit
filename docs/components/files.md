@@ -23,17 +23,20 @@
 | `placeholder` | `str` | `""` | 占位文字 |
 | `button_text` | `str` | `"浏览"` | 按钮文字 |
 | `accept_drop` | `bool` | `True` | 是否接受拖放 |
-| `on_change` | `Callable[[str], None]` | `None` | 内容变化回调 |
+| `on_change` | `Callable[[str], None]` | `None` | 内容变化回调（输入、`set()` 都会触发） |
+| `on_pick` | `Callable[[str], None]` | `None` | 选定路径回调：只在浏览或拖放后触发，适合「选完自动读取」 |
 | `readonly` | `bool` | `False` | 只读时不能改、也不能点浏览 |
 
 ### 方法
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(path)` | 读 / 写路径（`set()` 会触发 `on_change`） |
+| `get()` / `set(path)` | 读 / 写路径（`set()` 会触发 `on_change`，不触发 `on_pick`） |
 | `clear()` | 清空 |
 | `browse()` | 弹选择框，返回选中的路径，取消返回 `""` |
 | `set_readonly(flag)` | 只读开关 |
+| `bind_config(target)` | 绑定 conf_base 的 `str` 配置项；键入、浏览、拖放选定后都会立即写回 |
+| `unbind_config()` | 解除 `bind_config` 建立的绑定 |
 
 ### 示例
 

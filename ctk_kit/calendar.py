@@ -264,6 +264,18 @@ class Calendar(Valuable, ctk.CTkFrame):
         if self._command is not None:
             self._command(date)
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的日期配置项：选中变化即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
 
 #: 弹层跟随输入框位置的轮询间隔（毫秒）。
 _FOLLOW_MS = 120

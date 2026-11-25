@@ -263,6 +263,18 @@ class TimePicker(Valuable, ctk.CTkFrame):
         self._minute.set(value.minute)
         self._second.set(value.second)
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的时间配置项：滚动变化即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def configure(self, **kwargs: Any) -> None:
         """``command=`` 换回调，其余透传给 ``CTkFrame``。"""
         if "command" in kwargs:

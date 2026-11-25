@@ -13,6 +13,8 @@ donut = ctk.PieChart(
     values=[42, 26, 18, 14],
     labels=["官网", "小程序", "公众号", "其它"],
     donut=0.55,
+    outer_labels=True,
+    legend=True,
     height=260,
 )
 donut.pack(fill="both", expand=True)

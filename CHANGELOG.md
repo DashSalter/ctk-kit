@@ -3,6 +3,42 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.14.0 — 2026-11-25
+
+- 新增示例：`examples/music_player` 本地音乐播放器（miniaudio + mutagen +
+  conf_base 记住目录/音量）、`examples/demo/布局.py`（pack / grid 两种布局）、
+  `examples/demo/图片背景.py`（`set_frost_backdrop(image=...)`）
+- `bind_config()` / `unbind_config()` 补齐到所有取值型控件：`CompoundEntry`、
+  `SearchBox`、`Stepper`、`Calendar`、`TimePicker`、`ColorPicker`、
+  `TagSelectField`、`TreeSelectField`、`RangeSlider` 都直接在控件上调用
+- `bind_config` 修复：`RadioGroup` 选中后能写回配置；区间滑块支持两个元素的
+  `list` / `tuple`；整数配置可接受 `"30.0"` 这类字符串；解绑后恢复原有
+  `command` / `on_change`（原来原回调为空时不会恢复）
+- `PathField` 新增 `bind_config()` / `unbind_config()`：可绑定 conf_base 的
+  `str` 配置项；键入、浏览、拖放选定的路径都会立即写回（`unbind_config()`
+  会正确恢复原有 `on_change`）
+- `Frame` / `ctk_kit.CTkFrame` 显式混入 `Chainable`：`pack()` / `grid()` /
+  `place()` 的返回值标注成控件自身，`bar = Frame(page).pack(fill="x")` 之后
+  IDE 能继续补全 `row()` 等方法（和 `Card` 的提示一致）
+- `ctk_kit.CTkFrame` / `Frame` 新增 `row(index)`：和 `Card.row` 同一套写法，
+  按编号取行、自动分配首/中/末行的上下边距；行缓存改成首次使用才建，
+  子类不用再自己初始化
+- `ctk_kit.CTkFrame` 现在是带 `row()` 的子类（顶层行为与原生一致，`Frame`
+  继承它并保留透明底默认值）
+- `PathField` 新增 `on_pick`：只在浏览对话框或拖放选定路径后触发，手工输入
+  不触发，适合「选完路径就自动读取」；`set()` 也不会触发
+- `Slider` 新增 `release_command`：松开鼠标时回调一次，适合「拖动时只预览、
+  松手才真正 seek」这类场景
+- `PieChart` 新增 `outer_labels`：在扇区旁显示「名称 + 百分比」并用引导线连到
+  扇区，`set_outer_labels()` 可运行时切换；引导线走 Pillow 超采样，斜线没有锯齿
+- `App.set_frost_backdrop()` 新增 `image` / `blur`：底层窗口可以显示一张图片
+  （路径或 PIL 图），Pillow 先模糊，再由 DWM 合成到毛玻璃背景里；
+  `color` / `alpha` 变成图片上的蒙层，`image=None` 恢复纯色
+- `Segmented` 的 `values` 支持直接传字典（键为显示文字、值为数据），`get()`
+  返回选中的值；新增 `get_label()`；`command` 改为收到分段控件本身，
+  用 `widget.get()` 取值（破坏性变更，回调签名从 `command(value)` 变为
+  `command(widget)`）
+
 ## 0.13.0 — 2026-11-22
 
 - 链式布局集中到 `ctk_kit/chain.py` 的 `Chainable`：所有带交互的组件统一继承，

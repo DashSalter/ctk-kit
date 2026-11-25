@@ -213,6 +213,18 @@ class ColorPicker(Enablable, ctk.CTkFrame):
             return super().configure(require_redraw=require_redraw, **kwargs)
         return self
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的颜色字符串配置项：选色即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def open(self) -> None:
         """打开取色面板。面板是模态的，关掉之后才返回。"""
         if not self.is_enabled():
@@ -470,7 +482,7 @@ class ColorDialog(ctk.CTkToplevel):
         self._mode = Segmented(
             mode_row,
             ["RGB", "HSV", "HSL"],
-            lambda _value: self._sync_fields(),
+            lambda _widget: self._sync_fields(),
             width=150,
             height=30,
             font=T.FONT_TINY,

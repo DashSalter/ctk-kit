@@ -9,6 +9,8 @@ class FrostLayer:
     alpha: int
     glass: bool
     spread: int
+    image: Any
+    blur: int
     def __init__(
         self,
         master: tk.Misc,
@@ -17,6 +19,8 @@ class FrostLayer:
         alpha: int = 0x38,
         glass: bool = False,
         spread: int = 0,
+        image: Any = None,
+        blur: int = 16,
     ) -> None: ...
     def start(self) -> None: ...
     def stop(self) -> None: ...
@@ -29,6 +33,8 @@ class FrostLayer:
         alpha: Optional[int] = None,
         glass: Optional[bool] = None,
         spread: Optional[int] = None,
+        image: Any = ...,
+        blur: Optional[int] = None,
     ) -> None: ...
     def apply_glass(self) -> None: ...
     def sync(self) -> None: ...

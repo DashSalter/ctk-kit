@@ -8,7 +8,8 @@
 - 组件        ``buttons`` / ``inputs`` / ``dropdown`` / ``select`` / ``layout`` / ``notify`` / ``dialog`` / ``scroll_list`` / ``text`` / ``sidebar`` / ``page`` / ``tabs`` / ``calendar`` / ``range`` / ``search`` / ``steps`` / ``avatar`` / ``breadcrumb`` / ``placeholder`` / ``splitter`` / ``popover`` / ``color`` / ``statusbar`` / ``timeline`` / ``carousel`` / ``accordion`` / ``treeview`` / ``menubar`` / ``charts``
 - 原生接口    CustomTkinter 的 ``CTk`` / ``CTkImage`` 等原样转出，
               ``App`` 是 ``CTk`` 的便捷子类（标题、尺寸、外观都能直接传参）；
-              ``CTkEntry`` / ``CTkButton`` 默认套用库的样式，``Frame`` 默认透明底
+              ``CTkEntry`` / ``CTkButton`` 默认套用库的样式，``Frame`` 默认透明底；
+              ``CTkFrame`` / ``Frame`` 都带 ``row()``，按编号分行（同 ``Card``）
 
 安装::
 
@@ -39,7 +40,7 @@ from typing import Any
 
 #: 改这里时记得同步 ``pyproject.toml`` 的 ``version``（打包以那份为准，
 #: 这行只给 ``ctk_kit.__version__`` 用）。
-__version__ = "0.13.0"
+__version__ = "0.14.0"
 
 # 核心模块（win32 / glass / frost_layer）发布时是编译好的 .pyd，源码不在仓库里。
 # 装错平台或 Python 版本时，import 那一层会报得很晚、很难懂，这里提前说清楚。
@@ -80,7 +81,6 @@ from customtkinter import (
     CTkCheckBox,
     CTkComboBox,
     CTkFont,
-    CTkFrame,
     CTkImage,
     CTkInputDialog,
     CTkLabel,
@@ -128,7 +128,7 @@ from .context_menu import ContextMenu, attach_edit_menu, attach_menu
 from .dialog import ChildWindow, Dialog, alert, confirm, prompt
 from .dropdown import DropField
 from .files import DropZone, PathField, has_dnd, pick_path
-from .frames import Frame
+from .frames import CTkFrame, Frame
 from .inputs import (
     CTkEntry,
     Checkbox,

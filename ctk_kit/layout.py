@@ -140,100 +140,39 @@ class Row(Chainable, ctk.CTkFrame):
         return holder
 
 
-class Card(ctk.CTkFrame):
-    """圆角卡片容器，可选在上方带标题。
+class RowHost:
+    """给容器加上 ``row(index)``：按编号取一行，自动分配行距。
 
-    卡片样式（填充、1px 边框、圆角）与 :class:`Card` 相同；传 ``title``
-    时默认在卡片**外面**的上方放一行标题；传 ``inside_title`` 时改成
-    卡片内部顶部的一行标题，并在下面带一条分隔线。两种写法卡片内容都放在
-    卡片内部::
+    混入 ``Card`` / ``Frame`` / ``CTkFrame``，所以三个容器都能直接::
 
-        box = Card(page, title="复杂页面")
-        CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+        box.row(1).label("用户名")
+        box.row(2, pady=(0, 6))
 
-        panel = Card(page, inside_title="账号信息")
-
-    参数:
-        title: 卡片标题，画在卡片外面；不传就没有标题。
-        inside_title: 卡片内部标题；传了就在卡片内部顶部画标题和分隔线。
-            同时传 ``title`` 时以 ``inside_title`` 为准。
-        **kwargs: 其余参数与 ``CTkFrame`` 相同，显式传同名参数可覆盖卡片样式。
-
-    注意:
-        外部标题是 ``master`` 的子控件、用 ``pack`` 放在卡片上方，所以：
-
-        - 带外部 ``title`` 的卡片要用 ``pack`` 放进 ``master``（不能用 ``grid``）；
-        - 卡片 ``pack`` 时传的 ``padx`` 会自动同步给标题，标题和卡片左右对齐；
-        - 卡片 ``pack`` 时传的 ``pady`` 顶部值会转给标题，在标题上方留白，
-          卡片本身不再重复留这段顶部间距；底部值仍留给卡片；
-        - 卡片内容不受影响，内部仍可任意用 ``pack`` 或 ``grid``。
-
-        ``inside_title`` 时标题是卡片自己的子控件，不参与上面这些外边距
-        同步，内容区从标题和分隔线下面开始。
+    行容器本身是 :class:`Row`；默认左右留 16，第一行 / 中间行 / 最后一行的
+    上下边距自动区分。
     """
-
-    def __init__(
-        self,
-        master: tk.Misc,
-        *,
-        title: str = "",
-        inside_title: str = "",
-        **kwargs: Any,
-    ) -> None:
-        """建卡片；``inside_title`` 画在卡片内，``title`` 画在卡片外。"""
-        kwargs.setdefault("fg_color", T.COLOR_CARD)
-        kwargs.setdefault("border_width", 1)
-        kwargs.setdefault("border_color", T.COLOR_BORDER)
-        kwargs.setdefault("corner_radius", T.RADIUS_MEDIUM)
-        super().__init__(master, **kwargs)
-        self.title_label = None
-        # True 时标题是卡片自己的子控件，pack 时不再同步外部边距
-        self._title_inside = bool(inside_title)
-        # 按编号缓存的行容器：card.row(1) 反复返回同一个 Frame
-        self._rows: dict[int, Any] = {}
-        # 调用方显式指定过 pady 的行（这些行不再自动分配上/下边距）
-        self._row_pady: dict[int, Any] = {}
-        if inside_title:
-            # 内部标题：标题行 + 1px 分隔线，下面的 row()/内容自然排在后面
-            self.header = ctk.CTkFrame(self, fg_color="transparent")
-            self.header.pack(fill="x", padx=16, pady=(14, 0))
-            self.title_label = ctk.CTkLabel(
-                self.header,
-                text=inside_title,
-                font=get_font(T.FONT_SECTION),
-                text_color=T.COLOR_TEXT,
-                anchor="w",
-            )
-            self.title_label.pack(side="left")
-            line = divider(self, pady=(10, 0))
-            line.pack_configure(padx=16)
-        elif title:
-            self.title_label = ctk.CTkLabel(
-                master,
-                text=title,
-                font=get_font(T.FONT_SECTION),
-                text_color=T.COLOR_TEXT,
-                anchor="w",
-            )
-            self.title_label.pack(fill="x", pady=(0, T.SPACE_SM))
-
-    @property
-    def body(self) -> "Card":
-        """卡片的内容容器。
-
-        目前就是卡片自身；加这个属性是为了让调用方不用关心「Card 既是
-        边框又是内容容器」这个细节，以后内部结构变了也不用改调用代码::
-
-            box = Card(page, title="详情")
-            PrimaryButton(box.row(1), "保存").pack(side="left")
-        """
-        return self
 
     # 每行的默认布局：撑满宽度、左右留 16；上下边距按「第一行 / 中间 / 最后一行」自动分
     _ROW_LAYOUT: dict[str, Any] = {"fill": "x", "padx": 16}
     _ROW_PADY_FIRST: tuple[int, int] = (14, 10)
     _ROW_PADY_MIDDLE: tuple[int, int] = (0, 10)
     _ROW_PADY_LAST: tuple[int, int] = (0, 14)
+
+    @property
+    def _rows(self) -> dict[int, "Row"]:
+        """按编号缓存的行容器；第一次用到时才建，子类不用记着初始化。"""
+        rows = self.__dict__.get("_row_cache")
+        if rows is None:
+            rows = self.__dict__["_row_cache"] = {}
+        return rows
+
+    @property
+    def _row_pady(self) -> dict[int, Any]:
+        """调用方显式指定过 pady 的行；这些行不再自动分配上/下边距。"""
+        pady = self.__dict__.get("_row_pady_cache")
+        if pady is None:
+            pady = self.__dict__["_row_pady_cache"] = {}
+        return pady
 
     def _row_pady_for(self, position: int, total: int) -> tuple[int, int]:
         """按位置给默认上下边距：首行、中间行、末行各一套。"""
@@ -265,7 +204,7 @@ class Card(ctk.CTkFrame):
         ipadx: Any = _UNCHANGED,
         ipady: Any = _UNCHANGED,
         **options: Any,
-    ) -> Row:
+    ) -> "Row":
         """取「第 ``index`` 行」的横向容器，没有就建一个。
 
         同一个编号反复调用拿到的是同一个 Row；标签用 ``row.label("文字")``
@@ -340,6 +279,92 @@ class Card(ctk.CTkFrame):
             if given:
                 frame.pack_configure(**given)
         return frame
+
+
+class Card(Chainable, RowHost, ctk.CTkFrame):
+    """圆角卡片容器，可选在上方带标题。
+
+    卡片样式（填充、1px 边框、圆角）与 :class:`Card` 相同；传 ``title``
+    时默认在卡片**外面**的上方放一行标题；传 ``inside_title`` 时改成
+    卡片内部顶部的一行标题，并在下面带一条分隔线。两种写法卡片内容都放在
+    卡片内部::
+
+        box = Card(page, title="复杂页面")
+        CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+
+        panel = Card(page, inside_title="账号信息")
+
+    参数:
+        title: 卡片标题，画在卡片外面；不传就没有标题。
+        inside_title: 卡片内部标题；传了就在卡片内部顶部画标题和分隔线。
+            同时传 ``title`` 时以 ``inside_title`` 为准。
+        **kwargs: 其余参数与 ``CTkFrame`` 相同，显式传同名参数可覆盖卡片样式。
+
+    注意:
+        外部标题是 ``master`` 的子控件、用 ``pack`` 放在卡片上方，所以：
+
+        - 带外部 ``title`` 的卡片要用 ``pack`` 放进 ``master``（不能用 ``grid``）；
+        - 卡片 ``pack`` 时传的 ``padx`` 会自动同步给标题，标题和卡片左右对齐；
+        - 卡片 ``pack`` 时传的 ``pady`` 顶部值会转给标题，在标题上方留白，
+          卡片本身不再重复留这段顶部间距；底部值仍留给卡片；
+        - 卡片内容不受影响，内部仍可任意用 ``pack`` 或 ``grid``。
+
+        ``inside_title`` 时标题是卡片自己的子控件，不参与上面这些外边距
+        同步，内容区从标题和分隔线下面开始。
+    """
+
+    def __init__(
+        self,
+        master: tk.Misc,
+        *,
+        title: str = "",
+        inside_title: str = "",
+        **kwargs: Any,
+    ) -> None:
+        """建卡片；``inside_title`` 画在卡片内，``title`` 画在卡片外。"""
+        kwargs.setdefault("fg_color", T.COLOR_CARD)
+        kwargs.setdefault("border_width", 1)
+        kwargs.setdefault("border_color", T.COLOR_BORDER)
+        kwargs.setdefault("corner_radius", T.RADIUS_MEDIUM)
+        super().__init__(master, **kwargs)
+        self.title_label = None
+        # True 时标题是卡片自己的子控件，pack 时不再同步外部边距
+        self._title_inside = bool(inside_title)
+        if inside_title:
+            # 内部标题：标题行 + 1px 分隔线，下面的 row()/内容自然排在后面
+            self.header = ctk.CTkFrame(self, fg_color="transparent")
+            self.header.pack(fill="x", padx=16, pady=(14, 0))
+            self.title_label = ctk.CTkLabel(
+                self.header,
+                text=inside_title,
+                font=get_font(T.FONT_SECTION),
+                text_color=T.COLOR_TEXT,
+                anchor="w",
+            )
+            self.title_label.pack(side="left")
+            line = divider(self, pady=(10, 0))
+            line.pack_configure(padx=16)
+        elif title:
+            self.title_label = ctk.CTkLabel(
+                master,
+                text=title,
+                font=get_font(T.FONT_SECTION),
+                text_color=T.COLOR_TEXT,
+                anchor="w",
+            )
+            self.title_label.pack(fill="x", pady=(0, T.SPACE_SM))
+
+    @property
+    def body(self) -> "Card":
+        """卡片的内容容器。
+
+        目前就是卡片自身；加这个属性是为了让调用方不用关心「Card 既是
+        边框又是内容容器」这个细节，以后内部结构变了也不用改调用代码::
+
+            box = Card(page, title="详情")
+            PrimaryButton(box.row(1), "保存").pack(side="left")
+        """
+        return self
 
     def apply_theme(self, mode: Optional[str] = None) -> None:
         """按当前（或指定）外观刷一遍卡片和标题的颜色，不重建控件。

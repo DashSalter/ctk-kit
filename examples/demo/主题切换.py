@@ -11,7 +11,10 @@ app = ctk.App(title="主题切换", size=(460, 140))
 
 # ---------- 外观主题 ----------
 ctk.Segmented(
-    app, ["Mica", "Frosted", "Dark", "Acrylic"], width=380, command=on_theme
+    app,
+    ["Mica", "Frosted", "Dark", "Acrylic"],
+    width=380,
+    command=lambda widget: on_theme(widget.get()),
 ).pack()
 
 ctk.DropField(

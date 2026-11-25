@@ -7,10 +7,16 @@ import conf_base。
 
 支持的控件与配置类型：
 
-- 输入框 ``CTkEntry`` / ``CompoundEntry``、文本区 ``TextArea`` ↔ ``str``
-- 开关 ``Switch``、勾选 ``Check``、单选 ``Radio`` ↔ ``bool`` 或 ``str``
-- 分段选择 ``Segmented``、下拉 ``DropField`` ↔ ``str``
-- 步进 ``Spinner``、滑块 ``Slider`` ↔ ``int`` / ``float`` / ``str``
+- 输入框 ``CTkEntry`` / ``CompoundEntry`` / ``SearchBox``、文本区 ``TextArea``、
+  路径框 ``PathField`` ↔ ``str``
+- 开关 ``Switch``、勾选 ``Check``、单选 ``Radio`` / ``RadioGroup`` ↔ ``bool`` 或 ``str``
+- 分段选择 ``Segmented``、下拉 ``DropField``、树选择 ``TreeSelectField``、
+  颜色 ``ColorPicker`` ↔ ``str``
+- 标签选择 ``TagSelectField`` ↔ ``list``
+- 步进 ``Spinner`` / ``Stepper``、滑块 ``Slider`` ↔ ``int`` / ``float`` / ``str``
+- 区间滑块 ``RangeSlider`` ↔ 两个元素的 ``list`` / ``tuple``
+- 日期 ``DatePicker`` / ``Calendar``、时间 ``TimeField`` / ``TimePicker`` ↔
+  ``date`` / ``time`` / ``datetime`` / ``str``
 
 写回是实时的：输入每次按键、开关每次拨动、选择每次切换、步进/滑块每次变化
 都会立刻写配置项，conf_base 的 ``set_value`` 在非批量模式下会立即落盘。
@@ -38,15 +44,22 @@ _FALSE_VALUES = frozenset({"0", "false", "no", "off", "否", "关"})
 _KINDS = {
     "CTkEntry": "input",
     "CompoundEntry": "input",
+    "SearchBox": "input",
+    "PathField": "path",
     "TextArea": "textarea",
     "Switch": "flag",
     "Check": "flag",
     "Radio": "flag",
+    "RadioGroup": "radio_group",
     "Segmented": "choice",
     "DropField": "choice",
-    "RadioGroup": "choice",
+    "TreeSelectField": "choice",
+    "ColorPicker": "choice",
+    "TagSelectField": "multi",
     "Spinner": "number",
+    "Stepper": "number",
     "Slider": "number",
+    "RangeSlider": "range",
     "DatePicker": "date",
     "Calendar": "date",
     "TimePicker": "time",
@@ -67,13 +80,24 @@ def _cast(value: Any, default: Any) -> Any:
             return False
         raise ValueError(f"无法把 {value!r} 转成 bool")
     if kind is int:
-        return value if type(value) is int else int(str(value).strip())
+        if type(value) is int:
+            return value
+        text = str(value).strip()
+        try:
+            return int(text)
+        except ValueError:
+            # 滑块 / 步进传入的可能是 "30.0" 这种带小数点的字符串
+            return int(float(text))
     if kind is float:
         return value if type(value) is float else float(str(value).strip())
     if kind is str:
         return value if isinstance(value, str) else str(value)
-    if kind in (list, dict):
-        return value if isinstance(value, kind) else default
+    if kind is dict:
+        return value if isinstance(value, dict) else default
+    if kind in (list, tuple):
+        if isinstance(value, (list, tuple)):
+            return list(value) if kind is list else tuple(value)
+        return default
     if kind is _dt.datetime:
         if isinstance(value, _dt.datetime):
             return value
@@ -130,6 +154,8 @@ class _Binding:
         self._kind = _kind_of(widget)
         self._original_command: Any = None
         self._original_on_change: Any = None
+        # 绑定结束时需要还原的属性名：_command / _on_change / on_change
+        self._hook_attr: Optional[str] = None
 
     # ------------------------------------------------------------------ 建立
     def open(self) -> "_Binding":
@@ -140,10 +166,16 @@ class _Binding:
         self._fill()
         if self._kind == "flag":
             self._hook_flag()
-        elif self._kind in ("choice", "number", "date", "time"):
+        elif self._kind in ("choice", "number", "date", "time", "multi"):
             self._hook_command_value()
+        elif self._kind == "range":
+            self._hook_range()
+        elif self._kind == "radio_group":
+            self._hook_radio_group()
         elif self._kind == "textarea":
             self._hook_textarea()
+        elif self._kind == "path":
+            self._hook_path()
         else:
             self._hook_input()
         self._hook_target()
@@ -175,10 +207,25 @@ class _Binding:
                     f"{_name(self.target)} 的默认值是 {kind.__name__}，已跳过绑定"
                 )
                 return False
+        elif self._kind == "multi":
+            if kind not in (list, tuple):
+                self._warn(
+                    f"标签选择只能绑定 list / tuple 配置，"
+                    f"{_name(self.target)} 的默认值是 {kind.__name__}，已跳过绑定"
+                )
+                return False
+        elif self._kind == "range":
+            if kind not in (list, tuple) or len(default) != 2:
+                self._warn(
+                    f"区间滑块只能绑定两个元素的 list / tuple 配置，"
+                    f"{_name(self.target)} 的默认值是 {default!r}，已跳过绑定"
+                )
+                return False
         elif kind is not str:
             label = {
                 "input": "输入框",
                 "textarea": "文本区",
+                "path": "路径框",
                 "choice": "分段选择/下拉",
             }.get(self._kind, "控件")
             self._warn(
@@ -214,6 +261,7 @@ class _Binding:
 
         try:
             self.widget._command = command
+            self._hook_attr = "_command"
         except Exception as exc:  # noqa: BLE001
             self._warn(f"绑定开关/勾选失败：{exc}")
 
@@ -232,6 +280,7 @@ class _Binding:
 
         try:
             self.widget._command = command
+            self._hook_attr = "_command"
         except Exception as exc:  # noqa: BLE001
             self._warn(f"绑定选择控件失败：{exc}")
 
@@ -250,8 +299,66 @@ class _Binding:
 
         try:
             self.widget._on_change = on_change
+            self._hook_attr = "_on_change"
         except Exception as exc:  # noqa: BLE001
             self._warn(f"绑定文本区失败：{exc}")
+
+    def _hook_path(self) -> None:
+        """路径框：键入、浏览、拖放都会走 ``_changed``，包一层 ``on_change`` 即可。"""
+        self._original_on_change = getattr(self.widget, "_on_change", None)
+
+        def on_change(path: str) -> None:
+            original = self._original_on_change
+            if original is not None:
+                try:
+                    original(path)
+                except Exception as exc:  # noqa: BLE001
+                    self._warn(f"路径框原 on_change 执行失败：{exc}")
+            self._push()
+
+        try:
+            self.widget._on_change = on_change
+            self._hook_attr = "_on_change"
+        except Exception as exc:  # noqa: BLE001
+            self._warn(f"绑定路径框失败：{exc}")
+
+    def _hook_radio_group(self) -> None:
+        """单选组：回调挂在 ``on_change`` 属性上，包一层即可。"""
+        self._original_on_change = getattr(self.widget, "on_change", None)
+
+        def on_change(value: str) -> None:
+            original = self._original_on_change
+            if original is not None:
+                try:
+                    original(value)
+                except Exception as exc:  # noqa: BLE001
+                    self._warn(f"单选组原 on_change 执行失败：{exc}")
+            self._push()
+
+        try:
+            self.widget.on_change = on_change
+            self._hook_attr = "on_change"
+        except Exception as exc:  # noqa: BLE001
+            self._warn(f"绑定单选组失败：{exc}")
+
+    def _hook_range(self) -> None:
+        """区间滑块：``command(low, high)`` 带两个参数。"""
+        self._original_command = getattr(self.widget, "_command", None)
+
+        def command(low: float, high: float) -> None:
+            original = self._original_command
+            if original is not None:
+                try:
+                    original(low, high)
+                except Exception as exc:  # noqa: BLE001
+                    self._warn(f"区间滑块原 command 执行失败：{exc}")
+            self._push()
+
+        try:
+            self.widget._command = command
+            self._hook_attr = "_command"
+        except Exception as exc:  # noqa: BLE001
+            self._warn(f"绑定区间滑块失败：{exc}")
 
     def _hook_input(self) -> None:
         """输入框绑在内部 tk.Entry 上：焦点和按键事件都在它身上。"""
@@ -305,6 +412,12 @@ class _Binding:
         return self.widget.get()
 
     def _write(self, value: Any) -> None:
+        if self._kind == "range":
+            pair = list(value)
+            if len(pair) != 2:
+                raise ValueError(f"区间需要两个值，收到 {value!r}")
+            self.widget.set(pair[0], pair[1])
+            return
         self.widget.set(value)
 
     def _push(self) -> None:
@@ -334,18 +447,14 @@ class _Binding:
         if self._closed:
             return
         self._closed = True
-        if self._kind == "textarea":
-            if self._original_on_change is not None:
-                try:
-                    self.widget._on_change = self._original_on_change
-                except Exception:  # noqa: BLE001
-                    pass
+        attr = self._hook_attr
+        if attr is None:
             return
-        if self._original_command is not None:
-            try:
-                self.widget._command = self._original_command
-            except Exception:  # noqa: BLE001
-                pass
+        value = self._original_command if attr == "_command" else self._original_on_change
+        try:
+            setattr(self.widget, attr, value)
+        except Exception:  # noqa: BLE001
+            pass
 
     def _warn(self, message: str) -> None:
         if self._on_error is not None:
@@ -359,8 +468,9 @@ def bind_config(
 ) -> _Binding:
     """把输入类控件绑定到 conf_base 配置项。
 
-    支持的控件：``CTkEntry``、``CompoundEntry``、``TextArea``、``Switch``、
-    ``Check``、``Radio``、``Segmented``、``DropField``、``Spinner``、``Slider``。
+    支持的控件：``CTkEntry``、``CompoundEntry``、``PathField``、``TextArea``、
+    ``Switch``、``Check``、``Radio``、``Segmented``、``DropField``、``Spinner``、
+    ``Slider``。路径框浏览/拖放选定新路径后也会立即写回配置。
 
     参数:
         widget: 上面列出的控件之一。

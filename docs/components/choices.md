@@ -159,21 +159,26 @@ dark.pack(anchor="w", padx=16, pady=(0, 12))
 | 参数 | 类型 | 默认值 | 说明 |
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
-| `values` | `Sequence[str]` | `()` | 各段文字 |
-| `command` | `Callable[[str], None]` | `None` | 切换回调 |
+| `values` | `Sequence[str] \| Mapping[str, Any]` | `()` | 列表：各段文字；字典：键是文字、值是数据 |
+| `command` | `Callable[[Segmented], None]` | `None` | 切换回调，参数是分段控件本身 |
 
 ### 方法
 
 | 方法 | 说明 |
 | --- | --- |
-| `get()` / `set(value)` | 读 / 写选中项（等价于 `get()` / `set()`）；初始值用 `set()` 指定 |
-| `set_values(values)` | 换各段文字 |
+| `get()` / `set(value)` | 读 / 写选中项；字典模式下 `get()` 返回选中的值 |
+| `get_label()` | 当前选中段显示的文字 |
+| `set_values(values)` | 换各段内容 |
 
 ### 示例
 
 ```python
-seg = Segmented(card.body, values=["列表", "网格"])
-seg.set("列表")
+seg = Segmented(
+    card.body,
+    values={"列表": "list", "网格": "grid"},
+    command=lambda widget: print(widget.get()),   # 收到分段控件
+)
+seg.set("grid")
 seg.pack(anchor="w", padx=16, pady=(0, 12))
 ```
 
@@ -191,6 +196,7 @@ seg.pack(anchor="w", padx=16, pady=(0, 12))
 | `from_` / `to` | `float` | `0` / `100` | 范围 |
 | `steps` | `int` | `0` | 只允许落在整数档位 |
 | `command` | `Callable[[float], None]` | `None` | 拖动回调 |
+| `release_command` | `Callable[[float], None]` | `None` | 松开鼠标时的回调 |
 
 ### 方法
 
@@ -202,7 +208,8 @@ seg.pack(anchor="w", padx=16, pady=(0, 12))
 
 ```python
 volume = Slider(card.body, from_=0, to=100,
-                command=lambda v: print(int(v)))
+                command=lambda v: print(int(v)),
+                release_command=lambda v: print("松手", int(v)))
 volume.set(60)
 volume.pack(fill="x", padx=16, pady=(0, 12))
 ```

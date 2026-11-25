@@ -54,7 +54,8 @@ def build_settings(page: tk.Misc) -> tk.Misc:
     row.pack(fill="x", padx=8, pady=8)
     hint = ctk.HintLabel(page, "当前主题：云母")
 
-    def switch(name: str) -> None:
+    def switch(widget) -> None:
+        name = widget.get()
         app.set_theme(THEMES[name])
         hint.configure(text=f"当前主题：{name}")
 

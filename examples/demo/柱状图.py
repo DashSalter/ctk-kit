@@ -21,9 +21,9 @@ chart = ctk.BarChart(
 chart.pack(fill="both", expand=True)
 
 
-def switch_period(name: str) -> None:
+def switch_period(widget) -> None:
     # 换数据只重画 canvas，控件本身不重建
-    chart.set(THIS_WEEK if name == "本周" else LAST_WEEK)
+    chart.set(THIS_WEEK if widget.get() == "本周" else LAST_WEEK)
 
 
 # 切换数据显示

@@ -1937,13 +1937,16 @@ class PieChart(_ChartBase):
         donut: 环形内孔占比（0–0.9），默认 0 为实心饼图。
         show_tooltip: 悬停是否高亮扇区并显示数值，默认 ``True``。
         legend: 是否在右侧显示图例，默认 ``True``。
+        outer_labels: 是否在扇区外侧显示「名称 + 百分比」标签（带引导线），
+            默认 ``False``；和 ``legend`` 可以同时开，也可以只开一个。
         formatter: 数值文字格式（只影响提示气泡里的数值）。
         empty_text: 没有数据时的提示。
 
     方法:
         get(): 当前数值列表。
         set(values, labels=None): 换数据。
-        set_labels(labels) / set_colors(colors) / set_donut(ratio)。
+        set_labels(labels) / set_colors(colors) / set_donut(ratio) /
+        set_outer_labels(flag)。
     """
 
     def __init__(
@@ -1958,6 +1961,7 @@ class PieChart(_ChartBase):
         donut: float = 0.0,
         show_tooltip: bool = True,
         legend: bool = True,
+        outer_labels: bool = False,
         formatter: Optional[Formatter] = None,
         empty_text: str = "暂无数据",
         **kwargs: Any,
@@ -1968,10 +1972,12 @@ class PieChart(_ChartBase):
         self._donut = max(0.0, min(0.9, float(donut)))
         self._show_tooltip = bool(show_tooltip)
         self._legend = bool(legend)
+        self._outer_labels = bool(outer_labels)
         self._formatter = formatter
         self._empty_text = str(empty_text)
         self._hover: Optional[int] = None
         self._geometry: Optional[Tuple[float, float, float]] = None
+        self._line_photo = None
 
         super().__init__(master, width=width, height=height, **kwargs)
         self._canvas.bind("<Motion>", self._on_motion)
@@ -2005,6 +2011,11 @@ class PieChart(_ChartBase):
     def set_donut(self, ratio: float) -> None:
         """调整环形内孔占比（0 为实心饼图）。"""
         self._donut = max(0.0, min(0.9, float(ratio)))
+        self._schedule_redraw()
+
+    def set_outer_labels(self, flag: bool = True) -> None:
+        """开关扇区外侧的「名称 + 百分比」标签（带引导线）。"""
+        self._outer_labels = bool(flag)
         self._schedule_redraw()
 
     # ------------------------------------------------------------ 绘制
@@ -2058,16 +2069,22 @@ class PieChart(_ChartBase):
 
         # 右侧留图例的位置，剩下的方形区域放饼
         measure = tkfont.Font(font=self._font(T.FONT_TINY))
+        texts = [
+            f"{self._label_at(index)}  {shares[index] * 100:.0f}%"
+            for index in range(len(self._values))
+        ]
         legend_w = 0.0
         if self._legend:
-            texts = [
-                f"{self._label_at(index)}  {shares[index] * 100:.0f}%"
-                for index in range(len(self._values))
-            ]
             legend_w = min(
                 max(measure.measure(text) for text in texts) + self._px(34),
                 width * 0.45,
             )
+        # 外侧标签占掉两边相同的宽度，饼才不会压到文字
+        label_margin = (
+            max(measure.measure(text) for text in texts) + self._px(30)
+            if self._outer_labels
+            else self._px(10)
+        )
         area_left = 0.0
         area_right = width - legend_w
         area_top = 0.0
@@ -2075,8 +2092,8 @@ class PieChart(_ChartBase):
         radius = max(
             8.0,
             min(
-                (area_right - area_left) / 2 - self._px(10),
-                (area_bottom - area_top) / 2 - self._px(10),
+                (area_right - area_left) / 2 - label_margin,
+                (area_bottom - area_top) / 2 - self._px(14),
             ),
         )
         center_x = (area_left + area_right) / 2
@@ -2142,6 +2159,11 @@ class PieChart(_ChartBase):
         if self._legend:
             self._draw_legend(canvas, width - legend_w, height, shares, base_colors)
 
+        if self._outer_labels:
+            self._draw_outer_labels(
+                canvas, center_x, center_y, radius, shares, texts, base_colors
+            )
+
         if self._show_tooltip and self._hover is not None:
             self._draw_tooltip(canvas, width, height)
 
@@ -2177,6 +2199,100 @@ class PieChart(_ChartBase):
                 fill=color_of(T.COLOR_MUTED),
             )
             y += line_h
+
+    def _draw_outer_labels(
+        self,
+        canvas: tk.Canvas,
+        center_x: float,
+        center_y: float,
+        radius: float,
+        shares: Sequence[float],
+        texts: Sequence[str],
+        colors: Sequence[str],
+    ) -> None:
+        """在扇区外侧画「名称 + 百分比」标签，左右两侧分别做防重叠。"""
+        font = self._font(T.FONT_TINY)
+        line_h = tkfont.Font(font=font).metrics("linespace")
+        gap = line_h + self._px(4)
+        top = self._px(6)
+        bottom = self._canvas.winfo_height() - self._px(6)
+        sides: Dict[int, List[Tuple[int, float, float, float, float]]] = {1: [], -1: []}
+        start = -90.0
+        for index, share in enumerate(shares):
+            end = start + share * 360.0
+            if share > 0:
+                angle = math.radians(start + share * 180.0)
+                cos_a, sin_a = math.cos(angle), math.sin(angle)
+                elbow = radius + self._px(10)
+                sides[1 if cos_a >= 0 else -1].append(
+                    (
+                        index,
+                        center_x + cos_a * radius,
+                        center_y + sin_a * radius,
+                        center_x + cos_a * elbow,
+                        center_y + sin_a * elbow,
+                    )
+                )
+            start = end
+
+        segments: List[Tuple[float, float, float, float, str]] = []
+        labels: List[Tuple[float, float, str, int]] = []
+        for side, entries in sides.items():
+            if not entries:
+                continue
+            entries.sort(key=lambda item: item[4])
+            ys = [item[4] for item in entries]
+            for k in range(1, len(ys)):
+                ys[k] = max(ys[k], ys[k - 1] + gap)
+            if ys[-1] > bottom:
+                shift = ys[-1] - bottom
+                ys = [y - shift for y in ys]
+            if ys[0] < top:
+                shift = top - ys[0]
+                ys = [y + shift for y in ys]
+            label_x = center_x + side * (radius + self._px(18))
+            for (index, edge_x, edge_y, elbow_x, elbow_y), y in zip(entries, ys):
+                color = colors[index]
+                # 扇区边缘 → 折点 → 垂直对齐 → 文字，用四段折线引导
+                segments.append((edge_x, edge_y, elbow_x, elbow_y, color))
+                segments.append((elbow_x, elbow_y, elbow_x, y, color))
+                segments.append((elbow_x, y, label_x - side * self._px(4), y, color))
+                labels.append((label_x, y, texts[index], side))
+
+        if not segments:
+            return
+        # 引导线交给 Pillow 画：canvas 的直线不做抗锯齿，斜线会有锯齿
+        canvas_w = self._canvas.winfo_width()
+        canvas_h = self._canvas.winfo_height()
+        if _HAS_PIL:
+            scale = _SUPERSAMPLE
+            layer = Image.new(
+                "RGBA", (canvas_w * scale, canvas_h * scale), (0, 0, 0, 0)
+            )
+            pen = ImageDraw.Draw(layer)
+            line_width = max(1, int(round(self._px(1) * scale)))
+            for x1, y1, x2, y2, color in segments:
+                pen.line(
+                    (x1 * scale, y1 * scale, x2 * scale, y2 * scale),
+                    fill=color,
+                    width=line_width,
+                )
+            self._line_photo = ImageTk.PhotoImage(
+                layer.resize((canvas_w, canvas_h), Image.LANCZOS)
+            )
+            canvas.create_image(0, 0, anchor="nw", image=self._line_photo)
+        else:
+            for x1, y1, x2, y2, color in segments:
+                canvas.create_line(x1, y1, x2, y2, fill=color)
+        for x, y, text, side in labels:
+            canvas.create_text(
+                x,
+                y,
+                text=text,
+                anchor="w" if side > 0 else "e",
+                font=font,
+                fill=color_of(T.COLOR_MUTED),
+            )
 
     def _draw_tooltip(self, canvas: tk.Canvas, width: int, height: int) -> None:
         """在指针右侧显示扇区名称、数值和百分比。"""

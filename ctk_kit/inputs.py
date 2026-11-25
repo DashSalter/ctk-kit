@@ -15,6 +15,7 @@ from __future__ import annotations
 import contextlib
 import time
 import tkinter as tk
+from collections.abc import Mapping
 from typing import Any, Callable, Optional, Sequence, Tuple
 
 import customtkinter as ctk
@@ -35,8 +36,8 @@ try:  # Pillow 是可选依赖：装了就用抗锯齿的箭头图片
 except Exception:  # noqa: BLE001
     _HAS_PIL = False
 
-# 分段选择的选中回调：收到被选中的那一段文字。
-SegmentCommand = Optional[Callable[[str], None]]
+# 分段选择的选中回调：收到分段控件本身，用 get() / get_label() 取值。
+SegmentCommand = Optional[Callable[["Segmented"], None]]
 # 开关、勾选回调：不接收参数（CTk 的约定）。
 SwitchCommand = Optional[Callable[[], None]]
 # 滑块回调：收到当前数值（float）。
@@ -49,6 +50,21 @@ _SLIDER_TRACK = 4
 _SLIDER_KNOB = 14
 # 单选组回调：收到被选中的那一项文字。
 RadioCommand = Optional[Callable[[str], None]]
+
+
+def _parse_choices(
+    values: Sequence[Any] | Mapping[str, Any],
+) -> tuple[list[str], Optional[dict[str, Any]]]:
+    """把列表或字典统一成「显示文字列 + 可选取值映射」。
+
+    列表：每项是显示文字，取值也是文字本身。
+    字典：键是显示文字、值是 ``get()`` 返回的数据。
+    """
+    if isinstance(values, Mapping):
+        mapping = {str(key): value for key, value in values.items()}
+        return list(mapping), mapping
+    labels = [str(value) for value in values]
+    return labels, None
 # 焦点边框的回调：改完边框后以新的 border_width 调一次（给需要同步内缩的容器用）。
 InsetHook = Optional[Callable[[int], None]]
 
@@ -331,8 +347,13 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
 
     参数:
         master: 父容器。
-        values: 各段文字，按显示顺序排列；非空时默认选中第一项。
-        command: 切换回调，参数是被选中的那一段文字。
+        values: 各段内容，非空时默认选中第一项。可以是列表，也可以是字典：
+
+            - 列表：``["无", "轻", "强"]``，显示文字即取值；
+            - 字典：``{"无": 0, "轻": 8, "强": 18}``，键是显示文字，
+              :meth:`get` 返回对应的值。
+        command: 切换回调，参数是分段控件本身；用 ``widget.get()`` 取当前值，
+            ``widget.get_label()`` 取当前显示文字。
         width: 整体宽度（像素），默认 300。
         height: 高度（像素），默认 34。
         font: 字体规格，默认 :data:`tokens.FONT_SMALL`。
@@ -341,7 +362,7 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
     def __init__(
         self,
         master: tk.Misc,
-        values: Sequence[str] = (),
+        values: Sequence[Any] | Mapping[str, Any] = (),
         command: SegmentCommand = None,
         *,
         width: int = 300,
@@ -356,11 +377,11 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
             fg_color=T.COLOR_SOFT,
             corner_radius=corner_radius,
         )
-        self._values = [str(value) for value in values]
+        self._labels, self._map = _parse_choices(values)
         self._command = command
         self._font = get_font(font) if not isinstance(font, ctk.CTkFont) else font
         self._radius = corner_radius
-        self._index = 0 if self._values else -1
+        self._index = 0 if self._labels else -1
         self._hover = -1
         self._enabled = True
         # 浮点段索引：动画期间落在两段之间
@@ -408,24 +429,44 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
         except Exception:  # noqa: BLE001 - 窗口销毁中
             pass
 
-    def get(self) -> str:
-        """当前选中段文字；没有段时返回空字符串。"""
-        if 0 <= self._index < len(self._values):
-            return self._values[self._index]
+    def get(self) -> Any:
+        """当前选中段的取值；没有段时返回空字符串。
+
+        列表模式下就是显示文字；字典模式下是字典里对应的值。
+        """
+        if 0 <= self._index < len(self._labels):
+            label = self._labels[self._index]
+            return self._map[label] if self._map is not None else label
         return ""
 
-    def set(self, value: str, **kwargs: Any) -> None:
-        """选中 ``value``；和 ``CTkSegmentedButton`` 一样会触发 ``command``。"""
+    def get_label(self) -> str:
+        """当前选中段显示的文字；没有段时返回空字符串。"""
+        if 0 <= self._index < len(self._labels):
+            return self._labels[self._index]
+        return ""
+
+    def _index_of(self, value: Any) -> int:
+        """按取值或显示文字找段号，找不到返回 -1。"""
+        if self._map is not None:
+            for index, label in enumerate(self._labels):
+                if self._map[label] == value:
+                    return index
         try:
-            index = self._values.index(value)
+            return self._labels.index(str(value))
         except ValueError:
+            return -1
+
+    def set(self, value: Any, **kwargs: Any) -> None:
+        """选中取值（或文字）为 ``value`` 的段；会触发 ``command``。"""
+        index = self._index_of(value)
+        if index < 0:
             return
         if index == self._index and not kwargs.get("from_button_callback"):
             return
         self._index = index
         self._animate_to(float(index))
         if self._command is not None:
-            self._command(value)
+            self._command(self)
 
     def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
         """绑定 conf_base 配置项：切换即写，配置变化即回填。
@@ -457,7 +498,9 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
     def cget(self, attribute_name: str) -> Any:
         """读回 ``values`` / ``command``，与 ``CTkSegmentedButton`` 对齐。"""
         if attribute_name == "values":
-            return list(self._values)
+            if self._map is not None:
+                return dict(self._map)
+            return list(self._labels)
         if attribute_name == "command":
             return self._command
         return super().cget(attribute_name)
@@ -476,16 +519,15 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
         self._layout()
 
     # ------------------------------------------------------------ 布局
-    def _set_values(self, values: Sequence[str]) -> None:
+    def _set_values(self, values: Sequence[Any] | Mapping[str, Any]) -> None:
         """换一组段；原选中项还在就保留，否则回到第一段。"""
         current = self.get()
-        self._values = [str(value) for value in values]
-        if not self._values:
+        self._labels, self._map = _parse_choices(values)
+        if not self._labels:
             self._index = -1
-        elif current in self._values:
-            self._index = self._values.index(current)
         else:
-            self._index = 0
+            index = self._index_of(current)
+            self._index = index if index >= 0 else 0
         self._progress = float(self._index) if self._index >= 0 else 0.0
         self._hover = -1
         self._layout()
@@ -499,12 +541,12 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
         height = self._seg_canvas.winfo_height()
         if width <= 1 or height <= 1:
             return
-        if not self._values:
+        if not self._labels:
             self._seg_canvas.delete("all")
             self._slider = None
             self._texts = []
             return
-        self._seg_w = width / len(self._values)
+        self._seg_w = width / len(self._labels)
         self._draw_sliders(height)
         self._draw_texts(height)
 
@@ -555,7 +597,7 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
         for item in self._texts:
             self._seg_canvas.delete(item)
         self._texts = []
-        for index, value in enumerate(self._values):
+        for index, value in enumerate(self._labels):
             center = (index + 0.5) * self._seg_w
             item = self._seg_canvas.create_text(
                 center,
@@ -584,10 +626,10 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
 
     # ------------------------------------------------------------ 交互
     def _segment_at(self, x: int) -> int:
-        if not self._values or self._seg_w <= 0:
+        if not self._labels or self._seg_w <= 0:
             return -1
         index = int(x // self._seg_w)
-        return max(0, min(len(self._values) - 1, index))
+        return max(0, min(len(self._labels) - 1, index))
 
     def _on_click(self, event: tk.Event) -> None:
         if not self._enabled:
@@ -598,7 +640,7 @@ class Segmented(Chainable, Enablable, ctk.CTkFrame):
         self._index = index
         self._animate_to(float(index))
         if self._command is not None:
-            self._command(self._values[index])
+            self._command(self)
 
     def _on_motion(self, event: tk.Event) -> None:
         if not self._enabled:
@@ -1096,6 +1138,7 @@ class Slider(Chainable, Enablable, ctk.CTkFrame):
     参数:
         master: 父容器。
         command: 拖动回调，参数是当前数值（float）。
+        release_command: 松开鼠标时的回调，参数是松手时的数值（float）。
         from_: 最小值，默认 0。
         to: 最大值，默认 100。
         steps: 分段数；``0`` 表示连续，正整数表示只能停在等分点上。
@@ -1111,6 +1154,7 @@ class Slider(Chainable, Enablable, ctk.CTkFrame):
         master: tk.Misc,
         command: SliderCommand = None,
         *,
+        release_command: SliderCommand = None,
         from_: float = 0.0,
         to: float = 100.0,
         steps: int = 0,
@@ -1125,6 +1169,7 @@ class Slider(Chainable, Enablable, ctk.CTkFrame):
         self._to = float(to) if float(to) != float(from_) else float(from_) + 1.0
         self._steps = max(0, int(steps))
         self._command = command
+        self._release_command = release_command
         self._width = max(_SLIDER_KNOB + 8, int(width))
         self._height = _SLIDER_KNOB + 4
         self._pad = _SLIDER_KNOB / 2 + 1
@@ -1190,9 +1235,11 @@ class Slider(Chainable, Enablable, ctk.CTkFrame):
         return self._state != "disabled"
 
     def configure(self, **kwargs: Any) -> None:
-        """支持 ``command`` / ``state``，其余交给 ``CTkFrame``。"""
+        """支持 ``command`` / ``release_command`` / ``state``，其余交给 ``CTkFrame``。"""
         if "command" in kwargs:
             self._command = kwargs.pop("command")
+        if "release_command" in kwargs:
+            self._release_command = kwargs.pop("release_command")
         if "state" in kwargs:
             self._state = str(kwargs.pop("state") or "normal")
             self._render()
@@ -1249,7 +1296,9 @@ class Slider(Chainable, Enablable, ctk.CTkFrame):
             self._command(self._value)
 
     def _release(self, _event: tk.Event) -> None:
-        """松开：无需额外动作（拖动时已经回调过）。"""
+        """松开：拖动时已经连续回调过 ``command``，这里再通知一次松手。"""
+        if self._release_command is not None:
+            self._release_command(self._value)
 
     # ---- 绘制 ----------------------------------------------------------
 
@@ -1733,6 +1782,18 @@ class CompoundEntry(Enablable, Valuable, ctk.CTkFrame):
     def get_text(self) -> str:
         """同 :meth:`get`，给 ``Textual`` 风格的代码用。"""
         return self.get()
+
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的 ``str`` 配置项：输入即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
 
     def get_full_value(self) -> str:
         """前缀 + 输入内容 + 后缀 拼成的完整字符串。"""

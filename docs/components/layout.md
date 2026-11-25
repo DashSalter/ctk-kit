@@ -46,11 +46,38 @@ panel = Card(area, inside_title="账号信息")
 panel.pack(fill="x", padx=24, pady=(0, 12))
 ```
 
+## CTkFrame / Frame
+
+### 作用
+
+两个容器都带 `row()`，写法和 `Card` 一样，按编号分行、自动分配行距；区别只在底色：
+`ctk_kit.CTkFrame` 保留主题默认底色，`Frame` 默认透明。
+
+### 参数
+
+与 CTk 的 `CTkFrame` 完全一致；`Frame` 只是把 `fg_color` 的默认值改成 `"transparent"`。
+
+### 方法
+
+| 名称 | 说明 |
+| --- | --- |
+| `row(index, **kwargs)` | 与 `Card.row` 相同：取第 `index` 行（自动建，返回 `Row`） |
+
+### 示例
+
+```python
+box = Frame(page, fg_color=COLOR_CARD)
+box.pack(fill="x", padx=24, pady=(0, 12))
+
+CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+SecondaryButton(box.row(2), "取消").pack(side="right")
+```
+
 ## Row
 
 ### 作用
 
-卡片里的一行。用 `row.label("标签")` 在左边放一个文字标签，控件建在它返回的容器里，自己 `pack`；没有标签时直接把控件 `pack` 到 `row` 上。`Card.row(index)` 返回的就是它。
+卡片里的一行。用 `row.label("标签")` 在左边放一个文字标签，控件建在它返回的容器里，自己 `pack`；没有标签时直接把控件 `pack` 到 `row` 上。`Card.row(index)`、`CTkFrame.row(index)`、`Frame.row(index)` 返回的都是它。
 
 ### 参数
 

@@ -854,6 +854,18 @@ class TagSelectField(Enablable, ctk.CTkFrame):
         """清空所有标签。"""
         self.set([])
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的 ``list`` 配置项：标签变化即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     # ------------------------------------------------------------ 面板
     def open_menu(self) -> None:
         """展开候选面板。"""
@@ -1183,6 +1195,18 @@ class TreeSelectField(Enablable, ctk.CTkFrame):
             return str(self.get())
         except Exception:  # noqa: BLE001 - 窗口销毁中
             return ""
+
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的 ``str`` 配置项：选中变化即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
 
     # ------------------------------------------------------------ 面板
     def open_menu(self) -> None:
@@ -1537,6 +1561,18 @@ class Stepper(Enablable, ctk.CTkFrame):
         """直接写入（不触发回调）。"""
         self._value = self._normalize(value)
         self._draw_mid()
+
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的数值 / 字符串配置项：步进变化即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
 
     def _normalize(self, value):
         """数值模式统一成 int/float，列表模式原样保留。"""

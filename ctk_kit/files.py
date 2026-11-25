@@ -123,7 +123,8 @@ class PathField(Valuable, ctk.CTkFrame):
     """输入框 + 浏览按钮，选好路径后直接覆盖输入框内容。
 
     ``mode="file"`` 选文件，``mode="folder"`` 选文件夹；``accept_drop=True``
-    时还可以把文件/文件夹拖到输入框里。
+    时还可以把文件/文件夹拖到输入框里。``on_pick`` 只在浏览或拖放选定路径时
+    触发，手工输入不会触发，适合「选完就自动读取」。
     """
 
     def __init__(
@@ -136,6 +137,7 @@ class PathField(Valuable, ctk.CTkFrame):
         button_text: str = "浏览",
         title: Optional[str] = None,
         on_change: Optional[Callable[[str], None]] = None,
+        on_pick: Optional[Callable[[str], None]] = None,
         accept_drop: bool = True,
         readonly: bool = False,
         **kwargs: Any,
@@ -146,6 +148,7 @@ class PathField(Valuable, ctk.CTkFrame):
         self._mode = mode
         self._title = title
         self._on_change = on_change
+        self._on_pick = on_pick
         self._readonly = bool(readonly)
 
         self.entry = CTkEntry(self, placeholder=placeholder, height=height)
@@ -214,6 +217,22 @@ class PathField(Valuable, ctk.CTkFrame):
         """清空路径，等价于 ``set("")``（会触发 ``on_change``）。"""
         self.set("")
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """把路径绑定到 conf_base 的 ``str`` 配置项，双向同步。
+
+        配置值变化会写进输入框；键入、浏览或拖放选定的路径会立刻写回配置。
+        返回绑定对象，需要提前解绑时调用它的 ``close()``。
+        """
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     def browse(self) -> str:
         """弹对话框；选中就把路径写进输入框并返回，取消返回空串。"""
         if self.is_readonly():
@@ -227,6 +246,7 @@ class PathField(Valuable, ctk.CTkFrame):
         )
         if picked:
             self.set(picked)
+            self._picked(picked)
         return picked
 
     def _dropped(self, path: str) -> None:
@@ -234,6 +254,12 @@ class PathField(Valuable, ctk.CTkFrame):
         if self.is_readonly():
             return
         self.set(path)
+        self._picked(path)
+
+    def _picked(self, path: str) -> None:
+        """通过浏览或拖放选定路径时通知 ``on_pick``。"""
+        if self._on_pick is not None:
+            self._on_pick(path)
 
     def _changed(self) -> None:
         """输入内容变了：把最新值交给 ``on_change``。"""

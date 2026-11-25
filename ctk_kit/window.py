@@ -555,12 +555,21 @@ class App(Bindable, CTk):
             self.set_opacity(1.0)
             layer = self._frost_layer
             if layer is not None:
-                self.set_frost_backdrop(
-                    getattr(layer, "color", self._theme_color),
-                    alpha=255,
-                    glass=bool(getattr(layer, "glass", False)),
-                    spread=int(getattr(layer, "spread", 0)),
-                )
+                if getattr(layer, "image", None) is not None:
+                    # 图片背景保留原来的蒙层浓度，别被 alpha=255 整片压黑
+                    self.set_frost_backdrop(
+                        getattr(layer, "color", self._theme_color),
+                        alpha=int(getattr(layer, "alpha", 0x38)),
+                        glass=bool(getattr(layer, "glass", False)),
+                        spread=int(getattr(layer, "spread", 0)),
+                    )
+                else:
+                    self.set_frost_backdrop(
+                        getattr(layer, "color", self._theme_color),
+                        alpha=255,
+                        glass=bool(getattr(layer, "glass", False)),
+                        spread=int(getattr(layer, "spread", 0)),
+                    )
         # 6) 独立子窗口（ChildWindow）也要跟着换玻璃
         for widget in getattr(self, "_themeables", []):
             apply = getattr(widget, "apply_theme", None)
@@ -1011,6 +1020,8 @@ class App(Bindable, CTk):
         alpha: int = 0x38,
         glass: bool = False,
         spread: int = 0,
+        image: Any = ...,
+        blur: int = 16,
         save: bool = False,
     ) -> None:
         """
@@ -1029,23 +1040,42 @@ class App(Bindable, CTk):
                 超过整体透明度（``opacity * 255``）时自动压到那个值。
             glass: ``True`` 时这一层自己也挂系统毛玻璃（而不是纯色块）。
             spread: 底层窗口比主窗口向外多出的逻辑像素（0 = 严丝合缝）。
+            image: 背景图片（路径或 PIL 图）。给了图片后这一层显示图片，
+                ``color`` / ``alpha`` 变成叠在图片上的蒙层；传 ``None``
+                去掉图片，不传则保持当前图片。
+            blur: 图片模糊半径（逻辑像素），默认 16；0 表示不模糊。
             save: 预留参数，暂不写入配置。
 
         注意:
             只有 Windows 提供系统亚克力；其他平台这一层就是一块纯色窗口。
         """
         del save  # 目前不持久化，留着是为了和 set_backdrop 的签名一致
+        if image is not None and self._backdrop != "acrylic":
+            self.set_backdrop("acrylic")
         # 背景透明度不能超过整体透明度，超了就自动降到整体透明度。
         alpha = min(int(alpha), self._frost_cap())
         if self._frost_layer is None:
             self._frost_layer = FrostLayer(
-                self, color=color, alpha=alpha, glass=glass, spread=spread
+                self,
+                color=color,
+                alpha=alpha,
+                glass=glass,
+                spread=spread,
+                image=None if image is ... else image,
+                blur=blur,
             )
             self._frost_layer.start()
         else:
-            self._frost_layer.configure(
-                color=color, alpha=alpha, glass=glass, spread=spread
-            )
+            options: dict = {
+                "color": color,
+                "alpha": alpha,
+                "glass": glass,
+                "spread": spread,
+            }
+            if image is not ...:
+                options["image"] = image
+                options["blur"] = blur
+            self._frost_layer.configure(**options)
 
         # 背景越透，图片越需要压暗来抵消合成那层白：255 → 0，0 → 50%。
         if set_dim_ratio(dim_ratio(alpha)):

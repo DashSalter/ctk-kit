@@ -337,9 +337,9 @@ class SettingsPage(SettingsPageUI):
         self.glass_opacity.configure(command=self.on_glass_opacity)
         self.glass_veil.configure(command=self.on_glass_veil)
 
-    def on_theme(self, value: str) -> None:
+    def on_theme(self, widget) -> None:
         """切换 Mica / Frosted / Dark / Acrylic；四个主题都由 ``App.set_theme`` 处理。"""
-        self.app.set_theme(value)
+        self.app.set_theme(widget.get())
         # 不在这里 refresh：切外观会重建当前页，这个实例马上就要被丢掉，
         # 再碰它的控件只会拿到 "invalid command name"。
 
@@ -425,7 +425,7 @@ class SettingsPage(SettingsPageUI):
         if store is not None:
             store.write_frost(color, alpha, spread)
 
-    def on_bg_color(self, _value: str) -> None:
+    def on_bg_color(self, _widget) -> None:
         self._push_bg()
 
     def on_bg_alpha(self, value: float) -> None:
@@ -469,20 +469,20 @@ class SettingsPage(SettingsPageUI):
         kinds = {"不设": 0, "1 无": 1, "2 Mica": 2, "3 亚克力": 3, "4 标签": 4}
         self.app.set_system_backdrop(kinds.get(value, 0))
 
-    def on_glass_corners(self, value: str) -> None:
+    def on_glass_corners(self, widget) -> None:
         """写 ``DWMWA_WINDOW_CORNER_PREFERENCE``（33）。"""
         values = {"默认": 0, "不圆": 1, "圆": 2, "小圆": 3}
-        self.app.set_window_corners(values.get(value, 0))
+        self.app.set_window_corners(values.get(widget.get(), 0))
 
-    def on_glass_border(self, value: str) -> None:
+    def on_glass_border(self, widget) -> None:
         """写 ``DWMWA_BORDER_COLOR``（34）；「无」表示不要边框。"""
         values = {"灰": "#808080", "无": None, "黑": "#000000", "白": "#FFFFFF"}
-        self.app.set_border_color(values.get(value))
+        self.app.set_border_color(values.get(widget.get()))
 
-    def on_glass_caption(self, value: str) -> None:
+    def on_glass_caption(self, widget) -> None:
         """写 ``DWMWA_CAPTION_COLOR``（35）；「玻璃」表示交还给 DWM。"""
         values = {"玻璃": None, "黑": "#000000", "白": "#FFFFFF"}
-        self.app.set_caption_color(values.get(value))
+        self.app.set_caption_color(values.get(widget.get()))
 
     def on_glass_color(self, value: str) -> None:
         """换 tint 底色；「白」配高「压暗」就是白色毛玻璃。"""
@@ -494,10 +494,10 @@ class SettingsPage(SettingsPageUI):
         }
         self.app.set_tint(colors.get(value, "#181A20"))
 
-    def on_glass_veil(self, value: str) -> None:
+    def on_glass_veil(self, widget) -> None:
         """换「透明键色」：只有纯黑会被 DWM 当成全透明。"""
         veils = {"纯黑": "#000000", "近黑": "#050505", "深灰": "#101010", "暖黑": "#181A20"}
-        self.app.set_veil(veils.get(value, "#000000"))
+        self.app.set_veil(veils.get(widget.get(), "#000000"))
 
     def _on_glass_switch(self, key: str) -> None:
         """某个开关被拨动：读它的新状态写回去。"""

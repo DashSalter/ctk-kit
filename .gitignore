@@ -46,6 +46,9 @@ _*.png
 # 配置绑定 demo 运行时生成的本地配置
 examples/demo/ui_prefs.json
 
+# 音乐播放器示例的打包配置（含本机绝对路径）
+examples/music_player/*.spec
+
 # 宣传稿与本地构建脚本，只在本机保留，不进版本库
 /article/
 /tools/

@@ -141,6 +141,18 @@ class RangeSlider(Enablable, ctk.CTkFrame):
             self._command = kwargs.pop("command")
         return super().configure(**kwargs)
 
+    def bind_config(self, target: Any, *, on_error: Any = None) -> Any:
+        """绑定 conf_base 的两个元素 list / tuple：拖动即写，配置变化即回填。"""
+        from .config_bind import bind_config
+
+        return bind_config(self, target, on_error=on_error)
+
+    def unbind_config(self) -> None:
+        """解除 :meth:`bind_config` 建立的双向绑定。"""
+        from .config_bind import unbind_config
+
+        unbind_config(self)
+
     # --- 内部 ---
     def _clamp(self, value: float) -> float:
         """夹到 ``[from_, to]``，并按 ``step`` 取整。"""

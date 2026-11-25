@@ -46,7 +46,7 @@ SEGMENTED_CODE = '''from ctk_kit import Segmented
 Segmented(
     row,
     ["全部", "账号", "恢复码", "密钥"],
-    command=lambda value: print(value),   # 收选中的文字
+    command=lambda widget: print(widget.get()),   # 收分段控件
     width=300,
     height=34,
     font=FONT_SMALL,
@@ -144,7 +144,7 @@ class ChoicesPageUI(PageBase):
             box, "values=[] 时不预设选中项；宽度恒定，切换不会挤动右侧元素。"
         ).pack(fill="x", padx=16, pady=(0, 10))
 
-        CodePanel(box, SEGMENTED_CODE, "command 收到的是选中项的文字。")
+        CodePanel(box, SEGMENTED_CODE, "command 收到分段控件，用 widget.get() 取值。")
 
     def _build_switches(self, area: tk.Misc) -> None:
         """开关：只留轨道，状态自己读 get()。"""
@@ -205,10 +205,10 @@ class ChoicesPageUI(PageBase):
         CodePanel(box, RADIO_CODE, "不用自己建 StringVar，也不用逐个 Radio。")
 
     # --- 分段控件：command 必须构造时传（内部靠它重绘选中段文字），事件类覆写 ---
-    def _on_segment(self, value: str) -> None:
+    def _on_segment(self, widget) -> None:
         """主分类分段的切换回调：UI 类里空实现，由事件类覆写。"""
 
-    def _on_compact(self, value: str) -> None:
+    def _on_compact(self, widget) -> None:
         """紧凑分段的切换回调：UI 类里空实现，由事件类覆写。"""
 
 
@@ -247,13 +247,13 @@ class ChoicesPage(ChoicesPageUI):
         """单选组切换：回调直接收到选中的值。"""
         self._show(f"单选：{value}")
 
-    def _on_segment(self, value: str) -> None:
-        """主分类分段：command 收到选中项文字。"""
-        self._show(f"分段选中：{value}")
+    def _on_segment(self, widget) -> None:
+        """主分类分段：command 收到分段控件。"""
+        self._show(f"分段选中：{widget.get_label()}")
 
-    def _on_compact(self, value: str) -> None:
+    def _on_compact(self, widget) -> None:
         """紧凑分段：日 / 周 / 月。"""
-        self._show(f"紧凑分段：{value}")
+        self._show(f"紧凑分段：{widget.get_label()}")
 
     def _show(self, text: str) -> None:
         """把交互结果写回底部回显条。"""

@@ -3,6 +3,13 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.15.1 — 2026-11-25
+
+- `CrudTable` 不再显示条数提示，改为 `row_count()` 方法按需获取行数
+- `CrudTable` 的 `rows` 支持直接传入 `conf_base` 的 `ListProxy`，增删改立即落盘
+- `Table` 新增 `insert_row()` / `update_row()`；`CrudTable` 单行增删改改为局部重绘，不再整表重建
+- `CrudTable` 新增 `rows()`，返回全部数据的文本副本
+
 ## 0.15.0 — 2026-11-25
 
 - `Table` 支持行选中：新增 `command` 点击回调、`get_selected()` / `select()` /

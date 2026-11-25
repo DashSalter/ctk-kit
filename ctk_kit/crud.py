@@ -17,7 +17,7 @@ table.pack(fill="both", expand=True)
 
 from __future__ import annotations
 
-from typing import Any, Callable, Optional, Sequence
+from typing import Any, Callable, Iterator, Optional, Protocol, Sequence
 
 import customtkinter as ctk
 
@@ -30,6 +30,21 @@ from .layout import Label, Row
 from .table import Table
 
 
+class _Rows(Protocol):
+    """增删改需要的最小列表接口。
+
+    普通 ``list`` 和 ``conf_base`` 的 ``ListProxy`` 都满足；后者每次写入都会
+    直接落到配置文件，所以可以直接把配置项传给 ``rows``。
+    """
+
+    def __len__(self) -> int: ...
+    def __getitem__(self, index: int) -> Any: ...
+    def __setitem__(self, index: int, value: Any) -> None: ...
+    def __delitem__(self, index: int) -> None: ...
+    def insert(self, index: int, value: Any) -> None: ...
+    def __iter__(self) -> Iterator[Any]: ...
+
+
 class CrudTable(ctk.CTkFrame):
     """表格 + 右键增删改；``rows`` 就是你的数据 list，内部直接修改它。"""
 
@@ -38,12 +53,11 @@ class CrudTable(ctk.CTkFrame):
         master: Any,
         *,
         columns: Sequence[tuple],
-        rows: Optional[list] = None,
+        rows: Optional[_Rows] = None,
         new_row: Optional[Sequence[str]] = None,
-        hint: bool = True,
         max_visible_rows: int = 10,
         empty_text: str = "暂无数据",
-        on_change: Optional[Callable[[list], None]] = None,
+        on_change: Optional[Callable[[_Rows], None]] = None,
         **kwargs: Any,
     ) -> None:
         """建表格和右键菜单。
@@ -51,9 +65,9 @@ class CrudTable(ctk.CTkFrame):
         参数:
             columns: 列定义 ``(标题, 宽度, 对齐)``，与 :class:`Table` 相同；
                 表单也按这些标题生成字段。宽度可写 ``None`` 吃掉剩余空间。
-            rows: 数据列表（二维），控件直接读写这个 list，不复制。
+            rows: 二维数据，控件直接读写这个对象、不复制。可以传普通 ``list``，
+                也可以传 ``conf_base`` 的 ``ListProxy``（增删改会立即落盘）。
             new_row: 点「添加」时编辑窗的初始值；默认全部为空字符串。
-            hint: 是否在表格上方显示「共 N 条 / 已选中」提示。
             max_visible_rows / empty_text: 透传给 :class:`Table`。
             on_change: 添加、编辑、删除成功后回调，参数是 ``rows`` 本身。
             **kwargs: 其余参数交给 ``CTkFrame``。
@@ -68,17 +82,11 @@ class CrudTable(ctk.CTkFrame):
             raise ValueError("new_row 的字段数量要和 columns 一致")
         self._on_change = on_change
 
-        self.hint = None
-        if hint:
-            self.hint = Label(self, text_color=T.COLOR_MUTED)
-            self.hint.pack(fill="x", pady=(0, 8))
-
         self.table = Table(
             self,
             columns=columns,
             max_visible_rows=max_visible_rows,
             empty_text=empty_text,
-            command=lambda _index: self._update_hint(),
         )
         self.table.pack(fill="both", expand=True)
 
@@ -98,36 +106,34 @@ class CrudTable(ctk.CTkFrame):
         self.refresh()
 
     # ------------------------------------------------------------ 对外
-    def set_rows(self, rows: list) -> None:
-        """换一份数据并重画；之后增删改都作用在这份新列表上。"""
+    def set_rows(self, rows: _Rows) -> None:
+        """换一份数据并重画；之后增删改都作用在这份新数据上。"""
         self._rows = rows
         self.refresh()
 
     def refresh(self, select_index: Optional[int] = None) -> None:
         """按 ``rows`` 重画表格，可顺便选中某一行。"""
-        self.table.set_rows(self._rows)
+        self.table.set_rows(list(self._rows))
         self.table.select(select_index)
-        self._update_hint()
+
+    def row_count(self) -> int:
+        """当前数据一共有多少行。"""
+        return len(self._rows)
+
+    def rows(self) -> list[list[str]]:
+        """全部数据的文本副本；分页时也是全量，不是当前页。
+
+        复制后再改不会影响表格；要改数据请走增删改或 :meth:`set_rows`。
+        """
+        return self.table.rows()
 
     # ------------------------------------------------------------ 内部
-    def _update_hint(self) -> None:
-        """更新条数与选中提示。"""
-        if self.hint is None:
-            return
-        index = self.table.get_selected()
-        if index is None:
-            self.hint.set_text(f"共 {len(self._rows)} 条 · 右键一行进行操作")
-        else:
-            first = self._rows[index][0] if self._rows[index] else ""
-            self.hint.set_text(f"共 {len(self._rows)} 条 · 已选中：{first}")
-
     def _on_right_click(self, event: Any) -> str:
         """右键落在行上先选中；空表时也允许在空白处右键添加。"""
         index = self.table.row_at(event.y)
         if index is None and self._rows:
             return "break"
         self.table.select(index)
-        self._update_hint()
         self._menu.show(*self.table.winfo_pointerxy(), source=self.table)
         return "break"
 
@@ -158,7 +164,7 @@ class CrudTable(ctk.CTkFrame):
         ):
             return
         del self._rows[index]
-        self.refresh(None)
+        self.table.remove_row(index)
         self._changed()
 
     def _changed(self) -> None:
@@ -207,12 +213,14 @@ class CrudTable(ctk.CTkFrame):
                 return
             if editing:
                 self._rows[index] = values
+                self.table.update_row(index, values)
                 target = index
             else:
                 self._rows.insert(insert_at, values)
+                self.table.insert_row(insert_at, values)
                 target = insert_at
             win.close()
-            self.refresh(target)
+            self.table.select(target)
             self._changed()
 
         win.show()

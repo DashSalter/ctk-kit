@@ -30,7 +30,9 @@
 | 方法 | 说明 |
 | --- | --- |
 | `set_rows(rows)` | 整批替换数据；行可以是序列，也可以是按列标题取值的字典 |
+| `insert_row(index, row)` | 在指定位置插入一行，只重画当前页 |
 | `add_row(row)` | 追加一行（序列或字典） |
+| `update_row(index, row)` | 原地更新一行，只在该行位于当前页时重画 |
 | `remove_row(index)` | 删除指定下标的行 |
 | `get_selected()` | 当前选中行下标；没有选中返回 `None` |
 | `select(index)` | 选中一行（分页时会自动翻到对应页），传 `None` 取消 |
@@ -68,9 +70,8 @@ table.pack(fill="x", padx=16, pady=(0, 12))
 | --- | --- | --- | --- |
 | `master` | `tk.Misc` | 必填 | 父容器 |
 | `columns` | `Sequence[tuple]` | 必填 | 与 `Table` 相同的列定义；标题同时用作表单字段名 |
-| `rows` | `list` | `[]` | 数据列表（二维）；控件直接读写这个 list，不复制 |
+| `rows` | `list` / `ListProxy` | `[]` | 二维数据；控件直接读写这个对象，不复制 |
 | `new_row` | `Sequence[str]` | 全空 | 添加时的初始值，长度要和列数一致 |
-| `hint` | `bool` | `True` | 是否显示「共 N 条 / 已选中」提示 |
 | `max_visible_rows` / `empty_text` | — | 同 `Table` | 透传给内部表格 |
 | `on_change` | `Callable[[list], None]` | `None` | 增删改成功后回调，参数是 `rows` 本身 |
 
@@ -80,6 +81,8 @@ table.pack(fill="x", padx=16, pady=(0, 12))
 | --- | --- |
 | `set_rows(rows)` | 换一份数据；之后的操作作用在新列表上 |
 | `refresh(select_index=None)` | 按当前 `rows` 重画，可顺便选中一行 |
+| `row_count()` | 当前数据一共有多少行 |
+| `rows()` | 全部数据的文本副本（分页时也是全量） |
 | `table` | 内部 `Table`，需要分页、只读选中时直接用它 |
 
 ### 示例
@@ -97,6 +100,35 @@ table = CrudTable(
 )
 table.pack(fill="both", expand=True)
 ```
+
+### 配合 conf_base 保存
+
+直接把配置项传给 `rows` 即可。`conf_base` 的 `ListProxy` 自带 `insert`、
+下标赋值和删除，每次增删改都会立即写进配置文件：
+
+```python
+class Prefs(ConfigBase):
+    data = Section("data")
+    members = data.field(default=[])
+
+table = CrudTable(page, columns=[...], rows=Prefs.members)
+```
+
+如果想自己管理一份普通 `list`，注意 `.value` 返回的是配置内部列表的引用，
+直接改不会落盘；要先复制，再在 `on_change` 里整份写回：
+
+```python
+members = [list(row) for row in Prefs.members.value]
+table = CrudTable(
+    page,
+    columns=[...],
+    rows=members,
+    on_change=lambda rows: setattr(Prefs.members, "value", rows),
+)
+```
+
+不要写 `Prefs.members = [...]`：这是给类属性赋值，会把配置描述符替换成
+普通列表；改配置值统一用 `Prefs.members.value = [...]` 或 `set_value()`。
 
 ## TreeView
 

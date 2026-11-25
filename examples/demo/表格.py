@@ -14,10 +14,8 @@ members = [
 
 app = ctk.App(title="表格示例", size=(900, 640), min_size=(760, 520))
 
-page = ctk.Frame(app)
-page.pack(fill="both", expand=True, padx=24, pady=20)
-
-ctk.PageHeader(page, "团队成员")
+page = ctk.Card(app, inside_title="部门数据")
+page.pack(fill="x", padx=24, pady=20)
 
 table = ctk.CrudTable(
     page,
@@ -30,6 +28,6 @@ table = ctk.CrudTable(
     rows=members,
     new_row=["新成员", "", "", ""],
 )
-table.pack(fill="both", expand=True, pady=(12, 0))
+table.pack(fill="both", expand=True, pady=10, padx=10)
 
 app.mainloop()

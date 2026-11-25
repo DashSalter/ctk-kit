@@ -351,13 +351,45 @@ class Table(ctk.CTkFrame):
         self._sync_height()
         self._redraw()
 
+    def insert_row(self, index: int, row: Any) -> None:
+        """在指定位置插入一行，只重画当前页。
+
+        参数:
+            index: 插入位置；超出范围时夹到首尾。
+            row: 按列顺序排列的单元格，或按列标题取值的字典。
+        """
+        index = max(0, min(index, len(self._all_rows)))
+        self._all_rows.insert(index, self._row_cells(row))
+        if self._selected is not None and index <= self._selected:
+            self._selected += 1
+        self._page = min(self._page, self.pages)
+        self._sync_page()
+        self._sync_pager()
+        self._sync_height()
+        self._redraw()
+
     def add_row(self, row: Any) -> None:
         """在末尾追加一行。
 
         参数:
             row: 按列顺序排列的单元格，或按列标题取值的字典。
         """
-        self.set_rows([*self._all_rows, row])
+        self.insert_row(len(self._all_rows), row)
+
+    def update_row(self, index: int, row: Any) -> None:
+        """原地更新一行；只在该行位于当前页时重画。
+
+        参数:
+            index: 行下标，从 0 开始。
+            row: 新的单元格，格式同 :meth:`add_row`。
+
+        异常:
+            IndexError: 下标越界。
+        """
+        self._all_rows[index] = self._row_cells(row)
+        start = (self._page - 1) * self._page_size if self._page_size > 0 else 0
+        if start <= index < start + len(self._rows):
+            self._redraw()
 
     def remove_row(self, index: int) -> None:
         """删除指定下标的行。

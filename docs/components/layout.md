@@ -69,7 +69,10 @@ panel.pack(fill="x", padx=24, pady=(0, 12))
 box = Frame(page, fg_color=COLOR_CARD)
 box.pack(fill="x", padx=24, pady=(0, 12))
 
-CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+FieldLabel(box.row(1), "用户名").pack(side="left", anchor="nw")
+CTkEntry(box.row(1), placeholder="用户名").pack(
+    side="left", fill="x", expand=True, padx=(8, 0)
+)
 SecondaryButton(box.row(2), "取消").pack(side="right")
 ```
 
@@ -77,7 +80,7 @@ SecondaryButton(box.row(2), "取消").pack(side="right")
 
 ### 作用
 
-卡片里的一行。用 `row.label("标签")` 在左边放一个文字标签，控件建在它返回的容器里，自己 `pack`；没有标签时直接把控件 `pack` 到 `row` 上。`Card.row(index)`、`CTkFrame.row(index)`、`Frame.row(index)` 返回的都是它。
+卡片里的一行。字段名用 `FieldLabel` 放在行首，控件直接建在 `row` 上并 `pack` 到右侧；不需要字段名时直接把控件 `pack` 到 `row` 上。`Card.row(index)`、`CTkFrame.row(index)`、`Frame.row(index)` 返回的都是它。
 
 ### 参数
 
@@ -87,18 +90,13 @@ SecondaryButton(box.row(2), "取消").pack(side="right")
 
 其余关键字透传给 `CTkFrame`。
 
-### 方法
-
-| 名称 | 说明 |
-| --- | --- |
-| `label(text, *, width=72, gap=8, height=None, pady=None)` | 在行首放一个标签，返回标签右侧的容器；控件建在这个容器里并 `pack`。`height` 固定容器高度（不是控件高度），`pady` 给标签和内容一起加上下留白 |
-
 ### 示例
 
 ```python
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-entry = CTkEntry(row.label("昵称"), placeholder="输入昵称")
-entry.pack(fill="x")
+FieldLabel(row, "昵称").pack(side="left", anchor="nw")
+entry = CTkEntry(row, placeholder="输入昵称")
+entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 row = card.row(2)
 PrimaryButton(row, "保存").pack(side="left")
@@ -109,7 +107,9 @@ SecondaryButton(row, "更多").pack(side="right")
 `pack()` / `grid()` / `place()` 现在返回控件本身，也可以直接连着写：
 
 ```python
-kind = DropField(row.label("类型"), values=["全部", "账号"]).pack(fill="x")
+kind = DropField(row, values=["全部", "账号"]).pack(
+    side="left", fill="x", expand=True, padx=(8, 0)
+)
 kind.get()
 ```
 
@@ -167,13 +167,13 @@ finally:
 
 | 属性 | 说明 |
 | --- | --- |
-| `info` | 右侧的灰字标签，`header.info.configure(text="…")` 改它 |
+| `info` | 右侧的灰字标签（`ctk.Label`），`header.info.set_text("…")` 改它 |
 
 ### 示例
 
 ```python
 header = PageHeader(area, "组件")     # 构造时已自动 pack(fill="x")
-header.info.configure(text="当前：Dark")
+header.info.set_text("当前：Dark")
 ```
 
 ## SectionTitle

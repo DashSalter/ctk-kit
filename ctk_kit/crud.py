@@ -26,7 +26,7 @@ from .buttons import PrimaryButton, SecondaryButton
 from .context_menu import ContextMenu
 from .dialog import ChildWindow, confirm
 from .inputs import CTkEntry
-from .layout import Label, Row
+from .layout import FieldLabel, Label, Row
 from .table import Table
 
 
@@ -190,8 +190,9 @@ class CrudTable(ctk.CTkFrame):
         for column, title in enumerate(self._titles):
             row = Row(form)
             row.pack(fill="x", pady=5)
-            entry = CTkEntry(row.label(title, width=56), placeholder=f"输入{title}")
-            entry.pack(fill="x")
+            FieldLabel(row, title, width=56).pack(side="left", anchor="nw")
+            entry = CTkEntry(row, placeholder=f"输入{title}")
+            entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
             entry.insert(0, str(current[column]))
             entries.append(entry)
 

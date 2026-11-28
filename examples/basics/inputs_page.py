@@ -53,46 +53,52 @@ ENTRY_ROWS = [
 SAMPLE_LOG = "22:00  已连接\n22:01  同步 12 条记录\n22:02  完成，用时 1.4s"
 
 
-FORM_CODE = '''from ctk_kit import CTkEntry
+FORM_CODE = '''from ctk_kit import CTkEntry, FieldLabel
 
-# 每行一个 box.row()，编号从 1 递增；row.label() 返回标签右侧的容器
+# 每行一个 box.row()，编号从 1 递增；字段名用 FieldLabel 放在行首
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-name = CTkEntry(row.label("普通文本"), placeholder="请输入名称")
-name.pack(fill="x")
+FieldLabel(row, "普通文本").pack(side="left", anchor="nw")
+name = CTkEntry(row, placeholder="请输入名称")
+name.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 row = card.row(2, fill="x", padx=16, pady=(0, 8))
-pwd = CTkEntry(row.label("密码"), password=True)   # 内部 Entry 用 • 打码
-pwd.pack(fill="x")
+FieldLabel(row, "密码").pack(side="left", anchor="nw")
+pwd = CTkEntry(row, password=True)   # 内部 Entry 用 • 打码
+pwd.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 row = card.row(3, fill="x", padx=16, pady=(0, 8))
-compact = CTkEntry(row.label("高 28"), height=28)  # 紧凑行
-compact.pack(fill="x")
+FieldLabel(row, "高 28").pack(side="left", anchor="nw")
+compact = CTkEntry(row, height=28)  # 紧凑行
+compact.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 row = card.row(4, fill="x", padx=16, pady=(0, 14))
-loose = CTkEntry(row.label("高 48"), height=48)    # 宽松行
-loose.pack(fill="x")
+FieldLabel(row, "高 48").pack(side="left", anchor="nw")
+loose = CTkEntry(row, height=48)    # 宽松行
+loose.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
-# 控件必须建在 row.label() 返回的容器里，再 pack 进去
-# 同一张卡里 row.label() 默认 width 一致，标签列自动对齐
+# 控件直接建在 row 上，自己 pack 到右侧
+# 同一张卡里 FieldLabel 宽度一致，标签列自动对齐
 # pack() 返回的仍是输入框本身，get() / set() / bind 都照常'''
 
-COMBO_CODE = '''from ctk_kit import DropField, CTkEntry
+COMBO_CODE = '''from ctk_kit import DropField, CTkEntry, FieldLabel
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-keyword = CTkEntry(row.label("关键词"), placeholder="输入关键词")
-keyword.pack(fill="x")
+FieldLabel(row, "关键词").pack(side="left", anchor="nw")
+keyword = CTkEntry(row, placeholder="输入关键词")
+keyword.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 row = card.row(2, fill="x", padx=16, pady=(0, 14))
-kind = DropField(row.label("类型"), values=["全部", "账号", "密码", "笔记"])
-kind.pack(fill="x")
+FieldLabel(row, "类型").pack(side="left", anchor="nw")
+kind = DropField(row, values=["全部", "账号", "密码", "笔记"])
+kind.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 # 想并排成一行：放进同一个 Row，逐个 pack(side="left")
 row = card.row(3, fill="x", padx=16, pady=(0, 14))
-entry = CTkEntry(row.label("关键词", width=56), placeholder="输入关键词")
-entry.pack(side="left", fill="x", expand=True)
-drop = DropField(
-    row.label("类型", width=44), values=["全部", "账号", "密码"]
-)
+FieldLabel(row, "关键词", width=56).pack(side="left", anchor="nw")
+entry = CTkEntry(row, placeholder="输入关键词")
+entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
+FieldLabel(row, "类型", width=44).pack(side="left", anchor="nw")
+drop = DropField(row, values=["全部", "账号", "密码"])
 drop.pack(side="left", fill="x", expand=True, padx=(8, 0))'''
 
 COMPOUND_CODE = '''from ctk_kit import CompoundEntry
@@ -245,8 +251,9 @@ class InputsPageUI(PageBase):
             row = box.row(
                 index, fill="x", padx=16, pady=(14 if index == 1 else 0, 0)
             )
-            entry = CTkEntry(row.label(text), **kwargs)
-            entry.pack(fill="x")
+            FieldLabel(row, text).pack(side="left", anchor="nw")
+            entry = CTkEntry(row, **kwargs)
+            entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
             self.entries.append((text, entry))
 
         HintLabel(
@@ -267,21 +274,23 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.combo_keyword = CTkEntry(row.label("关键词"), placeholder="输入关键词")
-        self.combo_keyword.pack(fill="x")
+        FieldLabel(row, "关键词").pack(side="left", anchor="nw")
+        self.combo_keyword = CTkEntry(row, placeholder="输入关键词")
+        self.combo_keyword.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "类型").pack(side="left", anchor="nw")
         self.combo_kind = DropField(
-            row.label("类型"),
+            row,
             values=["全部", "账号", "密码", "笔记"],
             placeholder="选择类型",
             command=self._on_combo_kind,
         )
-        self.combo_kind.pack(fill="x")
+        self.combo_kind.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         HintLabel(
             box,
-            "row.label() 返回标签右侧的容器，控件照常构造、pack 到里面；"
+            "字段名用 FieldLabel 放在行首，控件照常构造、pack 到右侧；"
             "要并排就放进同一个 Row。",
         ).pack(fill="x", padx=16, pady=(0, 10))
 
@@ -295,16 +304,18 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "网址").pack(side="left", anchor="nw")
         self.site_entry = CompoundEntry(
-            row.label("网址"), prefix="https://", placeholder="example.com"
+            row, prefix="https://", placeholder="example.com"
         )
-        self.site_entry.pack(fill="x")
+        self.site_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "邮箱").pack(side="left", anchor="nw")
         self.mail_entry = CompoundEntry(
-            row.label("邮箱"), suffix="@qq.com", placeholder="输入 QQ 号"
+            row, suffix="@qq.com", placeholder="输入 QQ 号"
         )
-        self.mail_entry.pack(fill="x")
+        self.mail_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         HintLabel(
             box,
@@ -320,32 +331,36 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "数量").pack(side="left", anchor="nw")
         self.spinner = Spinner(
-            row.label("数量"), from_=1, to=10, increment=1, value=1,
+            row, from_=1, to=10, increment=1, value=1,
             width=120, command=self._on_spinner,
         )
-        self.spinner.pack(anchor="w")
+        self.spinner.pack(side="left", padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "小数").pack(side="left", anchor="nw")
         self.float_spinner = Spinner(
-            row.label("小数"), from_=0.0, to=2.0, increment=0.5, value=1.0,
+            row, from_=0.0, to=2.0, increment=0.5, value=1.0,
             width=120, as_int=False, command=self._on_spinner,
         )
-        self.float_spinner.pack(anchor="w")
+        self.float_spinner.pack(side="left", padx=(8, 0))
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "备选").pack(side="left", anchor="nw")
         self.size_spinner = Spinner(
-            row.label("备选"), values=["小", "中", "大"], value="中",
+            row, values=["小", "中", "大"], value="中",
             width=120, command=self._on_spinner,
         )
-        self.size_spinner.pack(anchor="w")
+        self.size_spinner.pack(side="left", padx=(8, 0))
 
         row = box.row(4, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "紧凑").pack(side="left", anchor="nw")
         self.stepper = Stepper(
-            row.label("紧凑"), values=["50%", "70%", "100%"], value="70%",
+            row, values=["50%", "70%", "100%"], value="70%",
             width=120, command=self._on_spinner,
         )
-        self.stepper.pack(anchor="w")
+        self.stepper.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -366,13 +381,15 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.menu_entry = CTkEntry(row.label("默认"))
-        self.menu_entry.pack(fill="x")
+        FieldLabel(row, "默认").pack(side="left", anchor="nw")
+        self.menu_entry = CTkEntry(row)
+        self.menu_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.menu_entry.insert(0, MENU_SAMPLE)
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
-        self.custom_entry = CTkEntry(row.label("自定义"))
-        self.custom_entry.pack(fill="x")
+        FieldLabel(row, "自定义").pack(side="left", anchor="nw")
+        self.custom_entry = CTkEntry(row)
+        self.custom_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.custom_entry.insert(0, "右键：默认四项 + 插入时间戳")
         # UI 类先挂上默认四项，再补一项自己的；菜单对象可以反复拿
         menu = attach_edit_menu(self.custom_entry)
@@ -380,8 +397,9 @@ class InputsPageUI(PageBase):
         menu.add_command("插入时间戳", self._insert_stamp)
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        self.plain_entry = CTkEntry(row.label("关闭"), menu=False)
-        self.plain_entry.pack(fill="x")
+        FieldLabel(row, "关闭").pack(side="left", anchor="nw")
+        self.plain_entry = CTkEntry(row, menu=False)
+        self.plain_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.plain_entry.insert(0, "menu=False，右键没有菜单")
 
         HintLabel(
@@ -402,20 +420,22 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "文件").pack(side="left", anchor="nw")
         self.file_field = PathField(
-            row.label("文件"),
+            row,
             mode="file",
             placeholder="点「浏览」选文件，或直接把这个文件拖进来",
         )
-        self.file_field.pack(fill="x")
+        self.file_field.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "文件夹").pack(side="left", anchor="nw")
         self.dir_field = PathField(
-            row.label("文件夹"),
+            row,
             mode="folder",
             placeholder="点「浏览」选文件夹，或直接把文件夹拖进来",
         )
-        self.dir_field.pack(fill="x")
+        self.dir_field.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         HintLabel(
             box,
@@ -435,10 +455,11 @@ class InputsPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "结果").pack(side="left", anchor="nw")
         self.dropped = CTkEntry(
-            row.label("结果"), placeholder="拖进来的文件或文件夹路径会出现在这里"
+            row, placeholder="拖进来的文件或文件夹路径会出现在这里"
         )
-        self.dropped.pack(fill="x")
+        self.dropped.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         self.zone = DropZone(
             box,

@@ -641,12 +641,13 @@ class RadioGroup(ctk.CTkFrame):
 
     ```python
     row = card.row(1)
+    FieldLabel(row, "同步").pack(side="left", anchor="nw")
     RadioGroup(
-        row.label("同步"),
+        row,
         ["每次询问", "总是同步"],
         value="每次询问",
         on_change=lambda value: print(value),
-    ).pack(anchor="w")
+    ).pack(side="left", padx=(8, 0))
     ```
 
     比逐个 ``Radio(group=...)`` 省事：不用遍历成员绑 ``command``，读值只读

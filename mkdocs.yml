@@ -43,6 +43,7 @@ theme:
 
 nav:
   - 首页: index.md
+  - 使用注意: usage.md
   - 组件:
       - 按钮: components/buttons.md
       - 布局: components/layout.md

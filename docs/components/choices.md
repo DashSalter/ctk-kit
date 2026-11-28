@@ -107,16 +107,17 @@ print(row.winfo_children()[0].get())    # 's' / 'm' / 'l'
 ### 示例
 
 ```python
-from ctk_kit import RadioGroup, Row
+from ctk_kit import FieldLabel, RadioGroup, Row
 
 row = Row(card)
 row.pack(fill="x", padx=16, pady=12)
+FieldLabel(row, "同步").pack(side="left", anchor="nw")
 RadioGroup(
-    row.label("同步"),
+    row,
     ["每次询问", "总是同步", "只同步一次"],
     value="每次询问",
     on_change=lambda value: print("选了", value),
-).pack(anchor="w")
+).pack(side="left", padx=(8, 0))
 ```
 
 ## Switch

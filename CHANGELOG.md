@@ -3,6 +3,25 @@
 格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## 0.17.0 — 2026-11-27
+
+- **破坏性变更**：移除 `Row.label()`，字段名改用 `FieldLabel` 自己 pack。
+  原 `CTkEntry(row.label("用户名"), placeholder="用户名").pack(fill="x")` 改为
+  `FieldLabel(row, "用户名").pack(side="left", anchor="nw")`，再把控件建在
+  `row` 上 `pack(side="left", fill="x", expand=True, padx=(8, 0))`
+- 同步迁移库内部（`crud.py`、`choices.py`、`dialog.py`）、示例与文档中的全部写法
+
+## 0.16.0 — 2026-11-27
+
+- 新增 `HotApp`：用法与 `App` 相同，只是窗口会监听自身源码文件；保存后重新
+  执行场景代码并与上一版控件比对，参数变了的就地更新、多的删、缺的补，其余
+  控件（含输入内容、滚动位置）保持不动
+- `HotApp` 先在假控件上试跑一遍，新代码有语法或运行时错误时保留旧界面；
+  语句结构大改或参数无法就地 `configure` 时自动整页重建
+- 新增 `examples/demo/hot_scene.py`：用普通 `App` 写法演示热更新
+- `PageHeader.info` 改为库里的 `Label`，现在支持 `set_text()`（`configure(text=...)`
+  仍然可用）
+
 ## 0.15.1 — 2026-11-25
 
 - `CrudTable` 不再显示条数提示，改为 `row_count()` 方法按需获取行数

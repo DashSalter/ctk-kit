@@ -282,7 +282,8 @@ def FormEntry(
     """表单里的单行输入，等价于 :class:`CTkEntry`（保留的兼容别名）。
 
     ``password=True`` 时用圆点打码，例如
-    ``FormEntry(row.label("密码"), width=300, placeholder_text="密码", password=True)``。
+    ``FormEntry(row, width=300, placeholder_text="密码", password=True)``，
+    字段名用 ``FieldLabel(row, "密码")`` 放在行首。
 
     参数:
         master: 父容器。

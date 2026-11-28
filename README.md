@@ -80,8 +80,8 @@ ctk-kit 是建在 [CustomTkinter](https://github.com/TomSchimansky/CustomTkinter
 - 所有输入类都支持 `readonly=`，只读时键盘拒、下拉不开、按钮置灰，但程序写入仍然有效，
   需要临时写一次用 `with widget.unlocked():`；
 - 事件回调统一成 `on_click` / `on_change` / `on_key` 这一套，不用记 Tk 的 `bind` 细节；
-- 布局有 `Card.row()` / `row.label()`，输入框、开关这类控件也能 `bind_config()` 直接
-  绑定配置项，改动即时写回。
+- 布局有 `Card.row()`，字段名用 `FieldLabel` 放在行首；输入框、开关这类控件也能
+  `bind_config()` 直接绑定配置项，改动即时写回。
 
 ## 能做什么
 
@@ -132,7 +132,7 @@ import ctk_kit as ctk
 app = ctk.App(title="全部记录", size=(880, 560))
 
 header = ctk.PageHeader(app, "全部记录")
-header.info.configure(text="共 12 条")
+header.info.set_text("共 12 条")
 header.pack(fill="x", padx=20, pady=(16, 8))
 
 box = ctk.Card(app)

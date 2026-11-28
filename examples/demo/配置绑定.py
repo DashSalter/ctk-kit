@@ -33,54 +33,61 @@ card = ctk.Card(app, inside_title="偏好设置")
 card.pack(fill="both", expand=True, padx=16, pady=16)
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
-nickname_entry = ctk.CTkEntry(row.label("昵称"), placeholder_text="输入昵称")
-nickname_entry.pack(fill="x")
+ctk.FieldLabel(row, "昵称").pack(side="left", anchor="nw")
+nickname_entry = ctk.CTkEntry(row, placeholder_text="输入昵称")
+nickname_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
 nickname_entry.bind_config(UiPrefs.nickname)
 
-# 同一行放两个开关：标签右侧的容器里各摆一个
+# 同一行放两个开关：都摆在标签右侧
 row = card.row(2, fill="x", padx=16)
-switch_holder = row.label("账号")
-remember_switch = ctk.Switch(switch_holder, text="记住我")
-remember_switch.pack(side="left")
-autologin_check = ctk.Check(switch_holder, text="自动登录")
+ctk.FieldLabel(row, "账号").pack(side="left", anchor="nw")
+remember_switch = ctk.Switch(row, text="记住我")
+remember_switch.pack(side="left", padx=(8, 0))
+autologin_check = ctk.Check(row, text="自动登录")
 autologin_check.pack(side="left", padx=(24, 0))
 remember_switch.bind_config(UiPrefs.remember)
 autologin_check.bind_config(UiPrefs.autologin)
 
 row = card.row(3, fill="x", padx=16)
+ctk.FieldLabel(row, "主题").pack(side="left", anchor="nw")
 theme_segmented = ctk.Segmented(
-    row.label("主题"), values=("深色", "浅色", "跟随系统")
+    row, values=("深色", "浅色", "跟随系统")
 )
-theme_segmented.pack(anchor="w")
+theme_segmented.pack(side="left", padx=(8, 0))
 theme_segmented.bind_config(UiPrefs.theme)
 
 row = card.row(4, fill="x", padx=16)
-font_spinner = ctk.Spinner(row.label("字号"), from_=12, to=32, value=14)
-font_spinner.pack(anchor="w")
+ctk.FieldLabel(row, "字号").pack(side="left", anchor="nw")
+font_spinner = ctk.Spinner(row, from_=12, to=32, value=14)
+font_spinner.pack(side="left", padx=(8, 0))
 font_spinner.bind_config(UiPrefs.font_size)
 
 row = card.row(5, fill="x", padx=16)
+ctk.FieldLabel(row, "通知").pack(side="left", anchor="nw")
 notify_group = ctk.RadioGroup(
-    row.label("通知"), ("邮件", "短信", "不通知"), value=UiPrefs.notify.value, group="notify"
+    row, ("邮件", "短信", "不通知"), value=UiPrefs.notify.value, group="notify"
 )
-notify_group.pack(anchor="w")
+notify_group.pack(side="left", padx=(8, 0))
 notify_group.bind_config(UiPrefs.notify)
 
 row = card.row(6, fill="x", padx=16)
+ctk.FieldLabel(row, "语言").pack(side="left", anchor="nw")
 language_drop = ctk.DropField(
-    row.label("语言"), values_provider=lambda: ["中文", "English", "日本語"]
+    row, values_provider=lambda: ["中文", "English", "日本語"]
 )
-language_drop.pack(fill="x")
+language_drop.pack(side="left", fill="x", expand=True, padx=(8, 0))
 language_drop.bind_config(UiPrefs.language)
 
 row = card.row(7, fill="x", padx=16)
-volume_slider = ctk.Slider(row.label("音量"), from_=0, to=100, width=200)
-volume_slider.pack(anchor="w")
+ctk.FieldLabel(row, "音量").pack(side="left", anchor="nw")
+volume_slider = ctk.Slider(row, from_=0, to=100, width=200)
+volume_slider.pack(side="left", padx=(8, 0))
 volume_slider.bind_config(UiPrefs.volume)
 
 row = card.row(8, fill="x", padx=16)
-note_area = ctk.TextArea(row.label("备注"), height=90)
-note_area.pack(fill="x")
+ctk.FieldLabel(row, "备注").pack(side="left", anchor="nw")
+note_area = ctk.TextArea(row, height=90)
+note_area.pack(side="left", fill="both", expand=True, padx=(8, 0))
 note_area.bind_config(UiPrefs.note)
 
 

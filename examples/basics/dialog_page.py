@@ -68,6 +68,7 @@ choice = Dialog(
 CHILD_WINDOW_CODE = '''from ctk_kit import (
     ChildWindow,
     CTkEntry,
+    FieldLabel,
     PrimaryButton,
     Row,
     SecondaryButton,
@@ -77,7 +78,10 @@ win = ChildWindow(app, title="编辑资料", width=420, height=320)
 
 row = Row(win)
 row.pack(fill="x", padx=16, pady=(16, 14))
-CTkEntry(row.label("昵称"), placeholder="输入昵称").pack(fill="x")
+FieldLabel(row, "昵称").pack(side="left", anchor="nw")
+CTkEntry(row, placeholder="输入昵称").pack(
+    side="left", fill="x", expand=True, padx=(8, 0)
+)
 
 row = Row(win)
 row.pack(fill="x", padx=16, pady=(0, 16))
@@ -365,8 +369,9 @@ class DialogPage(DialogPageUI):
 
         row = Row(win)
         row.pack(fill="x", padx=16, pady=(16, 14))
-        entry = CTkEntry(row.label("昵称"), placeholder="输入昵称")
-        entry.pack(fill="x")
+        FieldLabel(row, "昵称").pack(side="left", anchor="nw")
+        entry = CTkEntry(row, placeholder="输入昵称")
+        entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = Row(win)
         row.pack(fill="x", padx=16, pady=(0, 16))

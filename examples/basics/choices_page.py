@@ -125,20 +125,23 @@ class ChoicesPageUI(PageBase):
         box.pack(fill="x")
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "分类").pack(side="left", anchor="nw")
         self.segmented = Segmented(
-            row.label("分类"), SEGMENT_VALUES, self._on_segment, width=300
+            row, SEGMENT_VALUES, self._on_segment, width=300
         )
-        self.segmented.pack(anchor="w")
+        self.segmented.pack(side="left", padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "紧凑").pack(side="left", anchor="nw")
         self.compact = Segmented(
-            row.label("紧凑"), COMPACT_VALUES, self._on_compact, width=200, height=30
+            row, COMPACT_VALUES, self._on_compact, width=200, height=30
         )
-        self.compact.pack(anchor="w")
+        self.compact.pack(side="left", padx=(8, 0))
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
-        self.empty_segment = Segmented(row.label("空列表"), [], width=200)
-        self.empty_segment.pack(anchor="w")
+        FieldLabel(row, "空列表").pack(side="left", anchor="nw")
+        self.empty_segment = Segmented(row, [], width=200)
+        self.empty_segment.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box, "values=[] 时不预设选中项；宽度恒定，切换不会挤动右侧元素。"

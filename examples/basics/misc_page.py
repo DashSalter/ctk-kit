@@ -15,6 +15,7 @@ from ctk_kit import (
     CTkLabel,
     Card,
     CodePanel,
+    FieldLabel,
     FlatButton,
     HintLabel,
     PageBase,
@@ -113,48 +114,54 @@ class MiscPageUI(PageBase):
         box.pack(fill="x")
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.plain = Progress(row.label("连续"), value=0.35, width=260)
-        self.plain.pack(anchor="w")
+        FieldLabel(row, "连续").pack(side="left", anchor="nw")
+        self.plain = Progress(row, value=0.35, width=260)
+        self.plain.pack(side="left", padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "分格").pack(side="left", anchor="nw")
         self.stepped = Progress(
-            row.label("分格"), value=0.6, steps=5, height=10, width=260
+            row, value=0.6, steps=5, height=10, width=260
         )
-        self.stepped.pack(anchor="w")
+        self.stepped.pack(side="left", padx=(8, 0))
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "带文字").pack(side="left", anchor="nw")
         self.labeled = Progress(
-            row.label("带文字"), value=0.45, height=10, show_text=True, width=260
+            row, value=0.45, height=10, show_text=True, width=260
         )
-        self.labeled.pack(anchor="w")
+        self.labeled.pack(side="left", padx=(8, 0))
 
         busy_row = box.row(4, fill="x", padx=16, pady=(0, 8))
-        busy_holder = busy_row.label("不确定")
-        self.busy = Progress(busy_holder, value=0.3, width=260)
-        self.busy_button = FlatButton(busy_holder, "播放", self._on_busy_toggle)
-        self.busy.pack(side="left")
+        FieldLabel(busy_row, "不确定").pack(side="left", anchor="nw")
+        self.busy = Progress(busy_row, value=0.3, width=260)
+        self.busy_button = FlatButton(busy_row, "播放", self._on_busy_toggle)
+        self.busy.pack(side="left", padx=(8, 0))
         self.busy_button.pack(side="left", padx=(12, 0))
 
         row = box.row(5, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "拖动").pack(side="left", anchor="nw")
         self.driver = Progress(
-            row.label("拖动"),
+            row,
             value=0.35,
             height=6,
             handle=True,
             width=260,
             on_change=self._on_slide,
         )
-        self.driver.pack(anchor="w")
+        self.driver.pack(side="left", padx=(8, 0))
 
         row = box.row(6, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "条纹").pack(side="left", anchor="nw")
         self.striped = Progress(
-            row.label("条纹"), value=0.6, height=12, striped=True, width=260
+            row, value=0.6, height=12, striped=True, width=260
         )
-        self.striped.pack(anchor="w")
+        self.striped.pack(side="left", padx=(8, 0))
 
         row = box.row(7, fill="x", padx=16, pady=(0, 0))
-        self.thin = Progress(row.label("细线"), value=0.55, height=3, radius=0, width=260)
-        self.thin.pack(anchor="w")
+        FieldLabel(row, "细线").pack(side="left", anchor="nw")
+        self.thin = Progress(row, value=0.55, height=3, radius=0, width=260)
+        self.thin.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,

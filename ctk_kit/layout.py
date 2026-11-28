@@ -33,12 +33,14 @@ class PageHeader(ctk.CTkFrame):
         """建页头：左边标题、右边信息标签，整行铺满。"""
         super().__init__(master, fg_color="transparent")
         self.pack(fill="x")
-        self.title_label = ctk.CTkLabel(
-            self, text=title, font=get_font(T.FONT_TITLE), text_color=T.COLOR_TEXT
+        self.title_label = Label(
+            self, title, font=get_font(T.FONT_TITLE), text_color=T.COLOR_TEXT
         )
         self.title_label.pack(side="left")
-        self.info = ctk.CTkLabel(
-            self, text="", font=get_font(T.FONT_TINY), text_color=T.COLOR_MUTED, anchor="e"
+        # 用库里的 Label 而不是原生 CTkLabel：这样 header.info 也有 set_text()，
+        # 和 ctk.Label 的用法一致，不用记「这里要 configure(text=...)」。
+        self.info = Label(
+            self, "", font=get_font(T.FONT_TINY), text_color=T.COLOR_MUTED, anchor="e"
         )
         self.info.pack(side="right", pady=(9, 0))
 
@@ -52,12 +54,12 @@ class Label(Bindable, Textual, ctk.CTkLabel):
     """普通文字标签，默认正文色；``set_text`` / ``on_click`` 等方法都能用。"""
 
     def __init__(
-        self,
-        master: tk.Misc,
-        text: str = "",
-        *,
-        text_color: Any = T.COLOR_TEXT,
-        **kwargs: Any,
+            self,
+            master: tk.Misc,
+            text: str = "",
+            *,
+            text_color: Any = T.COLOR_TEXT,
+            **kwargs: Any,
     ) -> None:
         """建标签；``text_color`` 不传就用正文色。"""
         super().__init__(master, text=text, text_color=text_color, **kwargs)
@@ -93,11 +95,12 @@ _AUTO_HIDE_MS = 120
 
 
 class Row(Chainable, ctk.CTkFrame):
-    """卡片里的一行；``label()`` 加一段字段名并返回右侧内容容器。
+    """卡片里的一行；字段名用 :class:`FieldLabel` 放在行首，控件自己 ``pack``。
 
     ```python
     row = card.row(1, fill="x", padx=16, pady=8)
-    Spinner(row.label("数量"), from_=1, to=10, width=120).pack(side="left")
+    FieldLabel(row, "数量").pack(side="left", anchor="nw")
+    Spinner(row, from_=1, to=10, width=120).pack(side="left", padx=(8, 0))
     ```
     """
 
@@ -106,46 +109,13 @@ class Row(Chainable, ctk.CTkFrame):
         kwargs.setdefault("corner_radius", 0)
         super().__init__(master, **kwargs)
 
-    def label(
-        self,
-        text: str,
-        *,
-        width: int = 72,
-        gap: int = 8,
-        height: Optional[int] = None,
-        pady: Any = None,
-    ) -> ctk.CTkFrame:
-        """在行首加字段名，返回右侧内容容器，控件建在它上面。
-
-        参数:
-            text: 标签文字。
-            width: 标签宽度（逻辑像素），同一张卡里传一样的值就能对齐。
-            gap: 标签和内容之间的间距。
-            height: 内容区高度（逻辑像素）。不传就由放进来的控件决定；
-                传了以后内容区固定这个高度，控件在内部垂直居中。它是容器高度，
-                不是里面控件的高度。
-            pady: 这一行内容上下的留白，可以是数字或 ``(上, 下)``；标签和
-                内容一起偏移，用来控制行与行之间的疏密。
-        """
-        field = FieldLabel(self, text, width=width)
-        if height is not None:
-            field.configure(height=height)
-        field_pady = {} if pady is None else {"pady": pady}
-        field.pack(side="left", anchor="nw", **field_pady)
-        holder = ctk.CTkFrame(self, fg_color="transparent")
-        if height is not None:
-            holder.configure(height=height)
-            holder.pack_propagate(False)
-        holder.pack(side="left", fill="x", expand=True, padx=(gap, 0), **field_pady)
-        return holder
-
 
 class RowHost:
     """给容器加上 ``row(index)``：按编号取一行，自动分配行距。
 
     混入 ``Card`` / ``Frame`` / ``CTkFrame``，所以三个容器都能直接::
 
-        box.row(1).label("用户名")
+        FieldLabel(box.row(1), "用户名").pack(side="left", anchor="nw")
         box.row(2, pady=(0, 6))
 
     行容器本身是 :class:`Row`；默认左右留 16，第一行 / 中间行 / 最后一行的
@@ -192,26 +162,29 @@ class RowHost:
             self._rows[key].pack_configure(pady=self._row_pady_for(position, total))
 
     def row(
-        self,
-        index: int = 1,
-        *,
-        fill: Any = _UNCHANGED,
-        padx: Any = _UNCHANGED,
-        pady: Any = _UNCHANGED,
-        anchor: Any = _UNCHANGED,
-        expand: Any = _UNCHANGED,
-        side: Any = _UNCHANGED,
-        ipadx: Any = _UNCHANGED,
-        ipady: Any = _UNCHANGED,
-        **options: Any,
+            self,
+            index: int = 1,
+            *,
+            fill: Any = _UNCHANGED,
+            padx: Any = _UNCHANGED,
+            pady: Any = _UNCHANGED,
+            anchor: Any = _UNCHANGED,
+            expand: Any = _UNCHANGED,
+            side: Any = _UNCHANGED,
+            ipadx: Any = _UNCHANGED,
+            ipady: Any = _UNCHANGED,
+            **options: Any,
     ) -> "Row":
         """取「第 ``index`` 行」的横向容器，没有就建一个。
 
-        同一个编号反复调用拿到的是同一个 Row；标签用 ``row.label("文字")``
-        拿到标签右侧的容器，控件建在里面再 ``pack``::
+        同一个编号反复调用拿到的是同一个 Row；字段名用 :class:`FieldLabel`
+        放在行首，控件自己 ``pack``::
 
             row = card.row(1)
-            CTkEntry(row.label("用户名"), placeholder="用户名").pack(fill="x")
+            FieldLabel(row, "用户名").pack(side="left", anchor="nw")
+            CTkEntry(row, placeholder="用户名").pack(
+                side="left", fill="x", expand=True, padx=(8, 0)
+            )
             PrimaryButton(row, "保存").pack(side="right")
 
         参数:
@@ -290,7 +263,10 @@ class Card(Chainable, RowHost, ctk.CTkFrame):
     卡片内部::
 
         box = Card(page, title="复杂页面")
-        CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+        FieldLabel(box.row(1), "用户名").pack(side="left", anchor="nw")
+        CTkEntry(box.row(1), placeholder="用户名").pack(
+            side="left", fill="x", expand=True, padx=(8, 0)
+        )
 
         panel = Card(page, inside_title="账号信息")
 
@@ -314,12 +290,12 @@ class Card(Chainable, RowHost, ctk.CTkFrame):
     """
 
     def __init__(
-        self,
-        master: tk.Misc,
-        *,
-        title: str = "",
-        inside_title: str = "",
-        **kwargs: Any,
+            self,
+            master: tk.Misc,
+            *,
+            title: str = "",
+            inside_title: str = "",
+            **kwargs: Any,
     ) -> None:
         """建卡片；``inside_title`` 画在卡片内，``title`` 画在卡片外。"""
         kwargs.setdefault("fg_color", T.COLOR_CARD)
@@ -378,17 +354,17 @@ class Card(Chainable, RowHost, ctk.CTkFrame):
             self.title_label.configure(**style_of("card", "title", mode))
 
     def pack(
-        self,
-        cnf: Any = None,
-        side: Optional[str] = None,
-        fill: Optional[str] = None,
-        expand: Optional[bool] = None,
-        padx: Any = None,
-        pady: Any = None,
-        anchor: Optional[str] = None,
-        ipadx: Optional[int] = None,
-        ipady: Optional[int] = None,
-        **kwargs: Any,
+            self,
+            cnf: Any = None,
+            side: Optional[str] = None,
+            fill: Optional[str] = None,
+            expand: Optional[bool] = None,
+            padx: Any = None,
+            pady: Any = None,
+            anchor: Optional[str] = None,
+            ipadx: Optional[int] = None,
+            ipady: Optional[int] = None,
+            **kwargs: Any,
     ) -> "Card":
         """``pack`` 卡片时把 ``padx`` / 顶部 ``pady`` 同步给标题。
 
@@ -477,12 +453,12 @@ def _canvas_bg(master: tk.Misc) -> str:
 
 
 def divider(
-    master: tk.Misc,
-    *,
-    pady: tuple = (T.SPACE_MD, 0),
-    text: str = "",
-    dashed: bool = False,
-    color: Any = None,
+        master: tk.Misc,
+        *,
+        pady: tuple = (T.SPACE_MD, 0),
+        text: str = "",
+        dashed: bool = False,
+        color: Any = None,
 ) -> tk.Misc:
     """分隔线；用 Frame 而不是 ttk.Separator，颜色好控制。
 
@@ -548,7 +524,7 @@ def _line(master: tk.Misc, color: Any, dashed: bool, **pack_options: Any) -> tk.
 
 
 def vertical_divider(
-    master: tk.Misc, *, height: int = 20, padx: tuple = (0, 0), color: Any = None
+        master: tk.Misc, *, height: int = 20, padx: tuple = (0, 0), color: Any = None
 ) -> tk.Frame:
     """1px 宽的竖向分隔线，用来隔开同一行里的几块内容。"""
     line = tk.Frame(master, width=1, height=height, bg=_resolve(color or T.COLOR_BORDER))
@@ -741,7 +717,7 @@ def empty_hint(master: tk.Misc, title: str, detail: str = "") -> ctk.CTkFrame:
 class FieldLabel(Textual, ctk.CTkLabel):
     """卡片内左对齐的字段名，宽度固定让右边控件能对齐成一列。"""
 
-    def __init__(self, master: tk.Misc, text: str, *, width: int = 112) -> None:
+    def __init__(self, master: tk.Misc, text: str, *, width: int = 50, height: int = 38) -> None:
         """建固定宽度的字段名标签，让右边控件能对齐成一列。"""
         super().__init__(
             master,
@@ -749,6 +725,7 @@ class FieldLabel(Textual, ctk.CTkLabel):
             font=get_font(T.FONT_SMALL),
             text_color=T.COLOR_MUTED,
             width=width,
+            height=height,
             anchor="w",
         )
 
@@ -775,7 +752,7 @@ def _make_layout_chainable() -> None:
     拿到的会是 ``None``。这里在 ``CTkBaseClass`` 上补一层包装，保留原方法的
     参数提示，返回值改成控件本身，写法就能连起来::
 
-        kind = DropField(row.label("类型"), values=[...]).pack(fill="x")
+        kind = DropField(row, values=[...]).pack(side="left", fill="x", expand=True)
         kind.get()
     """
     base = ctk.CTkBaseClass
@@ -787,16 +764,16 @@ def _make_layout_chainable() -> None:
     original_place = base.place
 
     def pack(
-        self: Any,
-        side: Optional[str] = None,
-        fill: Optional[str] = None,
-        expand: Optional[bool] = None,
-        padx: Any = None,
-        pady: Any = None,
-        anchor: Optional[str] = None,
-        ipadx: Optional[int] = None,
-        ipady: Optional[int] = None,
-        **kwargs: Any,
+            self: Any,
+            side: Optional[str] = None,
+            fill: Optional[str] = None,
+            expand: Optional[bool] = None,
+            padx: Any = None,
+            pady: Any = None,
+            anchor: Optional[str] = None,
+            ipadx: Optional[int] = None,
+            ipady: Optional[int] = None,
+            **kwargs: Any,
     ) -> Any:
         """按 ``side`` / ``fill`` / ``expand`` … 摆放，返回控件本身。"""
         options = {
@@ -815,17 +792,17 @@ def _make_layout_chainable() -> None:
         return self
 
     def grid(
-        self: Any,
-        row: Optional[int] = None,
-        column: Optional[int] = None,
-        rowspan: Optional[int] = None,
-        columnspan: Optional[int] = None,
-        sticky: Optional[str] = None,
-        padx: Any = None,
-        pady: Any = None,
-        ipadx: Optional[int] = None,
-        ipady: Optional[int] = None,
-        **kwargs: Any,
+            self: Any,
+            row: Optional[int] = None,
+            column: Optional[int] = None,
+            rowspan: Optional[int] = None,
+            columnspan: Optional[int] = None,
+            sticky: Optional[str] = None,
+            padx: Any = None,
+            pady: Any = None,
+            ipadx: Optional[int] = None,
+            ipady: Optional[int] = None,
+            **kwargs: Any,
     ) -> Any:
         """按网格摆放，返回控件本身。"""
         options = {
@@ -845,18 +822,18 @@ def _make_layout_chainable() -> None:
         return self
 
     def place(
-        self: Any,
-        x: Any = None,
-        y: Any = None,
-        relx: Any = None,
-        rely: Any = None,
-        relwidth: Any = None,
-        relheight: Any = None,
-        width: Any = None,
-        height: Any = None,
-        anchor: Optional[str] = None,
-        bordermode: Optional[str] = None,
-        **kwargs: Any,
+            self: Any,
+            x: Any = None,
+            y: Any = None,
+            relx: Any = None,
+            rely: Any = None,
+            relwidth: Any = None,
+            relheight: Any = None,
+            width: Any = None,
+            height: Any = None,
+            anchor: Optional[str] = None,
+            bordermode: Optional[str] = None,
+            **kwargs: Any,
     ) -> Any:
         """按绝对/相对坐标摆放，返回控件本身。"""
         options = {

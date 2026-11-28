@@ -59,9 +59,10 @@ def build_settings(page: tk.Misc) -> tk.Misc:
         app.set_theme(THEMES[name])
         hint.configure(text=f"当前主题：{name}")
 
+    ctk.FieldLabel(row, "主题").pack(side="left", anchor="nw")
     ctk.Segmented(
-        row.label("主题"), list(THEMES), command=switch, width=360
-    ).pack(anchor="w")
+        row, list(THEMES), command=switch, width=360
+    ).pack(side="left", padx=(8, 0))
     hint.pack(anchor="w", padx=8)
     return row
 

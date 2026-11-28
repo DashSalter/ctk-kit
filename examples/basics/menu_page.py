@@ -175,8 +175,9 @@ class MenuPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.target = SecondaryButton(row.label("目标控件"), "点我右键", width=130)
-        self.target.pack(anchor="w")
+        FieldLabel(row, "目标控件").pack(side="left", anchor="nw")
+        self.target = SecondaryButton(row, "点我右键", width=130)
+        self.target.pack(side="left", padx=(8, 0))
 
         HintLabel(
             box,
@@ -224,8 +225,9 @@ class MenuPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
-        self.menu_entry = CTkEntry(row.label("单行"))
-        self.menu_entry.pack(fill="x")
+        FieldLabel(row, "单行").pack(side="left", anchor="nw")
+        self.menu_entry = CTkEntry(row)
+        self.menu_entry.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.menu_entry.insert(0, INPUT_SAMPLE)
 
         self.menu_note = TextArea(box, height=96)

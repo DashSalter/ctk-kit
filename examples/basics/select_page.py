@@ -62,27 +62,29 @@ TREE_VALUES = [
     ("层级 E", ["E1", "E2"]),
 ]
 
-SINGLE_CODE = '''from ctk_kit import DropField
+SINGLE_CODE = '''from ctk_kit import DropField, FieldLabel
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
+FieldLabel(row, "选择").pack(side="left", anchor="nw")
 field = DropField(
-    row.label("选择"),
+    row,
     values_provider=lambda: ["选项 A", "选项 B", "选项 C"],
     command=lambda value: print(value),
     placeholder="点右侧箭头选择",
 )
-field.pack(fill="x")
+field.pack(side="left", fill="x", expand=True, padx=(8, 0))
 # DropField(master, *, values_provider, command=None, placeholder="", height=36)
 
 field.get()             # 当前文字
 field.set("选项 A")      # 直接写入
 # values_provider 每次展开都会重新调用，数据源可以随时变'''
 
-TAGGED_CODE = '''from ctk_kit import DropField
+TAGGED_CODE = '''from ctk_kit import DropField, FieldLabel
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
+FieldLabel(row, "文件").pack(side="left", anchor="nw")
 field = DropField(
-    row.label("文件"),
+    row,
     values=["报告.pdf", "数据.xlsx", "照片.png"],
     tags={
         "报告.pdf": ["1.2 MB", "PDF"],
@@ -90,7 +92,7 @@ field = DropField(
     },
     placeholder="候选右侧带标签",
 )
-field.pack(fill="x")
+field.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
 field.get()                    # "报告.pdf"，值本身不变
 field.get_tags("报告.pdf")      # ["1.2 MB", "PDF"]
@@ -102,17 +104,18 @@ field.set_tags({"报告.pdf": ["2.0 MB", "PDF"]})  # 整体替换
 # 标签只影响候选行的显示，不参与 get() / command()
 # 悬停在值或标签上，整行一起高亮'''
 
-TAGS_CODE = '''from ctk_kit import TagSelectField
+TAGS_CODE = '''from ctk_kit import FieldLabel, TagSelectField
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
+FieldLabel(row, "多选").pack(side="left", anchor="nw")
 tags = TagSelectField(
-    row.label("多选"),
+    row,
     values_provider=lambda: ["Python", "Java", "Go"],
     command=lambda values: print(values),   # 收整个列表
     placeholder="点箭头多选",
     values=["Python"],                      # 初始标签
 )
-tags.pack(fill="x")
+tags.pack(side="left", fill="x", expand=True, padx=(8, 0))
 # TagSelectField(master, *, values_provider, command=None,
 #                placeholder="", height=36, values=None)
 
@@ -123,11 +126,12 @@ tags.clear()            # 清空
 # 已选中的项再点一次 = 取消选中；标签不重复
 # 点标签直接删掉；标签多了横向滚动'''
 
-TREE_CODE = '''from ctk_kit import TreeSelectField
+TREE_CODE = '''from ctk_kit import FieldLabel, TreeSelectField
 
 row = card.row(1, fill="x", padx=16, pady=(14, 8))
+FieldLabel(row, "层级").pack(side="left", anchor="nw")
 tree = TreeSelectField(
-    row.label("层级"),
+    row,
     values_provider=lambda: [
         "A1",                                  # 叶子，直接可选
         ("层级 C", ["C1", "C2", "C3"]),          # 分组，点开才显示子项
@@ -136,7 +140,7 @@ tree = TreeSelectField(
     command=lambda value: print(value),
     placeholder="点箭头展开分组",
 )
-tree.pack(fill="x")
+tree.pack(side="left", fill="x", expand=True, padx=(8, 0))
 # TreeSelectField(master, *, values_provider, command=None,
 #                 placeholder="", height=36, value="")
 
@@ -199,32 +203,35 @@ class SelectPageUI(PageBase):
         box.pack(fill="x")
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "普通").pack(side="left", anchor="nw")
         self.single = DropField(
-            row.label("普通"),
+            row,
             values_provider=_single_values,
             command=self._on_single,
             placeholder="点右侧箭头选择",
         )
-        self.single.pack(fill="x")
+        self.single.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "预设值").pack(side="left", anchor="nw")
         self.preset = DropField(
-            row.label("预设值"),
+            row,
             values_provider=_preset_values,
             command=self._on_single,
             placeholder="点右侧箭头选择",
         )
-        self.preset.pack(fill="x")
+        self.preset.pack(side="left", fill="x", expand=True, padx=(8, 0))
         self.preset.set("Alpha")
 
         row = box.row(3, fill="x", padx=16, pady=(0, 8))
+        FieldLabel(row, "禁用项").pack(side="left", anchor="nw")
         self.disabled_field = DropField(
-            row.label("禁用项"),
+            row,
             values_provider=_preset_values,
             placeholder="Beta 一开始就是禁用的",
             disabled=["Beta"],
         )
-        self.disabled_field.pack(fill="x")
+        self.disabled_field.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = box.row(4, fill="x", padx=16, pady=(0, 8))
         self.disabled_button = FlatButton(row, "解除 Beta", self._on_toggle_disabled)
@@ -248,14 +255,15 @@ class SelectPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "文件").pack(side="left", anchor="nw")
         self.tagged = DropField(
-            row.label("文件"),
+            row,
             values=TAGGED_VALUES,
             tags=dict(_TAGGED_TAGS),
             command=self._on_tagged,
             placeholder="点右侧箭头看标签",
         )
-        self.tagged.pack(fill="x")
+        self.tagged.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         row = box.row(2, fill="x", padx=16, pady=(0, 8))
         self.tagged_button = FlatButton(row, "给 照片.png 补标签", self._on_add_tag)
@@ -282,14 +290,15 @@ class SelectPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "语言").pack(side="left", anchor="nw")
         self.tags = TagSelectField(
-            row.label("语言"),
+            row,
             values_provider=_tag_values,
             command=self._on_tags,
             placeholder="点箭头多选",
             values=["Python", "Go"],
         )
-        self.tags.pack(fill="x")
+        self.tags.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         self.tags_value = HintLabel(box, "已选：Python、Go")
         self.tags_value.pack(fill="x", padx=16, pady=(0, 2))
@@ -312,13 +321,14 @@ class SelectPageUI(PageBase):
         box.pack(fill="x", pady=(12, 0))
 
         row = box.row(1, fill="x", padx=16, pady=(14, 8))
+        FieldLabel(row, "分组").pack(side="left", anchor="nw")
         self.tree = TreeSelectField(
-            row.label("分组"),
+            row,
             values_provider=_tree_values,
             command=self._on_tree,
             placeholder="点箭头展开分组",
         )
-        self.tree.pack(fill="x")
+        self.tree.pack(side="left", fill="x", expand=True, padx=(8, 0))
 
         self.tree_value = HintLabel(box, "已选：（还没选）")
         self.tree_value.pack(fill="x", padx=16, pady=(0, 2))

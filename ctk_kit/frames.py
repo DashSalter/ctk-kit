@@ -11,7 +11,10 @@
 边距自动分配，和 ``Card`` 的写法一致::
 
     box = Frame(page, fg_color=COLOR_CARD)
-    CTkEntry(box.row(1).label("用户名"), placeholder="用户名").pack(fill="x")
+    FieldLabel(box.row(1), "用户名").pack(side="left", anchor="nw")
+    CTkEntry(box.row(1), placeholder="用户名").pack(
+        side="left", fill="x", expand=True, padx=(8, 0)
+    )
 
 原生 ``CTkFrame`` 的能力全部保留：需要默认主题底色的地方原来怎么写还怎么写，
 只是额外多了 ``row()`` 和 ``Row`` 这一套排版方法。
